@@ -1,0 +1,19 @@
+# Copy this file to `.dev.vars` for local development (gitignored, never committed).
+# `wrangler dev` loads it automatically. None of these are required to run the app
+# locally — with ENVIRONMENT=development set, auth runs in dev mode (a one-click
+# mock login) and the MCP server is simply unreachable until you set a token.
+
+# Required to run in dev mode at all. Without this exact value, dev mode is
+# disabled even if OIDC vars are unset — see src/server/auth.ts for why.
+ENVIRONMENT=development
+
+# Only needed if you want to test the MCP server (src/mcp/server.ts) locally.
+# Any value works locally; the MCP server just needs to send the same one back.
+MCP_SERVICE_TOKEN=dev-mcp-token-change-me
+
+# Only needed if you want to test the real OIDC flow against an actual IDP from
+# your machine instead of dev mode. Leave unset to keep using dev mode.
+# OIDC_ISSUER=https://your-idp.example.com
+# OIDC_CLIENT_ID=your-client-id
+# OIDC_REDIRECT_URI=http://localhost:8787/auth/callback
+# SESSION_SECRET=generate-a-long-random-value

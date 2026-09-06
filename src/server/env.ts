@@ -12,4 +12,5 @@ export interface Env {
   OIDC_REDIRECT_URI?: string;
   SESSION_SECRET?: string;
   MCP_SERVICE_TOKEN?: string;
+  ENVIRONMENT?: string;
 }

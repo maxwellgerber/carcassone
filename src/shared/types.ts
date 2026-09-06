@@ -56,12 +56,16 @@ export type NpcDifficulty = 'easy' | 'normal' | 'hard';
 export interface GameConfig {
   farmScoring: boolean;
   monasteryScoring: boolean;
+  shieldBonus: boolean; // +2 pts per shield when a city with one closes (on top of the base 2 pts/tile)
+  quickGame: boolean; // roughly half the deck, for a shorter game
   meeplesPerPlayer: number;
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
   farmScoring: true,
   monasteryScoring: true,
+  shieldBonus: true,
+  quickGame: false,
   meeplesPerPlayer: 7,
 };
 

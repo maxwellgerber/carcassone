@@ -1,5 +1,5 @@
 import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
-import { getLegalPlacements, getMeepleOptions, PLAYER_COLORS } from '../shared/engine.js';
+import { getLegalPlacements, getMeepleOptions, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
 import type { RoomDoc } from '../shared/room-types.js';
 import type { GameConfig, NpcDifficulty } from '../shared/types.js';
 import { getTileCanvas, getTileBackCanvas, getMeepleCanvas, preloadTileArt } from './art.js';
@@ -245,6 +245,15 @@ function renderLobby(): HTMLElement {
     h('h2', { style: 'font-size:1rem' }, '⚙️ Game modes'),
     ...configToggle(r, isHost, 'farmScoring', 'Farm scoring', 'Farmers score points for completed cities at the end of the game. Turn off for a shorter, simpler game.'),
     ...configToggle(r, isHost, 'monasteryScoring', 'Cloisters', 'Include cloister tiles and monk scoring.'),
+    ...configToggle(r, isHost, 'shieldBonus', 'Shield bonus', 'Cities with a shield score +2 extra points when they close (+1 if unfinished at game end).'),
+    ...configToggle(r, isHost, 'quickGame', 'Quick game', `Play with a ~${QUICK_GAME_TILE_COUNT}-tile deck instead of the full 72, for a shorter game.`),
+    h('label', { style: 'display:flex;gap:0.6rem;align-items:center;margin-top:0.3rem' },
+      h('span', {}, h('strong', {}, 'Meeples per player')),
+      h('select', {
+        disabled: !isHost,
+        onchange: (e: Event) => send({ type: 'set_config', config: { meeplesPerPlayer: Number((e.target as HTMLSelectElement).value) } }),
+      }, ...[5, 6, 7, 8, 9].map((n) => h('option', { value: n, selected: r.config.meeplesPerPlayer === n }, String(n)))),
+    ),
   );
 
   const rules = h('div', { class: 'rules-card panel' },

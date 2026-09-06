@@ -147,5 +147,33 @@ function mkRng(seed: number): () => number {
   assert(g.log.some((l) => l.includes('set aside')), 'a log entry should record the discarded tile');
 }
 
+// --- Test 11: quickGame uses a shorter deck, start tile still guaranteed first ---
+{
+  const g = E.createGame([{ id: 'a', name: 'Alice' }, { id: 'b', name: 'Bob' }], mkRng(10), { quickGame: true });
+  const totalTiles = g.deck.length + 1; // +1 for the already-drawn currentTile
+  assert(totalTiles === E.QUICK_GAME_TILE_COUNT, `quickGame should use a ${E.QUICK_GAME_TILE_COUNT}-tile deck, got ${totalTiles}`);
+  assert(g.currentTile === 'city_cap_road_straight', 'the guaranteed start tile should still be drawn first in quick games');
+}
+
+// --- Test 12: shieldBonus disabled removes the +2/shield bonus, both mid-game and at final scoring ---
+{
+  const withBonus = E.createGame([{ id: 'a', name: 'Alice' }, { id: 'b', name: 'Bob' }], mkRng(11), { shieldBonus: true });
+  withBonus.currentTile = 'city_opposite_shield'; // one shielded, self-contained 2-tile-worth city (opposite, connected)
+  E.placeTile(withBonus, 0, 0, 0);
+  const knightOpt = E.getMeepleOptions(withBonus).find((o) => o.kind === 'city')!;
+  withBonus.deck = []; // so placeMeeple's internal turn-advance triggers gameover immediately
+  E.placeMeeple(withBonus, 'city', knightOpt.idx); // -> resolves (incomplete, no score yet), advances, deck empty -> finishGame
+  assert(withBonus.phase === 'gameover', 'game should end once the deck empties after the meeple decision');
+  assert(withBonus.players[0]!.score === 2, `shielded 1-tile city with bonus on should score 2 (1 tile + 1 shield, unfinished), got ${withBonus.players[0]!.score}`);
+
+  const noBonus = E.createGame([{ id: 'a', name: 'Alice' }, { id: 'b', name: 'Bob' }], mkRng(11), { shieldBonus: false });
+  noBonus.currentTile = 'city_opposite_shield';
+  E.placeTile(noBonus, 0, 0, 0);
+  const knightOpt2 = E.getMeepleOptions(noBonus).find((o) => o.kind === 'city')!;
+  noBonus.deck = [];
+  E.placeMeeple(noBonus, 'city', knightOpt2.idx);
+  assert(noBonus.players[0]!.score === 1, `shielded 1-tile city with bonus off should score 1 (tile only, unfinished), got ${noBonus.players[0]!.score}`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

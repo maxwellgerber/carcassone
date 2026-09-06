@@ -32,7 +32,13 @@ export default {
     const url = new URL(request.url);
 
     // --- Auth routes -------------------------------------------------------
-    if (url.pathname === '/auth/login') return isDevMode(env) ? handleDevLogin(request, env) : handleLogin(request, env);
+    if (url.pathname === '/auth/login') {
+      if (isDevMode(env)) return handleDevLogin(request, env);
+      if (!env.OIDC_ISSUER || !env.OIDC_CLIENT_ID) {
+        return new Response('OIDC is not configured for this deployment (OIDC_ISSUER / OIDC_CLIENT_ID missing). See README > Authentication.', { status: 500 });
+      }
+      return handleLogin(request, env);
+    }
     if (url.pathname === '/auth/callback') return handleCallback(request, env);
     if (url.pathname === '/auth/set-name') return handleSetName(request, env);
     if (url.pathname === '/auth/logout') return handleLogout();

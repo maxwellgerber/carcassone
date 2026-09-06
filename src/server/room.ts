@@ -222,6 +222,8 @@ function sanitizeConfig(partial: Partial<GameConfig>): Partial<GameConfig> {
   const out: Partial<GameConfig> = {};
   if (typeof partial.farmScoring === 'boolean') out.farmScoring = partial.farmScoring;
   if (typeof partial.monasteryScoring === 'boolean') out.monasteryScoring = partial.monasteryScoring;
+  if (typeof partial.shieldBonus === 'boolean') out.shieldBonus = partial.shieldBonus;
+  if (typeof partial.quickGame === 'boolean') out.quickGame = partial.quickGame;
   if (typeof partial.meeplesPerPlayer === 'number' && Number.isInteger(partial.meeplesPerPlayer) && partial.meeplesPerPlayer >= 1 && partial.meeplesPerPlayer <= 12) {
     out.meeplesPerPlayer = partial.meeplesPerPlayer;
   }

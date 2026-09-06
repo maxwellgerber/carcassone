@@ -7,6 +7,15 @@
 // OIDC_CLIENT_SECRET (a `wrangler secret`, omit for a public/PKCE-only client),
 // OIDC_REDIRECT_URI, SESSION_SECRET (a `wrangler secret`). With none of those set,
 // the app runs in dev mode automatically — this is the "better story for localhost."
+//
+// Dev mode is gated on ENVIRONMENT=development (set in .dev.vars, never in
+// wrangler.toml's [vars], so it can't accidentally ship to a real deployment) —
+// deliberately NOT inferred from "OIDC just happens to be unconfigured". That
+// distinction matters: dev mode signs sessions with a secret that's hardcoded in
+// this file (public in source control), so if it ever activated in production —
+// say, someone deploys before OIDC secrets are set — anyone could forge a valid
+// session for any user. Failing closed (real OIDC required, or a clear error) is
+// the only safe default for a deployed environment.
 
 import type { Env } from './env.js';
 export type { Env };
@@ -21,7 +30,7 @@ const STATE_COOKIE = 'ccz_oauth_state';
 const DEV_ID_COOKIE = 'ccz_dev_id';
 
 export function isDevMode(env: Env): boolean {
-  return !env.OIDC_ISSUER || !env.OIDC_CLIENT_ID;
+  return env.ENVIRONMENT === 'development';
 }
 
 // ---------------------------------------------------------------------------

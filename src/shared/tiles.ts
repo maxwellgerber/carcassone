@@ -163,7 +163,10 @@ export { OPPOSITE, SLOT_SIDE, CORNER_PAIRS };
  *  The start tile is one of the `city_cap_road_straight` copies already counted in
  *  its spec (count: 3 + 1 reserved start copy = 4 total, matching the physical set) —
  *  it is pulled out of the bag and placed first, not added on top of the bag. */
-export function buildDeck(rng: () => number): string[] {
+/** `maxTiles` (the "quick game" mode) truncates the shuffled deck to roughly that
+ *  many tiles — the start tile is always included and always first, so pass a
+ *  count that includes it. Omit for the full 72-tile deck. */
+export function buildDeck(rng: () => number, maxTiles?: number): string[] {
   const bag: string[] = [];
   for (const spec of SPECS) for (let i = 0; i < spec.count; i++) bag.push(spec.key);
   const startIdx = bag.indexOf(START_TILE_KEY);
@@ -173,5 +176,7 @@ export function buildDeck(rng: () => number): string[] {
     const j = Math.floor(rng() * (i + 1));
     [bag[i], bag[j]] = [bag[j]!, bag[i]!];
   }
-  return [START_TILE_KEY, ...bag];
+  const full = [START_TILE_KEY, ...bag];
+  if (maxTiles === undefined || maxTiles >= full.length) return full;
+  return full.slice(0, Math.max(1, maxTiles));
 }

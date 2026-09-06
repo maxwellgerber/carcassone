@@ -15,10 +15,11 @@ const parseKey = (k: string): [number, number] => {
 };
 
 export const PLAYER_COLORS = ['#3E6FD4', '#8452C9', '#C94590', '#D98A2E', '#8FA82E', '#3EAF6E'];
+export const QUICK_GAME_TILE_COUNT = 36; // roughly half the full 72-tile deck
 
 export function createGame(playerInfos: PlayerInfo[], rng: () => number, config: Partial<GameConfig> = {}): GameState {
   const cfg: GameConfig = { ...DEFAULT_CONFIG, ...config };
-  const deck = buildDeck(rng);
+  const deck = buildDeck(rng, cfg.quickGame ? QUICK_GAME_TILE_COUNT : undefined);
   const players: PlayerState[] = playerInfos.map((p, i) => ({
     id: p.id,
     name: p.name,
@@ -385,8 +386,9 @@ function resolveCompletedFeatures(state: GameState): void {
     if (!cf.complete) continue;
     const onIt = state.meeples.filter((m) => m.kind === 'city' && features.lookups.cityGroupRoot(m.x, m.y, m.idx) === cf.id);
     if (onIt.length === 0) continue;
-    const points = cf.tileCount * 2 + cf.shieldCount * 2;
-    scoreForPlayers(state, majorityOwners(state, onIt), points, `a city (${cf.tileCount} tiles${cf.shieldCount ? `, ${cf.shieldCount} shields` : ''})`);
+    const shieldPts = state.config.shieldBonus ? cf.shieldCount * 2 : 0;
+    const points = cf.tileCount * 2 + shieldPts;
+    scoreForPlayers(state, majorityOwners(state, onIt), points, `a city (${cf.tileCount} tiles${cf.shieldCount && state.config.shieldBonus ? `, ${cf.shieldCount} shields` : ''})`);
     returnMeeples(state, onIt);
   }
   for (const rf of features.roadFeatures) {
@@ -425,7 +427,8 @@ function finishGame(state: GameState): void {
   for (const cf of features.cityFeatures) {
     const onIt = state.meeples.filter((m) => m.kind === 'city' && features.lookups.cityGroupRoot(m.x, m.y, m.idx) === cf.id);
     if (onIt.length === 0) continue;
-    const points = cf.complete ? cf.tileCount * 2 + cf.shieldCount * 2 : cf.tileCount + cf.shieldCount;
+    const shields = state.config.shieldBonus ? cf.shieldCount : 0;
+    const points = cf.complete ? cf.tileCount * 2 + shields * 2 : cf.tileCount + shields;
     scoreForPlayers(state, majorityOwners(state, onIt), points, `final scoring: a ${cf.complete ? 'completed' : 'unfinished'} city`);
   }
   for (const rf of features.roadFeatures) {

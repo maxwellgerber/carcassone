@@ -610,12 +610,17 @@ function buildSidebar(game: NonNullable<RoomDoc['game']>, meP: NonNullable<RoomD
 
   const scoreboard = h('div', { class: 'panel', style: 'padding:0.8rem' },
     h('h2', { style: 'font-size:0.95rem' }, 'Scoreboard'),
-    h('div', { class: 'scoreboard' }, ...game.players.map((p, i) => h('div', { class: `score-row${i === game.currentPlayer && game.phase !== 'gameover' ? ' active' : ''}` },
+    h('div', { class: 'scoreboard' }, ...game.players.map((p, i) => {
+      const roomPlayer = room!.players.find((rp) => rp.id === p.id);
+      const offline = roomPlayer && !roomPlayer.connected && !p.isNpc;
+      return h('div', { class: `score-row${i === game.currentPlayer && game.phase !== 'gameover' ? ' active' : ''}` },
       h('canvas', { class: 'meeple-swatch', width: 18, height: 18, 'data-color': p.color }),
       h('span', { class: 'sname' }, p.name + (p.id === me.sub ? ' (you)' : p.isNpc ? ' 🤖' : '')),
+      offline ? h('span', { class: 'offline-dot', title: 'disconnected' }, '●') : null,
       h('span', { class: 'smeeples' }, '●'.repeat(p.meeples) + '○'.repeat(Math.max(0, game.config.meeplesPerPlayer - p.meeples))),
       h('span', { class: 'spoints' }, String(p.score)),
-    ))),
+      );
+    })),
   );
 
   const log = h('div', { class: 'panel', style: 'padding:0.8rem;display:flex;flex-direction:column;min-height:0;flex:1' },

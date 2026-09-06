@@ -1,66 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-  <defs>
-    <linearGradient id="grassGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#7FA08F" />
-      <stop offset="100%" stop-color="#4F6B60" />
-    </linearGradient>
-    <pattern id="grassStipple" width="10" height="10" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="0.6" fill="#2C4F46" opacity="0.25" />
-      <circle cx="7" cy="6" r="0.5" fill="#2C4F46" opacity="0.2" />
-    </pattern>
-    <linearGradient id="roadGrad" gradientUnits="userSpaceOnUse" x1="80" y1="0" x2="120" y2="0">
-      <stop offset="0%" stop-color="#8A7C64" />
-      <stop offset="50%" stop-color="#B7A98C" />
-      <stop offset="100%" stop-color="#8A7C64" />
-    </linearGradient>
-    <linearGradient id="wallGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#E8DFC7" />
-      <stop offset="100%" stop-color="#C6B892" />
-    </linearGradient>
-    <linearGradient id="roofGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#8A7150" />
-      <stop offset="100%" stop-color="#4F3F29" />
-    </linearGradient>
-    <linearGradient id="embossRim" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#F2E9D2" />
-      <stop offset="100%" stop-color="#1F2E2B" />
-    </linearGradient>
-    <pattern id="crosshatch" width="8" height="8" patternUnits="userSpaceOnUse">
-      <path d="M0,8 L8,0" stroke="#1F2E2B" stroke-width="0.6" opacity="0.35" />
-      <path d="M0,0 L8,8" stroke="#1F2E2B" stroke-width="0.6" opacity="0.35" />
-    </pattern>
-  </defs>
-
-  <rect data-structural="true" data-role="field-base" x="0" y="0" width="200" height="200" fill="url(#grassGrad)" />
-  <rect x="0" y="0" width="200" height="200" fill="url(#grassStipple)" />
-
-  <path data-structural="true" data-role="road" data-group="0" d="M100,200 L100,100" fill="none" stroke="url(#roadGrad)" stroke-width="40" stroke-linecap="butt" />
-  <path d="M100,200 L100,100" fill="none" stroke="#CDBE9E" stroke-width="3" stroke-dasharray="10 8" opacity="0.85" />
-  <circle cx="93" cy="185" r="2" fill="#8A7C64" opacity="0.6" />
-  <circle cx="108" cy="170" r="1.6" fill="#8A7C64" opacity="0.6" />
-  <circle cx="91" cy="152" r="2" fill="#8A7C64" opacity="0.6" />
-  <circle cx="109" cy="135" r="1.6" fill="#8A7C64" opacity="0.6" />
-  <circle cx="92" cy="118" r="2" fill="#8A7C64" opacity="0.6" />
-  <circle cx="107" cy="105" r="1.6" fill="#8A7C64" opacity="0.6" />
-
-  <rect data-structural="true" data-role="monastery-footprint" x="70" y="80" width="60" height="44" fill="url(#wallGrad)" />
-
-  <rect x="100" y="80" width="30" height="44" fill="url(#crosshatch)" opacity="0.6" />
-  <rect x="93" y="104" width="14" height="20" fill="#3F3223" stroke="#1F2E2B" stroke-width="1" />
-  <circle cx="100" cy="90" r="4" fill="#CDBE9E" stroke="#1F2E2B" stroke-width="1" />
-  <rect x="70" y="80" width="60" height="44" fill="none" stroke="url(#embossRim)" stroke-width="2" />
-
-  <path d="M62,80 L100,48 L138,80 Z" fill="url(#roofGrad)" stroke="#1F2E2B" stroke-width="1.2" />
-  <path d="M100,48 L138,80 L100,80 Z" fill="url(#crosshatch)" opacity="0.55" />
-  <line x1="100" y1="48" x2="62" y2="80" stroke="#CDBE9E" stroke-width="1.5" opacity="0.85" />
-
-  <line x1="100" y1="48" x2="100" y2="39" stroke="#1F2E2B" stroke-width="1.5" />
-  <line x1="96" y1="43" x2="104" y2="43" stroke="#1F2E2B" stroke-width="1.5" />
-
-  <path d="M0,10 L10,0" stroke="#1F2E2B" stroke-width="1.2" fill="none" />
-  <path d="M190,0 L200,10" stroke="#1F2E2B" stroke-width="1.2" fill="none" />
-  <path d="M200,190 L190,200" stroke="#1F2E2B" stroke-width="1.2" fill="none" />
-  <path d="M10,200 L0,190" stroke="#1F2E2B" stroke-width="1.2" fill="none" />
-
-  <rect data-structural="true" data-role="tile-border" x="0.5" y="0.5" width="199" height="199" fill="none" stroke="#1F2E2B" stroke-width="1.5" />
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><title>Cloister &amp; Road — Verdigris Atlas</title><defs><pattern id="grass" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M3,18 l3,-3 m-1,4 3,-3 M17,6 l2,-2" fill="none" stroke="#4f715d" stroke-width=".55" opacity=".5"/><circle cx="16" cy="19" r=".6" fill="#dfdab5" opacity=".65"/></pattern>
+<pattern id="stone" width="24" height="16" patternUnits="userSpaceOnUse"><path d="M0,0 H24 M0,8 H24 M12,0 V8 M0,8 V16 M24,8 V16" fill="none" stroke="#214e48" stroke-width=".55" opacity=".5"/><path d="M1,1 H23 M1,9 H11" stroke="#9bc1a1" stroke-width=".5" opacity=".45"/></pattern>
+<pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M-1,1 L1,-1 M0,5 L5,0 M4,6 L6,4" stroke="#193e38" stroke-width=".65" opacity=".4"/></pattern>
+<pattern id="gravel" width="17" height="19" patternUnits="userSpaceOnUse"><path d="M3,4 h2 m6,9 h2 M2,17 l1,-1" stroke="#877455" stroke-width=".7" opacity=".5"/><circle cx="12" cy="5" r=".7" fill="#f7e4b8"/></pattern><clipPath id="canvas"><rect width="200" height="200"/></clipPath><clipPath id="road"><path d="M80.000,199.000 L80.000,200.000 L120.000,200.000 L120.000,199.000 L120.000,100.000 L80.000,100.000 L80.000,199.000 Z" fill="white" /></clipPath></defs><g clip-path="url(#canvas)"><rect width="200" height="200" fill="#93a889"/><rect width="200" height="200" fill="url(#grass)"/><g transform="translate(28.37 43.65)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><g transform="translate(131.62 41.75)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><g transform="translate(177.26 159.22)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><g transform="translate(156.25 55.91)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><g transform="translate(51.26 143.82)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><g transform="translate(184.74 91.15)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><g transform="translate(148.89 163.38)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><g transform="translate(59.60 21.60)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><g transform="translate(174.21 24.20)"><ellipse cx="2" cy="5" rx="7" ry="3" fill="#62785e" opacity=".25"/><path d="M0,4 v5" stroke="#645e43" stroke-width="1.3"/><path d="M0,-9 C-9,-4 -9,4 -3,5 C0,9 8,4 6,-1 C6,-5 3,-8 0,-9Z" fill="#6d8d6d" stroke="#49684f" stroke-width=".8"/><path d="M-2,-6 Q-7,-1 -4,2 M0,-4 V4 M0,1 l3,-3" stroke="#bdc49c" stroke-width=".8" fill="none"/></g><path d="M80.000,199.000 L80.000,200.000 L120.000,200.000 L120.000,199.000 L120.000,100.000 L80.000,100.000 L80.000,199.000 Z" fill="#d4be8e" /><g clip-path="url(#road)"><path d="M80.000,199.000 L80.000,199.999 M120.000,199.999 L120.000,199.000 L120.000,100.000 L80.000,100.000 L80.000,199.000" fill="none" stroke="#776b4e" stroke-width="3"/><path d="M83.000,197.000 L117.000,197.000 L117.000,103.000 L83.000,103.000 L83.000,197.000" fill="none" stroke="#f2dca8" stroke-width="1"/><rect width="200" height="200" fill="url(#gravel)"/></g><g stroke-linejoin="round"><path d="M70,80 H130 V124 H70Z" fill="#d8cdb4" stroke="#4b5947" stroke-width="1.5"/><path d="M74,84 H126 V120 H74Z" fill="#acb894" stroke="#8d967a"/><path d="M83,88 H117 V113 H83Z" fill="#6f916c"/><path d="M86,91 H114 V110 H86Z" fill="#a0b88c"/><path d="M100,91 V110 M86,101 H114" stroke="#d8cba4" stroke-width="3"/><circle cx="100" cy="101" r="4" fill="#508278" stroke="#d4c59c"/>
+        <path d="M68,78 H132 L125,87 H75Z M68,78 V117 L76,111 V87Z M132,78 V117 L124,111 V87Z" fill="#547d70" stroke="#304e43" stroke-width="1.2"/><path d="M70,80 H130 M71,81 V114" stroke="#acc2a2" fill="none"/>
+        <path d="M70,113 H130 V124 H70Z" fill="#c9bb93" stroke="#4b5947"/>
+        <path d="M78,123 v-5 a3,3 0 0 1 6,0 v5 M115,123 v-5 a3,3 0 0 1 6,0 v5" fill="#455e4b"/>
+        <path d="M91,96 H109 V124 H91Z" fill="#e0d1aa" stroke="#4b5947"/><path d="M89,96 L100,82 L111,96Z" fill="#517e70" stroke="#304e43"/><path d="M100,85 L92,95 H100Z" fill="#88aa90"/><path d="M97,123 v-9 a3,3 0 0 1 6,0 v9" fill="#3c5242"/><path d="M98,103 v-3 a2,2 0 0 1 4,0 v3Z" fill="#436655"/><path d="M100,82 V75 M97,78 H103" stroke="#8b744c" stroke-width="1.5"/></g></g></svg>

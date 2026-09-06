@@ -24,6 +24,7 @@ export function freshRoom(now: number): RoomDoc {
     config: { ...DEFAULT_CONFIG },
     chat: [],
     createdAt: now,
+    lastActivityAt: now,
   };
 }
 
@@ -32,7 +33,10 @@ export function freshRoom(now: number): RoomDoc {
 export function migrateRoom(raw: unknown, now: number): RoomDoc {
   if (!raw || typeof raw !== 'object') return freshRoom(now);
   const r = raw as Partial<RoomDoc> & Record<string, unknown>;
-  if (r.schemaVersion === 2 && r.config) return r as RoomDoc;
+  if (r.schemaVersion === 2 && r.config) {
+    if (typeof r.lastActivityAt !== 'number') r.lastActivityAt = now;
+    return r as RoomDoc;
+  }
   return {
     schemaVersion: 2,
     phase: (r.phase as RoomPhase) ?? 'lobby',
@@ -42,6 +46,7 @@ export function migrateRoom(raw: unknown, now: number): RoomDoc {
     config: { ...DEFAULT_CONFIG, ...(r.config as Partial<GameConfig> | undefined) },
     chat: Array.isArray(r.chat) ? (r.chat as ChatEntry[]) : [],
     createdAt: (r.createdAt as number) ?? now,
+    lastActivityAt: now,
   };
 }
 

@@ -34,6 +34,7 @@ export interface RoomDoc {
   config: GameConfig;
   chat: ChatEntry[];
   createdAt: number;
+  lastActivityAt: number;
 }
 
 export type Action =

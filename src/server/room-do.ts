@@ -8,6 +8,7 @@ interface WsAttachment {
 }
 
 const NPC_MOVE_DELAY_MS = [700, 1400] as const;
+const IDLE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // no activity for this long -> reset the room
 
 export class GameRoom implements DurableObject {
   private state: DurableObjectState;
@@ -44,44 +45,64 @@ export class GameRoom implements DurableObject {
    *  leave `this.room` ahead of what's actually persisted and broadcast. */
   private async commit(playerId: string, action: Action): Promise<void> {
     const snapshot = structuredClone(this.room);
+    const ctx = this.ctx();
     try {
-      applyAction(this.room, playerId, action, this.ctx());
+      applyAction(this.room, playerId, action, ctx);
     } catch (err) {
       this.room = snapshot;
       throw err;
     }
+    this.room.lastActivityAt = ctx.now;
     await this.persist();
     this.broadcast();
-    await this.scheduleNpcIfNeeded();
+    await this.scheduleNextAlarm();
   }
 
-  private async scheduleNpcIfNeeded(): Promise<void> {
+  /** A Durable Object has exactly one pending alarm at a time, so this single slot
+   *  does double duty: it fires soon if an NPC needs to move, or — when nothing is
+   *  waiting on an NPC — it fires once idle-cleanup is actually due, tracking
+   *  whatever `lastActivityAt` is *right now* rather than a fixed delay. Any real
+   *  activity reschedules it forward, so the deadline always reflects the true
+   *  idle time, not the moment cleanup was first considered. */
+  private async scheduleNextAlarm(): Promise<void> {
     const npc = npcToActNext(this.room);
-    if (!npc) return;
-    const [lo, hi] = NPC_MOVE_DELAY_MS;
-    await this.state.storage.setAlarm(Date.now() + lo + Math.random() * (hi - lo));
+    if (npc) {
+      const [lo, hi] = NPC_MOVE_DELAY_MS;
+      await this.state.storage.setAlarm(Date.now() + lo + Math.random() * (hi - lo));
+      return;
+    }
+    await this.state.storage.setAlarm(this.room.lastActivityAt + IDLE_TTL_MS);
   }
 
   async alarm(): Promise<void> {
     await this.loaded;
     const npc = npcToActNext(this.room);
-    if (!npc || !this.room.game) return;
-    const rng = Math.random;
-    try {
-      if (this.room.game.phase === 'placeTile') {
-        const placement = chooseNpcTilePlacement(this.room.game, npc.difficulty, rng);
-        await this.commit(npc.id, { type: 'place_tile', ...placement });
-      } else if (this.room.game.phase === 'placeMeeple') {
-        const move = chooseNpcMeepleMove(this.room.game, npc.difficulty, rng);
-        await this.commit(npc.id, move);
+    if (npc && this.room.game) {
+      const rng = Math.random;
+      try {
+        if (this.room.game.phase === 'placeTile') {
+          const placement = chooseNpcTilePlacement(this.room.game, npc.difficulty, rng);
+          await this.commit(npc.id, { type: 'place_tile', ...placement });
+        } else if (this.room.game.phase === 'placeMeeple') {
+          const move = chooseNpcMeepleMove(this.room.game, npc.difficulty, rng);
+          await this.commit(npc.id, move);
+        }
+      } catch (err) {
+        // An NPC failing to move should never wedge the room — log and let the next
+        // scheduled check (if any) retry rather than throwing out of alarm().
+        this.room.chat.push({ id: crypto.randomUUID(), system: true, text: `(${npc.id} hesitated: ${String(err)})`, ts: Date.now() });
+        await this.persist();
+        this.broadcast();
+        await this.scheduleNextAlarm();
       }
-    } catch (err) {
-      // An NPC failing to move should never wedge the room — log and let the next
-      // scheduled check (if any) retry rather than throwing out of alarm().
-      this.room.chat.push({ id: crypto.randomUUID(), system: true, text: `(${npc.id} hesitated: ${String(err)})`, ts: Date.now() });
-      await this.persist();
-      this.broadcast();
+      return;
     }
+    // Not an NPC turn — this alarm firing means an idle-cleanup check is due.
+    if (Date.now() - this.room.lastActivityAt >= IDLE_TTL_MS) {
+      await this.state.storage.deleteAll(); // room resets to fresh on the next connection
+      return;
+    }
+    await this.scheduleNextAlarm(); // activity happened since this was scheduled; push it out again
   }
 
   async fetch(request: Request): Promise<Response> {

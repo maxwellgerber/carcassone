@@ -37,6 +37,7 @@ export interface RoomDoc {
 }
 
 export type Action =
+  | { type: 'join'; name: string }
   | { type: 'set_name'; name: string }
   | { type: 'set_color'; color: string }
   | { type: 'set_config'; config: Partial<GameConfig> }

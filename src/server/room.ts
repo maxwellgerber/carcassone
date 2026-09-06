@@ -84,16 +84,36 @@ export interface ApplyContext {
   newId: () => string;
 }
 
+/** Shared by the WebSocket upgrade path and the MCP-facing RPC surface — anyone
+ *  (human via a verified session, agent via a verified service credential) becomes
+ *  a real player if the lobby has room, or a read-only spectator otherwise. */
+function joinOrReconnect(room: RoomDoc, playerId: string, name: string, ctx: ApplyContext): void {
+  const cleanName = name.trim().slice(0, 24) || 'Traveler';
+  let player = room.players.find((p) => p.id === playerId);
+  if (!player) {
+    const spectator = room.phase !== 'lobby' || room.players.length >= MAX_PLAYERS;
+    player = { id: playerId, name: cleanName, color: pickColor(room), connected: true, spectator };
+    room.players.push(player);
+    if (!room.hostId) room.hostId = playerId;
+    pushSystemChat(room, spectator ? `${cleanName} is watching the game.` : `${cleanName} joined the game.`, ctx.now, ctx.newId());
+  } else {
+    player.connected = true;
+    player.name = cleanName;
+    pushSystemChat(room, `${player.name} reconnected.`, ctx.now, ctx.newId());
+  }
+}
+
 /** Apply one action as `playerId`. Mutates `room` in place; throws ActionError (never
  *  a bare Error, so the DO can tell "rejected" apart from "actually crashed") if the
  *  action is illegal. The caller is responsible for persisting/broadcasting only on
  *  success — see room-do.ts's snapshot/rollback wrapper. */
 export function applyAction(room: RoomDoc, playerId: string, action: Action, ctx: ApplyContext): void {
-  const player = room.players.find((p) => p.id === playerId);
-  if (!player && action.type !== 'chat') {
-    // chat from an unknown id is just ignored elsewhere; every other action needs a seat.
+  if (action.type === 'join') {
+    joinOrReconnect(room, playerId, action.name, ctx);
+    return;
   }
-  if (!player) throw new ActionError('Unknown player');
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) throw new ActionError('Unknown player — join the room first');
 
   switch (action.type) {
     case 'set_name': {

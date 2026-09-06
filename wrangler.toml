@@ -37,3 +37,9 @@ id = "REPLACE_WITH_REAL_KV_ID"
 # OIDC_ISSUER = "https://your-idp.example.com"
 # OIDC_CLIENT_ID = "your-client-id"
 # OIDC_REDIRECT_URI = "https://your-deployed-domain/auth/callback"
+
+# Shared secret the MCP server (src/mcp/server.ts) authenticates with, so agents
+# can play without an interactive OIDC login. Set via `wrangler secret put
+# MCP_SERVICE_TOKEN` for a deployed environment; leaving it unset disables agent
+# access entirely (the RPC surface only accepts human sessions).
+# MCP_SERVICE_TOKEN = "generate-a-long-random-value"

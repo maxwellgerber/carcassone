@@ -1,4 +1,4 @@
-import { applyAction, migrateRoom, npcToActNext, pickColor, type Action, type ApplyContext, type RoomDoc } from './room.js';
+import { applyAction, migrateRoom, npcToActNext, type Action, type ApplyContext, type RoomDoc } from './room.js';
 import { chooseNpcMeepleMove, chooseNpcTilePlacement } from './npc.js';
 import { registerRoom } from './registry.js';
 import type { Env } from './env.js';
@@ -111,31 +111,10 @@ export class GameRoom implements DurableObject {
     server.serializeAttachment(attachment);
     this.state.acceptWebSocket(server, [playerId]);
 
-    await this.joinRoom(playerId, name);
+    const wasEmpty = this.room.players.length === 0;
+    await this.commit(playerId, { type: 'join', name });
+    if (wasEmpty) await registerRoom(this.env.ROOM_REGISTRY, this.roomIdGuess(), playerId);
     return new Response(null, { status: 101, webSocket: client });
-  }
-
-  private async joinRoom(playerId: string, name: string): Promise<void> {
-    let player = this.room.players.find((p) => p.id === playerId);
-    if (!player) {
-      const spectator = this.room.phase !== 'lobby';
-      if (!spectator && this.room.players.length >= 6) {
-        // Full lobby — let them connect as a read-only observer instead of hard-rejecting.
-        player = { id: playerId, name, color: pickColor(this.room), connected: true, spectator: true };
-      } else {
-        player = { id: playerId, name, color: pickColor(this.room), connected: true, spectator };
-      }
-      this.room.players.push(player);
-      if (!this.room.hostId) this.room.hostId = playerId;
-      this.room.chat.push({ id: crypto.randomUUID(), system: true, text: spectator ? `${name} is watching the game.` : `${name} joined the game.`, ts: Date.now() });
-      if (this.room.players.length === 1) await registerRoom(this.env.ROOM_REGISTRY, this.roomIdGuess(), playerId);
-    } else {
-      player.connected = true;
-      player.name = name;
-      this.room.chat.push({ id: crypto.randomUUID(), system: true, text: `${player.name} reconnected.`, ts: Date.now() });
-    }
-    await this.persist();
-    this.broadcast();
   }
 
   private roomIdGuess(): string {
@@ -200,8 +179,10 @@ export class GameRoom implements DurableObject {
     try { body = await request.json(); } catch { return new Response('invalid JSON', { status: 400 }); }
     const action = toAction(body);
     if (!action) return new Response('invalid action', { status: 400 });
+    const wasEmpty = action.type === 'join' && this.room.players.length === 0;
     try {
       await this.commit(playerId, action);
+      if (wasEmpty) await registerRoom(this.env.ROOM_REGISTRY, this.roomIdGuess(), playerId);
     } catch (err) {
       return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });
     }
@@ -219,6 +200,7 @@ function toAction(msg: unknown): Action | null {
   if (!msg || typeof msg !== 'object' || !('type' in msg)) return null;
   const m = msg as Record<string, unknown>;
   switch (m.type) {
+    case 'join': return typeof m.name === 'string' ? { type: 'join', name: m.name } : null;
     case 'set_name': return typeof m.name === 'string' ? { type: 'set_name', name: m.name } : null;
     case 'set_color': return typeof m.color === 'string' ? { type: 'set_color', color: m.color } : null;
     case 'set_config': return m.config && typeof m.config === 'object' ? { type: 'set_config', config: m.config as never } : null;

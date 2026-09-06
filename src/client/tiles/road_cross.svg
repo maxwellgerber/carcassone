@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="grassGrad" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8FB09E"/>
+      <stop offset="100%" stop-color="#4F6B60"/>
+    </linearGradient>
+    <pattern id="hatchA" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#3E574D" stroke-width="0.6" opacity="0.3"/>
+    </pattern>
+    <pattern id="hatchB" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+      <line x1="0" y1="0" x2="0" y2="9" stroke="#2F473D" stroke-width="0.4" opacity="0.22"/>
+    </pattern>
+    <linearGradient id="roadGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C4B79C"/>
+      <stop offset="55%" stop-color="#B7A98C"/>
+      <stop offset="100%" stop-color="#98896C"/>
+    </linearGradient>
+    <radialGradient id="hubGrad" cx="35%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#CDBE9E"/>
+      <stop offset="60%" stop-color="#B7A98C"/>
+      <stop offset="100%" stop-color="#8A7C64"/>
+    </radialGradient>
+    <clipPath id="hubClip"><circle cx="100" cy="100" r="22"/></clipPath>
+  </defs>
+
+  <rect data-structural="true" data-role="field-base" x="0" y="0" width="200" height="200" fill="url(#grassGrad)" />
+  <rect x="0" y="0" width="200" height="200" fill="url(#hatchA)" />
+  <rect x="0" y="0" width="200" height="200" fill="url(#hatchB)" />
+
+  <g stroke="#3E574D" stroke-width="1" stroke-linecap="round" fill="none" opacity="0.55">
+    <path d="M26,26 q1,-7 3,-9 M30,26 q3,-6 6,-7 M34,27 q4,-5 8,-5"/>
+    <path d="M166,28 q1,-7 3,-9 M170,28 q3,-6 6,-7 M174,29 q4,-5 8,-5"/>
+    <path d="M26,166 q1,-7 3,-9 M30,166 q3,-6 6,-7 M34,167 q4,-5 8,-5"/>
+    <path d="M166,168 q1,-7 3,-9 M170,168 q3,-6 6,-7 M174,169 q4,-5 8,-5"/>
+  </g>
+
+  <path data-structural="true" data-role="road" data-group="0" d="M100,0 L100,100" fill="none" stroke="url(#roadGrad)" stroke-width="40" stroke-linecap="butt" />
+  <path data-structural="true" data-role="road" data-group="1" d="M200,100 L100,100" fill="none" stroke="url(#roadGrad)" stroke-width="40" stroke-linecap="butt" />
+  <path data-structural="true" data-role="road" data-group="2" d="M100,200 L100,100" fill="none" stroke="url(#roadGrad)" stroke-width="40" stroke-linecap="butt" />
+  <path data-structural="true" data-role="road" data-group="3" d="M0,100 L100,100" fill="none" stroke="url(#roadGrad)" stroke-width="40" stroke-linecap="butt" />
+
+  <path d="M200,81 L0,81" fill="none" stroke="#CDBE9E" stroke-width="1.6" opacity="0.5"/>
+  <path d="M200,119 L0,119" fill="none" stroke="#6E6350" stroke-width="2" opacity="0.45"/>
+  <path d="M200,90 L0,90" fill="none" stroke="#8A7C64" stroke-width="1" stroke-dasharray="5 4" opacity="0.35"/>
+  <path d="M200,110 L0,110" fill="none" stroke="#8A7C64" stroke-width="1" stroke-dasharray="4 5" opacity="0.35"/>
+  <path d="M200,100 L0,100" fill="none" stroke="#CDBE9E" stroke-width="2.5" stroke-dasharray="10 8" opacity="0.55"/>
+
+  <path d="M81,200 L81,0" fill="none" stroke="#CDBE9E" stroke-width="1.6" opacity="0.5"/>
+  <path d="M119,200 L119,0" fill="none" stroke="#6E6350" stroke-width="2" opacity="0.45"/>
+  <path d="M90,200 L90,0" fill="none" stroke="#8A7C64" stroke-width="1" stroke-dasharray="5 4" opacity="0.35"/>
+  <path d="M110,200 L110,0" fill="none" stroke="#8A7C64" stroke-width="1" stroke-dasharray="4 5" opacity="0.35"/>
+  <path d="M100,200 L100,0" fill="none" stroke="#CDBE9E" stroke-width="2.5" stroke-dasharray="10 8" opacity="0.55"/>
+
+  <g fill="#9C8E72" stroke="#6E6350" stroke-width="0.5" opacity="0.7">
+    <ellipse cx="14" cy="93" rx="4" ry="2.4" transform="rotate(8 14 93)"/>
+    <ellipse cx="34" cy="107" rx="3.6" ry="2.2" transform="rotate(-6 34 107)"/>
+    <ellipse cx="60" cy="92" rx="4" ry="2.4" transform="rotate(5 60 92)"/>
+    <ellipse cx="140" cy="108" rx="3.8" ry="2.2" transform="rotate(-7 140 108)"/>
+    <ellipse cx="166" cy="93" rx="4" ry="2.4" transform="rotate(6 166 93)"/>
+    <ellipse cx="186" cy="107" rx="3.4" ry="2" transform="rotate(-5 186 107)"/>
+    <ellipse cx="92" cy="20" rx="2.4" ry="4" transform="rotate(-8 92 20)"/>
+    <ellipse cx="108" cy="45" rx="2.2" ry="3.8" transform="rotate(6 108 45)"/>
+    <ellipse cx="92" cy="70" rx="2.4" ry="4" transform="rotate(-5 92 70)"/>
+    <ellipse cx="108" cy="130" rx="2.2" ry="3.8" transform="rotate(6 108 130)"/>
+    <ellipse cx="92" cy="155" rx="2.4" ry="4" transform="rotate(-8 92 155)"/>
+    <ellipse cx="108" cy="180" rx="2.2" ry="3.8" transform="rotate(5 108 180)"/>
+  </g>
+
+  <circle data-structural="true" data-role="junction-hub" cx="100" cy="100" r="22" fill="url(#hubGrad)" />
+  <g clip-path="url(#hubClip)">
+    <circle cx="100" cy="100" r="16" fill="none" stroke="#8A7C64" stroke-width="1" opacity="0.4"/>
+    <circle cx="100" cy="100" r="9" fill="none" stroke="#8A7C64" stroke-width="1" opacity="0.4"/>
+    <g fill="#9C8E72" stroke="#6E6350" stroke-width="0.4" opacity="0.7">
+      <ellipse cx="100" cy="83" rx="3" ry="2"/>
+      <ellipse cx="114" cy="91" rx="3" ry="2" transform="rotate(60 114 91)"/>
+      <ellipse cx="114" cy="109" rx="3" ry="2" transform="rotate(120 114 109)"/>
+      <ellipse cx="100" cy="117" rx="3" ry="2"/>
+      <ellipse cx="86" cy="109" rx="3" ry="2" transform="rotate(60 86 109)"/>
+      <ellipse cx="86" cy="91" rx="3" ry="2" transform="rotate(120 86 91)"/>
+      <ellipse cx="100" cy="100" rx="3.4" ry="2.4"/>
+    </g>
+    <path d="M84,86 A22,22 0 0,1 116,86" fill="none" stroke="#CDBE9E" stroke-width="2" opacity="0.5"/>
+    <path d="M84,114 A22,22 0 0,0 116,114" fill="none" stroke="#6E6350" stroke-width="2" opacity="0.5"/>
+  </g>
+
+  <rect data-structural="true" data-role="tile-border" x="0.5" y="0.5" width="199" height="199" fill="none" stroke="#1F2E2B" stroke-width="1.5" />
+
+  <g stroke="#1F2E2B" stroke-width="1.2" opacity="0.7">
+    <path d="M2,16 L16,2"/>
+    <path d="M184,2 L198,16"/>
+    <path d="M198,184 L184,198"/>
+    <path d="M16,198 L2,184"/>
+  </g>
+</svg>

@@ -2,7 +2,7 @@ import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
 import { getLegalPlacements, getMeepleOptions, PLAYER_COLORS } from '../shared/engine.js';
 import type { RoomDoc } from '../shared/room-types.js';
 import type { GameConfig, NpcDifficulty } from '../shared/types.js';
-import { getTileCanvas, getTileBackCanvas, getMeepleCanvas } from './art.js';
+import { getTileCanvas, getTileBackCanvas, getMeepleCanvas, preloadTileArt } from './art.js';
 import { h, toast } from './dom.js';
 
 // ---------------------------------------------------------------------------
@@ -676,4 +676,9 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement {
   );
 }
 
-route();
+// Tile art is decoded from inline SVG data: URIs before the very first render —
+// this is well under a frame for 22 small images, and it means drawBoard() (which
+// runs synchronously off mouse events) never has to handle a not-yet-loaded image.
+preloadTileArt()
+  .catch((err) => { console.error('Tile art failed to preload:', err); })
+  .then(() => route());

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="fieldGrad" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7FA08F" />
+      <stop offset="1" stop-color="#4F6B60" />
+    </linearGradient>
+    <pattern id="fieldHatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <path d="M0,0 L0,12" stroke="#4F6B60" stroke-width="0.5" opacity="0.25" />
+    </pattern>
+    <pattern id="cityHatch" width="6" height="6" patternUnits="userSpaceOnUse">
+      <path d="M0,6 L6,0 M-1,1 L1,-1 M5,7 L7,5" stroke="#1F2E2B" stroke-width="0.5" opacity="0.5" />
+    </pattern>
+    <pattern id="masonry" width="28" height="14" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="14" height="7" fill="none" stroke="#1F2E2B" stroke-width="0.5" opacity="0.35" />
+      <rect x="14" y="0" width="14" height="7" fill="none" stroke="#1F2E2B" stroke-width="0.5" opacity="0.35" />
+      <rect x="7" y="7" width="14" height="7" fill="none" stroke="#1F2E2B" stroke-width="0.5" opacity="0.35" />
+      <rect x="-7" y="7" width="14" height="7" fill="none" stroke="#1F2E2B" stroke-width="0.5" opacity="0.35" />
+      <rect x="21" y="7" width="14" height="7" fill="none" stroke="#1F2E2B" stroke-width="0.5" opacity="0.35" />
+    </pattern>
+    <clipPath id="cityClipBoth">
+      <path d="M32,0 L168,0 L148,92 L52,92 Z M168,200 L32,200 L52,108 L148,108 Z" />
+    </clipPath>
+    <clipPath id="hubClip">
+      <circle cx="100" cy="100" r="60" />
+    </clipPath>
+    <clipPath id="tlHalf">
+      <polygon points="0,0 200,0 0,200" />
+    </clipPath>
+    <clipPath id="brHalf">
+      <polygon points="200,0 200,200 0,200" />
+    </clipPath>
+  </defs>
+
+  <rect data-structural="true" data-role="field-base" x="0" y="0" width="200" height="200" fill="url(#fieldGrad)" />
+  <rect x="0" y="0" width="200" height="200" fill="url(#fieldHatch)" />
+
+  <path data-structural="true" data-role="city" data-group="0" data-connected="true" d="M32,0 L168,0 L148,92 L52,92 Z M168,200 L32,200 L52,108 L148,108 Z" fill="#3E6F63" stroke="#1F2E2B" stroke-width="1.5" />
+  <circle data-structural="true" data-role="city-hub" data-group="0" cx="100" cy="100" r="60" fill="#3E6F63" stroke="#1F2E2B" stroke-width="1.5" />
+
+  <g clip-path="url(#cityClipBoth)">
+    <rect x="0" y="0" width="200" height="200" fill="url(#cityHatch)" />
+    <rect x="0" y="0" width="200" height="200" fill="url(#masonry)" />
+    <g clip-path="url(#tlHalf)">
+      <path d="M32,0 L168,0 L148,92 L52,92 Z M168,200 L32,200 L52,108 L148,108 Z" fill="none" stroke="#8FBBAD" stroke-width="3" opacity="0.55" />
+    </g>
+    <g clip-path="url(#brHalf)">
+      <path d="M32,0 L168,0 L148,92 L52,92 Z M168,200 L32,200 L52,108 L148,108 Z" fill="none" stroke="#1F2E2B" stroke-width="3" opacity="0.4" />
+    </g>
+  </g>
+  <g clip-path="url(#hubClip)">
+    <rect x="40" y="40" width="120" height="120" fill="url(#cityHatch)" opacity="0.7" />
+    <rect x="40" y="40" width="120" height="120" fill="url(#masonry)" opacity="0.8" />
+    <g clip-path="url(#tlHalf)">
+      <circle cx="100" cy="100" r="60" fill="none" stroke="#8FBBAD" stroke-width="3" opacity="0.5" />
+    </g>
+    <g clip-path="url(#brHalf)">
+      <circle cx="100" cy="100" r="60" fill="none" stroke="#1F2E2B" stroke-width="3" opacity="0.4" />
+    </g>
+  </g>
+
+  <!-- crenellations, top and bottom outer edges -->
+  <g stroke="#1F2E2B" stroke-width="0.75">
+    <rect x="32" y="0" width="14" height="12" fill="#3E6F63" />
+    <rect x="46" y="0" width="14" height="5" fill="#2C4F46" />
+    <rect x="60" y="0" width="14" height="12" fill="#3E6F63" />
+    <rect x="74" y="0" width="14" height="5" fill="#2C4F46" />
+    <rect x="88" y="0" width="14" height="12" fill="#3E6F63" />
+    <rect x="102" y="0" width="14" height="5" fill="#2C4F46" />
+    <rect x="116" y="0" width="14" height="12" fill="#3E6F63" />
+    <rect x="130" y="0" width="14" height="5" fill="#2C4F46" />
+    <rect x="144" y="0" width="14" height="12" fill="#3E6F63" />
+    <rect x="158" y="0" width="10" height="5" fill="#2C4F46" />
+
+    <rect x="32" y="188" width="14" height="12" fill="#3E6F63" />
+    <rect x="46" y="195" width="14" height="5" fill="#2C4F46" />
+    <rect x="60" y="188" width="14" height="12" fill="#3E6F63" />
+    <rect x="74" y="195" width="14" height="5" fill="#2C4F46" />
+    <rect x="88" y="188" width="14" height="12" fill="#3E6F63" />
+    <rect x="102" y="195" width="14" height="5" fill="#2C4F46" />
+    <rect x="116" y="188" width="14" height="12" fill="#3E6F63" />
+    <rect x="130" y="195" width="14" height="5" fill="#2C4F46" />
+    <rect x="144" y="188" width="14" height="12" fill="#3E6F63" />
+    <rect x="158" y="195" width="10" height="5" fill="#2C4F46" />
+  </g>
+  <g stroke="#CDBE9E" stroke-width="0.8" opacity="0.7">
+    <line x1="32" y1="12" x2="46" y2="12" /><line x1="60" y1="12" x2="74" y2="12" /><line x1="88" y1="12" x2="102" y2="12" /><line x1="116" y1="12" x2="130" y2="12" /><line x1="144" y1="12" x2="158" y2="12" />
+    <line x1="32" y1="188" x2="46" y2="188" /><line x1="60" y1="188" x2="74" y2="188" /><line x1="88" y1="188" x2="102" y2="188" /><line x1="116" y1="188" x2="130" y2="188" /><line x1="144" y1="188" x2="158" y2="188" />
+  </g>
+
+  <rect data-structural="true" data-role="tile-border" x="0.5" y="0.5" width="199" height="199" fill="none" stroke="#1F2E2B" stroke-width="1.5" />
+  <g stroke="#1F2E2B" stroke-width="1" opacity="0.6">
+    <line x1="0" y1="10" x2="10" y2="0" />
+    <line x1="190" y1="0" x2="200" y2="10" />
+    <line x1="200" y1="190" x2="190" y2="200" />
+    <line x1="10" y1="200" x2="0" y2="190" />
+  </g>
+</svg>

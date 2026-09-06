@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="grassGrad" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8FB09E"/>
+      <stop offset="100%" stop-color="#4F6B60"/>
+    </linearGradient>
+    <pattern id="hatchA" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#3E574D" stroke-width="0.6" opacity="0.3"/>
+    </pattern>
+    <pattern id="hatchB" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+      <line x1="0" y1="0" x2="0" y2="9" stroke="#2F473D" stroke-width="0.4" opacity="0.22"/>
+    </pattern>
+    <linearGradient id="roadGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#C4B79C"/>
+      <stop offset="55%" stop-color="#B7A98C"/>
+      <stop offset="100%" stop-color="#98896C"/>
+    </linearGradient>
+  </defs>
+
+  <rect data-structural="true" data-role="field-base" x="0" y="0" width="200" height="200" fill="url(#grassGrad)" />
+  <rect x="0" y="0" width="200" height="200" fill="url(#hatchA)" />
+  <rect x="0" y="0" width="200" height="200" fill="url(#hatchB)" />
+
+  <g stroke="#3E574D" stroke-width="1" stroke-linecap="round" fill="none" opacity="0.55">
+    <path d="M24,24 q1,-7 3,-9 M28,24 q3,-6 6,-7 M32,25 q4,-5 8,-5"/>
+    <path d="M150,26 q1,-7 3,-9 M154,26 q3,-6 6,-7 M158,27 q4,-5 8,-5"/>
+    <path d="M172,60 q1,-7 3,-9 M176,60 q3,-6 6,-7 M180,61 q4,-5 8,-5"/>
+    <path d="M148,176 q1,-7 3,-9 M152,176 q3,-6 6,-7 M156,177 q4,-5 8,-5"/>
+  </g>
+
+  <path data-structural="true" data-role="road" data-group="0" d="M100,200 Q0,200 0,100" fill="none" stroke="url(#roadGrad)" stroke-width="40" stroke-linecap="butt" />
+
+  <path d="M80,200 Q0,200 0,120" fill="none" stroke="#6E6350" stroke-width="2" opacity="0.45"/>
+  <path d="M120,200 Q0,200 0,80" fill="none" stroke="#CDBE9E" stroke-width="2" opacity="0.5"/>
+  <path d="M90,200 Q0,200 0,110" fill="none" stroke="#8A7C64" stroke-width="1" stroke-dasharray="5 4" opacity="0.35"/>
+  <path d="M110,200 Q0,200 0,90" fill="none" stroke="#8A7C64" stroke-width="1" stroke-dasharray="4 5" opacity="0.35"/>
+  <path d="M100,200 Q0,200 0,100" fill="none" stroke="#CDBE9E" stroke-width="2.5" stroke-dasharray="10 8" opacity="0.55"/>
+
+  <g fill="#9C8E72" stroke="#6E6350" stroke-width="0.5" opacity="0.7">
+    <ellipse cx="72" cy="198" rx="3.6" ry="2.2" transform="rotate(-15 72 198)"/>
+    <ellipse cx="48" cy="195" rx="3.4" ry="2.2" transform="rotate(-20 48 195)"/>
+    <ellipse cx="42" cy="188" rx="3.8" ry="2.3" transform="rotate(-30 42 188)"/>
+    <ellipse cx="56" cy="190" rx="3.4" ry="2.1" transform="rotate(-25 56 190)"/>
+    <ellipse cx="25" cy="175" rx="4" ry="2.4" transform="rotate(-45 25 175)"/>
+    <ellipse cx="14" cy="169" rx="3.2" ry="2" transform="rotate(-55 14 169)"/>
+    <ellipse cx="12" cy="158" rx="3.6" ry="2.2" transform="rotate(-65 12 158)"/>
+    <ellipse cx="10" cy="144" rx="3.2" ry="2" transform="rotate(-70 10 144)"/>
+    <ellipse cx="2" cy="128" rx="3.4" ry="2.1" transform="rotate(-80 2 128)"/>
+    <ellipse cx="0" cy="105" rx="3" ry="2" transform="rotate(-88 0 105)"/>
+  </g>
+
+  <rect data-structural="true" data-role="tile-border" x="0.5" y="0.5" width="199" height="199" fill="none" stroke="#1F2E2B" stroke-width="1.5" />
+
+  <g stroke="#1F2E2B" stroke-width="1.2" opacity="0.7">
+    <path d="M2,16 L16,2"/>
+    <path d="M184,2 L198,16"/>
+    <path d="M198,184 L184,198"/>
+    <path d="M16,198 L2,184"/>
+  </g>
+</svg>

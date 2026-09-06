@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="grassGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7FA08F" />
+      <stop offset="100%" stop-color="#4F6B60" />
+    </linearGradient>
+    <pattern id="grassStipple" width="10" height="10" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="0.6" fill="#2C4F46" opacity="0.25" />
+      <circle cx="7" cy="6" r="0.5" fill="#2C4F46" opacity="0.2" />
+    </pattern>
+    <linearGradient id="roadGrad" gradientUnits="userSpaceOnUse" x1="0" y1="80" x2="0" y2="120">
+      <stop offset="0%" stop-color="#8A7C64" />
+      <stop offset="50%" stop-color="#B7A98C" />
+      <stop offset="100%" stop-color="#8A7C64" />
+    </linearGradient>
+    <linearGradient id="cityGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5B9484" />
+      <stop offset="55%" stop-color="#3E6F63" />
+      <stop offset="100%" stop-color="#2C4F46" />
+    </linearGradient>
+    <linearGradient id="embossRim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#CDE8DD" />
+      <stop offset="100%" stop-color="#1F2E2B" />
+    </linearGradient>
+    <pattern id="crosshatch" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M0,8 L8,0" stroke="#1F2E2B" stroke-width="0.6" opacity="0.35" />
+      <path d="M0,0 L8,8" stroke="#1F2E2B" stroke-width="0.6" opacity="0.35" />
+    </pattern>
+    <pattern id="masonry" width="20" height="10" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="10" x2="20" y2="10" stroke="#1F2E2B" stroke-width="0.7" opacity="0.4" />
+      <line x1="10" y1="0" x2="10" y2="10" stroke="#1F2E2B" stroke-width="0.5" opacity="0.3" />
+    </pattern>
+    <clipPath id="cityClip">
+      <path d="M32,0 L168,0 L148,92 L52,92 Z" />
+    </clipPath>
+  </defs>
+
+  <rect data-structural="true" data-role="field-base" x="0" y="0" width="200" height="200" fill="url(#grassGrad)" />
+  <rect x="0" y="0" width="200" height="200" fill="url(#grassStipple)" />
+
+  <path data-structural="true" data-role="road" data-group="0" d="M200,100 L0,100" fill="none" stroke="url(#roadGrad)" stroke-width="40" stroke-linecap="butt" />
+  <path d="M200,100 L0,100" fill="none" stroke="#CDBE9E" stroke-width="3" stroke-dasharray="10 8" opacity="0.85" />
+  <circle cx="20" cy="93" r="2" fill="#8A7C64" opacity="0.6" />
+  <circle cx="45" cy="108" r="1.6" fill="#8A7C64" opacity="0.6" />
+  <circle cx="70" cy="90" r="2" fill="#8A7C64" opacity="0.6" />
+  <circle cx="130" cy="110" r="2" fill="#8A7C64" opacity="0.6" />
+  <circle cx="155" cy="92" r="1.6" fill="#8A7C64" opacity="0.6" />
+  <circle cx="180" cy="107" r="2" fill="#8A7C64" opacity="0.6" />
+
+  <path data-structural="true" data-role="city" data-group="0" data-connected="false" d="M32,0 L168,0 L148,92 L52,92 Z" fill="url(#cityGrad)" />
+
+  <g clip-path="url(#cityClip)">
+    <rect x="32" y="0" width="136" height="92" fill="url(#masonry)" opacity="0.7" />
+    <rect x="100" y="0" width="68" height="92" fill="url(#crosshatch)" opacity="0.5" />
+
+    <rect x="32" y="0" width="17" height="10" fill="#6FAE9B" />
+    <rect x="66" y="0" width="17" height="10" fill="#6FAE9B" />
+    <rect x="100" y="0" width="17" height="10" fill="#6FAE9B" />
+    <rect x="134" y="0" width="17" height="10" fill="#6FAE9B" />
+    <rect x="49" y="0" width="17" height="5" fill="#2C4F46" />
+    <rect x="83" y="0" width="17" height="5" fill="#2C4F46" />
+    <rect x="117" y="0" width="17" height="5" fill="#2C4F46" />
+    <rect x="151" y="0" width="17" height="5" fill="#2C4F46" />
+  </g>
+
+  <path d="M32,0 L168,0 L148,92 L52,92 Z" fill="none" stroke="url(#embossRim)" stroke-width="2" />
+
+  <path d="M0,10 L10,0" stroke="#1F2E2B" stroke-width="1.2" fill="none" />
+  <path d="M190,0 L200,10" stroke="#1F2E2B" stroke-width="1.2" fill="none" />
+  <path d="M200,190 L190,200" stroke="#1F2E2B" stroke-width="1.2" fill="none" />
+  <path d="M10,200 L0,190" stroke="#1F2E2B" stroke-width="1.2" fill="none" />
+
+  <rect data-structural="true" data-role="tile-border" x="0.5" y="0.5" width="199" height="199" fill="none" stroke="#1F2E2B" stroke-width="1.5" />
+</svg>

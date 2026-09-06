@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="fieldGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7FA08F" />
+      <stop offset="1" stop-color="#4F6B60" />
+    </linearGradient>
+    <linearGradient id="cityGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3E6F63" />
+      <stop offset="1" stop-color="#2C4F46" />
+    </linearGradient>
+    <linearGradient id="rimGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#CDBE9E" />
+      <stop offset="1" stop-color="#1F2E2B" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#D4B85A" />
+      <stop offset="1" stop-color="#9A8C3E" />
+    </linearGradient>
+    <pattern id="masonry" width="40" height="20" patternUnits="userSpaceOnUse">
+      <path d="M0,0 H40 M0,10 H40 M0,20 H40" stroke="#1F2E2B" stroke-width="0.6" opacity="0.35" fill="none" />
+      <path d="M0,0 V10 M20,0 V10 M40,0 V10 M-10,10 V20 M10,10 V20 M30,10 V20 M50,10 V20" stroke="#1F2E2B" stroke-width="0.6" opacity="0.35" fill="none" />
+    </pattern>
+    <pattern id="crosshatch" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M0,0 L8,8 M8,0 L0,8" stroke="#1F2E2B" stroke-width="0.6" opacity="0.5" fill="none" />
+    </pattern>
+    <clipPath id="cityClip">
+      <path d="M32,0 L168,0 L148,92 L52,92 Z M200,32 L200,168 L108,148 L108,52 Z M168,200 L32,200 L52,108 L148,108 Z" />
+      <circle cx="100" cy="100" r="60" />
+    </clipPath>
+    <clipPath id="shadowClip">
+      <rect x="95" y="95" width="105" height="105" />
+    </clipPath>
+  </defs>
+
+  <rect data-structural="true" data-role="field-base" x="0" y="0" width="200" height="200" fill="url(#fieldGrad)" />
+  <path d="M18,98 q2,-6 4,0" stroke="#4F6B60" stroke-width="1" fill="none" opacity="0.6" />
+  <path d="M12,108 q2,-6 4,0" stroke="#4F6B60" stroke-width="1" fill="none" opacity="0.6" />
+
+  <path data-structural="true" data-role="city" data-group="0" data-connected="true" d="M32,0 L168,0 L148,92 L52,92 Z M200,32 L200,168 L108,148 L108,52 Z M168,200 L32,200 L52,108 L148,108 Z" fill="url(#cityGrad)" />
+  <circle data-structural="true" data-role="city-hub" data-group="0" cx="100" cy="100" r="60" fill="url(#cityGrad)" />
+
+  <g clip-path="url(#cityClip)">
+    <rect x="0" y="0" width="200" height="200" fill="url(#masonry)" />
+    <g clip-path="url(#shadowClip)">
+      <rect x="0" y="0" width="200" height="200" fill="url(#crosshatch)" />
+    </g>
+
+    <!-- rooftop motifs suggesting buildings along each city arm -->
+    <g fill="none">
+      <g>
+        <rect x="62" y="45" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M60,45 L70,35 L80,45 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M65,42 L70,38" stroke="#1F2E2B" stroke-width="0.5" opacity="0.6" />
+      </g>
+      <g>
+        <rect x="92" y="35" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M90,35 L100,25 L110,35 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M95,32 L100,28" stroke="#1F2E2B" stroke-width="0.5" opacity="0.6" />
+      </g>
+      <g>
+        <rect x="122" y="45" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M120,45 L130,35 L140,45 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M125,42 L130,38" stroke="#1F2E2B" stroke-width="0.5" opacity="0.6" />
+      </g>
+      <g>
+        <rect x="150" y="62" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M148,62 L158,52 L168,62 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+      </g>
+      <g>
+        <rect x="157" y="95" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M155,95 L165,85 L175,95 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+      </g>
+      <g>
+        <rect x="150" y="128" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M148,128 L158,118 L168,128 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+      </g>
+      <g>
+        <rect x="62" y="150" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M60,150 L70,140 L80,150 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+      </g>
+      <g>
+        <rect x="92" y="158" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M90,158 L100,148 L110,158 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+      </g>
+      <g>
+        <rect x="122" y="150" width="16" height="10" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.6" />
+        <path d="M120,150 L130,140 L140,150 Z" fill="#2C4F46" stroke="#1F2E2B" stroke-width="0.6" />
+      </g>
+    </g>
+  </g>
+
+  <!-- embossed rim: diagonal highlight/shadow stroke tracing the city silhouette -->
+  <path d="M32,0 L168,0 L148,92 L52,92 Z M200,32 L200,168 L108,148 L108,52 Z M168,200 L32,200 L52,108 L148,108 Z" fill="none" stroke="url(#rimGrad)" stroke-width="2.2" opacity="0.9" />
+  <circle cx="100" cy="100" r="60" fill="none" stroke="url(#rimGrad)" stroke-width="2.2" opacity="0.9" />
+
+  <!-- crenellations along outer city edges -->
+  <g>
+    <rect x="32" y="0" width="136" height="10" fill="#2C4F46" stroke="#1F2E2B" stroke-width="1" />
+    <rect x="44" y="0" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="68.8" y="0" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="93.6" y="0" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="118.4" y="0" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="143.2" y="0" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+
+    <rect x="190" y="32" width="10" height="136" fill="#2C4F46" stroke="#1F2E2B" stroke-width="1" />
+    <rect x="194" y="44" width="6" height="12.8" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="194" y="68.8" width="6" height="12.8" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="194" y="93.6" width="6" height="12.8" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="194" y="118.4" width="6" height="12.8" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="194" y="143.2" width="6" height="12.8" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+
+    <rect x="32" y="190" width="136" height="10" fill="#2C4F46" stroke="#1F2E2B" stroke-width="1" />
+    <rect x="44" y="194" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="68.8" y="194" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="93.6" y="194" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="118.4" y="194" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+    <rect x="143.2" y="194" width="12.8" height="6" fill="#3E6F63" stroke="#1F2E2B" stroke-width="0.8" />
+  </g>
+
+  <!-- heraldic shield emblem replacing the shield-anchor marker -->
+  <g>
+    <path d="M83,86 C83,80 117,80 117,86 L117,104 C117,116 100,124 100,124 C100,124 83,116 83,104 Z" fill="url(#shieldGrad)" stroke="#1F2E2B" stroke-width="1.2" />
+    <rect x="93" y="92" width="14" height="10" fill="#9A8C3E" stroke="#1F2E2B" stroke-width="0.7" />
+    <rect x="93" y="89" width="3" height="3" fill="#9A8C3E" stroke="#1F2E2B" stroke-width="0.6" />
+    <rect x="98.5" y="89" width="3" height="3" fill="#9A8C3E" stroke="#1F2E2B" stroke-width="0.6" />
+    <rect x="104" y="89" width="3" height="3" fill="#9A8C3E" stroke="#1F2E2B" stroke-width="0.6" />
+    <rect x="98" y="97" width="4" height="5" fill="#1F2E2B" />
+  </g>
+
+  <rect data-structural="true" data-role="tile-border" x="0.5" y="0.5" width="199" height="199" fill="none" stroke="#1F2E2B" stroke-width="1.5" />
+  <g stroke="#1F2E2B" stroke-width="1.5" stroke-linecap="round" fill="none">
+    <path d="M0,16 L16,0" />
+    <path d="M184,0 L200,16" />
+    <path d="M200,184 L184,200" />
+    <path d="M16,200 L0,184" />
+  </g>
+</svg>

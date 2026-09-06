@@ -30,12 +30,15 @@ id = "REPLACE_WITH_REAL_KV_ID"
 binding = "USER_PROFILES"
 id = "REPLACE_WITH_REAL_KV_ID"
 
-# OIDC + session config: set these as real values in .dev.vars (local) or via
-# `wrangler secret put` (deployed) once you have an IDP. With none set, the app
-# runs in dev mode automatically (mock login, no network round trip to an IDP).
+# OIDC + session config. OIDC_ISSUER/OIDC_CLIENT_ID are not secret and are the
+# same for local dev and production, so they live here. OIDC_REDIRECT_URI
+# differs per environment (localhost vs. the real deployed domain) so it's set
+# per-environment instead: locally in .dev.vars, in production via
+# `wrangler secret put` or a real value here once the domain is known.
+# This client is public/PKCE-only — no OIDC_CLIENT_SECRET needed.
 [vars]
-# OIDC_ISSUER = "https://your-idp.example.com"
-# OIDC_CLIENT_ID = "your-client-id"
+OIDC_ISSUER = "https://pickle-magpie-2000.customers.us1.twilio.dev"
+OIDC_CLIENT_ID = "ciam_client_01m1w8n5ppfkfb5phm969235sh"
 # OIDC_REDIRECT_URI = "https://your-deployed-domain/auth/callback"
 
 # Shared secret the MCP server (src/mcp/server.ts) authenticates with, so agents

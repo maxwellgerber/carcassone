@@ -24,6 +24,7 @@ const ctx = await esbuild.context({
   sourcemap: true,
   minify: !watch,
   logLevel: 'info',
+  loader: { '.svg': 'text' }, // tile art is imported as raw SVG source, wrapped into a data: URI at runtime
 });
 
 if (watch) {

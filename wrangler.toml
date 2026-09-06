@@ -1,9 +1,10 @@
 name = "carcassonne-web"
-main = "src/worker.js"
+main = "src/server/worker.ts"
 compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
 
 [assets]
-directory = "./public"
+directory = "./dist/client"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 run_worker_first = true
@@ -15,3 +16,24 @@ class_name = "GameRoom"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["GameRoom"]
+
+# Room enumeration registry (Durable Objects can't be listed) and per-user display
+# names (set once at first login). Create real namespaces before deploying:
+#   npx wrangler kv namespace create ROOM_REGISTRY
+#   npx wrangler kv namespace create USER_PROFILES
+# then replace the ids below. `wrangler dev` simulates KV locally regardless of id.
+[[kv_namespaces]]
+binding = "ROOM_REGISTRY"
+id = "REPLACE_WITH_REAL_KV_ID"
+
+[[kv_namespaces]]
+binding = "USER_PROFILES"
+id = "REPLACE_WITH_REAL_KV_ID"
+
+# OIDC + session config: set these as real values in .dev.vars (local) or via
+# `wrangler secret put` (deployed) once you have an IDP. With none set, the app
+# runs in dev mode automatically (mock login, no network round trip to an IDP).
+[vars]
+# OIDC_ISSUER = "https://your-idp.example.com"
+# OIDC_CLIENT_ID = "your-client-id"
+# OIDC_REDIRECT_URI = "https://your-deployed-domain/auth/callback"

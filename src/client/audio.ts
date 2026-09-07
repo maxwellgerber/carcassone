@@ -142,40 +142,80 @@ function bell(dest: AudioNode, midi: number, t: number, dur: number, vol: number
 }
 
 // ---------------------------------------------------------------------------
-// The tune. 6/8, D Dorian, ~100 bpm. Written as [midi, eighths] pairs; each bar is
-// six eighths. Two eight-bar phrases (A: rises to the fifth and falls home; B: the
-// answer up on the octave) — the shape of a village dance you could hum by the
-// second time round.
+// The tune: about a minute long, in three sections that loop.
+//   A (16 bars, D Dorian)  — the village dance on the lute: rises to the fifth, falls home.
+//   B (16 bars, D Dorian)  — the answer an octave up, with a harp arpeggio underneath.
+//   C (16 bars, G Dorian)  — a slow hymn on the pipe with bells, before A returns.
+// Written in 6/8 as [midi, eighths] pairs; each bar is six eighths.
 // ---------------------------------------------------------------------------
 type Note = [number, number]; // [midi, length in eighths]
-const D4 = 62, E4 = 64, F4 = 65, G4 = 67, A4 = 69, B4 = 71, C5 = 72, D5 = 74, E5 = 76;
-const MELODY: Note[] = [
-  // A
+const D4 = 62, E4 = 64, F4 = 65, G4 = 67, A4 = 69, Bb4 = 70, B4 = 71, C5 = 72, D5 = 74, E5 = 76, F5 = 77, G5 = 79;
+const SECTION_A: Note[] = [
   [D4, 2], [E4, 1], [F4, 2], [G4, 1],   [A4, 3], [F4, 3],
   [G4, 2], [A4, 1], [B4, 2], [G4, 1],   [A4, 6],
   [C5, 2], [B4, 1], [A4, 2], [G4, 1],   [F4, 2], [G4, 1], [A4, 3],
   [G4, 2], [F4, 1], [E4, 2], [F4, 1],   [D4, 6],
-  // B
   [A4, 2], [A4, 1], [C5, 2], [D5, 1],   [E5, 3], [D5, 3],
   [C5, 2], [D5, 1], [C5, 2], [A4, 1],   [G4, 6],
   [F4, 2], [G4, 1], [A4, 2], [C5, 1],   [B4, 3], [G4, 3],
   [A4, 2], [G4, 1], [F4, 2], [E4, 1],   [D4, 6],
 ];
-// One bass root per bar (16 bars); the fifth above is played on the second big beat.
-const BASS_ROOTS = [38, 38, 43, 45, 48, 41, 43, 38, 38, 45, 48, 43, 41, 43, 45, 38]; // D D G A C F G D | D A C G F G A D
+const SECTION_B: Note[] = [
+  [D5, 2], [E5, 1], [F5, 2], [E5, 1],   [D5, 3], [A4, 3],
+  [C5, 2], [D5, 1], [E5, 2], [D5, 1],   [C5, 6],
+  [B4, 2], [C5, 1], [D5, 2], [C5, 1],   [B4, 3], [G4, 3],
+  [A4, 2], [B4, 1], [C5, 2], [B4, 1],   [A4, 6],
+  [F5, 2], [E5, 1], [D5, 2], [C5, 1],   [D5, 3], [E5, 3],
+  [F5, 2], [G5, 1], [F5, 2], [E5, 1],   [D5, 6],
+  [C5, 2], [D5, 1], [E5, 2], [C5, 1],   [A4, 3], [C5, 3],
+  [B4, 2], [A4, 1], [G4, 2], [F4, 1],   [E4, 3], [D4, 3],
+];
+const SECTION_C: Note[] = [
+  [G4, 3], [A4, 3],                      [Bb4, 4], [A4, 2],
+  [G4, 3], [D5, 3],                      [C5, 6],
+  [Bb4, 2], [C5, 1], [D5, 3],            [E5, 3], [D5, 3],
+  [C5, 2], [Bb4, 1], [A4, 3],            [G4, 6],
+  [D5, 3], [E5, 3],                      [F5, 4], [E5, 2],
+  [D5, 3], [C5, 3],                      [Bb4, 6],
+  [A4, 2], [Bb4, 1], [C5, 3],            [D5, 3], [A4, 3],
+  [Bb4, 2], [A4, 1], [G4, 2], [F4, 1],   [E4, 3], [D4, 3],
+];
+const MELODY: Note[] = [...SECTION_A, ...SECTION_B, ...SECTION_C];
+// One bass root per bar; the fifth above is played on the second big beat.
+const BASS_ROOTS = [
+  38, 38, 43, 45, 48, 41, 43, 38,  38, 45, 48, 43, 41, 43, 45, 38, // A
+  38, 38, 48, 48, 43, 43, 45, 45,  41, 41, 38, 38, 48, 45, 43, 38, // B
+  43, 43, 43, 48, 43, 48, 41, 43,  43, 41, 43, 43, 41, 43, 41, 38, // C
+];
+const BARS = BASS_ROOTS.length;
 const EIGHTHS_PER_BAR = 6;
-const SONG_EIGHTHS = 16 * EIGHTHS_PER_BAR;
-const EIGHTH_SEC = 0.21; // ~95 bpm on the quarter; a relaxed lilt
+const SONG_EIGHTHS = BARS * EIGHTHS_PER_BAR;
+const EIGHTH_SEC = 0.21; // ~95 bpm on the quarter; a relaxed lilt — the whole loop is ~60s
+const sectionOf = (bar: number): 'A' | 'B' | 'C' => (bar < 16 ? 'A' : bar < 32 ? 'B' : 'C');
 
-// Diatonic transposition inside D Dorian, for a harmony line that never leaves the mode.
-const DORIAN = [0, 2, 3, 5, 7, 9, 10]; // semitones above D
-function diatonicUp(midi: number, degrees: number): number {
-  const rel = ((midi - 62) % 12 + 12) % 12;
+// Diatonic transposition inside the mode, for a harmony line that never leaves it.
+const DORIAN = [0, 2, 3, 5, 7, 9, 10]; // semitones above the tonic
+function diatonicUp(midi: number, degrees: number, tonic = 62): number {
+  const rel = ((midi - tonic) % 12 + 12) % 12;
   const deg = DORIAN.indexOf(rel);
   if (deg === -1) return midi + 4;
-  const oct = Math.floor((midi - 62) / 12);
+  const oct = Math.floor((midi - tonic) / 12);
   const nd = deg + degrees;
-  return 62 + (oct + Math.floor(nd / 7)) * 12 + DORIAN[((nd % 7) + 7) % 7]!;
+  return tonic + (oct + Math.floor(nd / 7)) * 12 + DORIAN[((nd % 7) + 7) % 7]!;
+}
+
+/** Harp: a clean, ringing pluck for arpeggios under the B and C sections. */
+function harp(dest: AudioNode, midi: number, t: number, vol: number): void {
+  const c = ctx!;
+  const f = midiHz(midi);
+  const a = c.createOscillator(); a.type = 'sine'; a.frequency.value = f;
+  const b = c.createOscillator(); b.type = 'triangle'; b.frequency.value = f * 2;
+  const bg = c.createGain(); bg.gain.setValueAtTime(0.35, t); bg.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
+  a.connect(g); b.connect(bg); bg.connect(g); g.connect(dest);
+  a.start(t); b.start(t); a.stop(t + 1.35); b.stop(t + 1.35);
 }
 
 interface MelodyEvent { at: number; midi: number; len: number }
@@ -217,17 +257,34 @@ function scheduleEighth(i: number, t: number): void {
   const inSong = i % SONG_EIGHTHS;
   const bar = Math.floor(inSong / EIGHTHS_PER_BAR);
   const beat = inSong % EIGHTHS_PER_BAR;
-  const voices = passCount % 4; // 0: lute + drone, 1: + tabor, 2: + pipe harmony, 3: everything
+  const section = sectionOf(bar);
+  const tonic = section === 'C' ? 67 : 62;
+  const later = passCount >= 1; // second time round, the harmony voice and drum join in
 
   for (const ev of MELODY_EVENTS) {
     if (ev.at !== inSong) continue;
-    pluck(bus, ev.midi, t, ev.len * EIGHTH_SEC, 0.28);
-    if (voices >= 2) pipe(bus, diatonicUp(ev.midi, ev.len >= 3 ? 4 : 2), t + 0.01, ev.len * EIGHTH_SEC * 0.95, 0.045);
+    const dur = ev.len * EIGHTH_SEC;
+    if (section === 'C') {
+      pipe(bus, ev.midi, t + 0.01, dur * 0.96, 0.075);               // the hymn is sung by the pipe
+      if (later) pluck(bus, ev.midi - 12, t, dur, 0.14);            // lute doubles it an octave down
+    } else {
+      pluck(bus, ev.midi, t, dur, 0.28);
+      if (later && ev.len >= 2) pipe(bus, diatonicUp(ev.midi, ev.len >= 3 ? 4 : 2, tonic), t + 0.01, dur * 0.95, 0.04);
+    }
   }
   const root = BASS_ROOTS[bar]!;
   if (beat === 0) pluck(bus, root, t, 3 * EIGHTH_SEC, 0.22);
   if (beat === 3) pluck(bus, root + 7, t, 3 * EIGHTH_SEC, 0.14);
-  if (voices === 1 || voices === 3) {
+  // Harp arpeggio: broken chord over the bar in B, a slower roll in C.
+  if (section === 'B') {
+    const arp = [12, 19, 24, 19, 12, 7];
+    harp(bus, root + arp[beat]!, t, 0.07);
+  } else if (section === 'C' && (beat === 0 || beat === 2 || beat === 4)) {
+    harp(bus, root + [12, 19, 24][beat / 2]!, t, 0.06);
+  }
+  // Bells mark each four-bar phrase of the hymn.
+  if (section === 'C' && beat === 0 && bar % 4 === 0) bell(bus, root + 24, t, 1.6, 0.05);
+  if (later && section !== 'C') {
     if (beat === 0) tabor(bus, t, 0.5);
     if (beat === 3) tabor(bus, t, 0.28);
     if (beat === 5 && bar % 2 === 1) tabor(bus, t, 0.18);

@@ -12,9 +12,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts",
     "test:engine": "tsx scripts/test-engine.ts",
+    "test:room": "tsx scripts/test-room.ts",
     "bot": "tsx scripts/bot.ts",
     "mcp": "tsx src/mcp/server.ts",
-    "test": "npm run typecheck && npm run lint && npm run test:engine"
+    "test": "npm run typecheck && npm run lint && npm run test:engine && npm run test:room"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

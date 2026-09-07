@@ -1,6 +1,8 @@
-import { applyAction, migrateRoom, npcToActNext, type Action, type ApplyContext, type RoomDoc } from './room.js';
+import { applyEvent, foldEvents, migrateRoom, npcToActNext, type Action, type InternalAction, type RoomDoc, type RoomEvent } from './room.js';
 import { chooseNpcMeepleMove, chooseNpcTilePlacement } from './npc.js';
-import { registerRoom } from './registry.js';
+import { registerRoom, recordHistory } from './registry.js';
+import { randomSeed } from '../shared/rng.js';
+import type { ReplayDoc } from '../shared/room-types.js';
 import type { Env } from './env.js';
 
 interface WsAttachment {
@@ -10,10 +12,17 @@ interface WsAttachment {
 const NPC_MOVE_DELAY_MS = [700, 1400] as const;
 const IDLE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // no activity for this long -> reset the room
 
+const evKey = (seq: number) => `ev:${String(seq).padStart(9, '0')}`;
+
+/** A room is the fold of its event log. Storage holds every event under `ev:<seq>`
+ *  plus a `room` snapshot of the fold so far; on load the snapshot is taken and any
+ *  events past it (a crash between the two writes, or a manual repair) are folded
+ *  in. The snapshot is a cache, the log is the truth. */
 export class GameRoom implements DurableObject {
   private state: DurableObjectState;
   private env: Env;
   private room!: RoomDoc;
+  private roomId = '';
   private loaded: Promise<void>;
 
   constructor(state: DurableObjectState, env: Env) {
@@ -22,11 +31,11 @@ export class GameRoom implements DurableObject {
     this.loaded = this.state.blockConcurrencyWhile(async () => {
       const raw = await this.state.storage.get('room');
       this.room = migrateRoom(raw, Date.now());
+      this.roomId = (await this.state.storage.get<string>('roomId')) ?? '';
+      // Catch up on any events the snapshot doesn't include yet.
+      const tail = await this.state.storage.list<RoomEvent>({ prefix: 'ev:', start: evKey(this.room.seq + 1) });
+      for (const ev of tail.values()) applyEvent(this.room, ev);
     });
-  }
-
-  private ctx(): ApplyContext {
-    return { now: Date.now(), rng: Math.random, newId: () => crypto.randomUUID() };
   }
 
   private async persist(): Promise<void> {
@@ -40,21 +49,25 @@ export class GameRoom implements DurableObject {
     }
   }
 
-  /** The one mutation entrypoint. Snapshots before mutating and rolls back the
-   *  in-memory room on any throw, so a bug (ours or a future game mode's) can never
-   *  leave `this.room` ahead of what's actually persisted and broadcast. */
-  private async commit(playerId: string, action: Action): Promise<void> {
+  /** The one mutation entrypoint: record an event, fold it, persist both. Rolls the
+   *  in-memory room back on any throw, so a bug (ours or a future game mode's) can
+   *  never leave `this.room` ahead of what's actually persisted and broadcast. */
+  private async commit(playerId: string, action: Action | InternalAction): Promise<void> {
     const snapshot = structuredClone(this.room);
-    const ctx = this.ctx();
+    const ev: RoomEvent = { seq: this.room.seq + 1, ts: Date.now(), playerId, seed: randomSeed(), action };
+    const gamesBefore = this.room.games.length;
     try {
-      applyAction(this.room, playerId, action, ctx);
+      applyEvent(this.room, ev);
     } catch (err) {
       this.room = snapshot;
       throw err;
     }
-    this.room.lastActivityAt = ctx.now;
-    await this.persist();
+    await this.state.storage.put({ [evKey(ev.seq)]: ev, room: this.room });
     this.broadcast();
+    if (this.room.games.length > gamesBefore) {
+      const summary = this.room.games[this.room.games.length - 1]!;
+      await recordHistory(this.env.ROOM_REGISTRY, this.roomId, summary);
+    }
     await this.scheduleNextAlarm();
   }
 
@@ -88,11 +101,9 @@ export class GameRoom implements DurableObject {
           await this.commit(npc.id, move);
         }
       } catch (err) {
-        // An NPC failing to move should never wedge the room — log and let the next
-        // scheduled check (if any) retry rather than throwing out of alarm().
-        this.room.chat.push({ id: crypto.randomUUID(), system: true, text: `(${npc.id} hesitated: ${String(err)})`, ts: Date.now() });
-        await this.persist();
-        this.broadcast();
+        // An NPC failing to move should never wedge the room — note it and let the
+        // next scheduled check (if any) retry rather than throwing out of alarm().
+        try { await this.commit(npc.id, { type: 'system_note', text: `(${npc.id} hesitated: ${String(err)})` }); } catch { /* noted best-effort */ }
         await this.scheduleNextAlarm();
       }
       return;
@@ -108,9 +119,14 @@ export class GameRoom implements DurableObject {
   async fetch(request: Request): Promise<Response> {
     await this.loaded;
     const url = new URL(request.url);
+    const hinted = request.headers.get('X-Room-Id');
+    if (hinted && hinted !== this.roomId) { this.roomId = hinted; await this.state.storage.put('roomId', hinted); }
     if (url.pathname.endsWith('/ws')) return this.handleWebSocketUpgrade(request);
     if (url.pathname.endsWith('/action')) return this.handleRpcAction(request);
     if (url.pathname.endsWith('/state')) return this.handleGetState(request);
+    const replay = url.pathname.match(/\/replay\/([^/]+)$/);
+    if (replay) return this.handleReplay(request, replay[1]!);
+    if (url.pathname.endsWith('/verify')) return this.handleVerify(request);
     return new Response('not found', { status: 404 });
   }
 
@@ -134,13 +150,8 @@ export class GameRoom implements DurableObject {
 
     const wasEmpty = this.room.players.length === 0;
     await this.commit(playerId, { type: 'join', name });
-    if (wasEmpty) await registerRoom(this.env.ROOM_REGISTRY, this.roomIdGuess(), playerId);
+    if (wasEmpty) await registerRoom(this.env.ROOM_REGISTRY, this.roomId || this.state.id.toString(), playerId);
     return new Response(null, { status: 101, webSocket: client });
-  }
-
-  private roomIdGuess(): string {
-    // Best-effort label for the registry; the DO doesn't otherwise know its own name.
-    return this.state.id.toString();
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
@@ -163,29 +174,14 @@ export class GameRoom implements DurableObject {
     const { playerId } = ws.deserializeAttachment() as WsAttachment;
     const stillOpen = this.state.getWebSockets(playerId).length > 0;
     if (stillOpen) return; // another tab for the same player is still connected
-    const player = this.room.players.find((p) => p.id === playerId);
-    if (!player) return;
-    if (this.room.phase === 'lobby') {
-      this.room.players = this.room.players.filter((p) => p.id !== playerId);
-      this.migrateHostIfNeeded(playerId);
-      this.room.chat.push({ id: crypto.randomUUID(), system: true, text: `${player.name} left.`, ts: Date.now() });
-    } else {
-      player.connected = false;
-      this.migrateHostIfNeeded(playerId);
-      this.room.chat.push({ id: crypto.randomUUID(), system: true, text: `${player.name} disconnected.`, ts: Date.now() });
-    }
-    await this.persist();
-    this.broadcast();
+    if (!this.room.players.some((p) => p.id === playerId)) return;
+    try {
+      await this.commit(playerId, { type: this.room.phase === 'lobby' ? 'leave' : 'disconnect' });
+    } catch { /* a departure that fails to record is harmless; the next join reconciles */ }
   }
 
   async webSocketError(): Promise<void> {
     // Runtime will follow with webSocketClose; nothing additional to do here.
-  }
-
-  private migrateHostIfNeeded(departingId: string): void {
-    if (this.room.hostId !== departingId) return;
-    const next = this.room.players.find((p) => p.connected && !p.isNpc && p.id !== departingId);
-    this.room.hostId = next?.id ?? this.room.players.find((p) => !p.isNpc)?.id ?? null;
   }
 
   // -------------------------------------------------------------------------
@@ -203,7 +199,7 @@ export class GameRoom implements DurableObject {
     const wasEmpty = action.type === 'join' && this.room.players.length === 0;
     try {
       await this.commit(playerId, action);
-      if (wasEmpty) await registerRoom(this.env.ROOM_REGISTRY, this.roomIdGuess(), playerId);
+      if (wasEmpty) await registerRoom(this.env.ROOM_REGISTRY, this.roomId || this.state.id.toString(), playerId);
     } catch (err) {
       return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 400 });
     }
@@ -214,6 +210,37 @@ export class GameRoom implements DurableObject {
     const playerId = request.headers.get('X-Verified-User-Id');
     if (!playerId) return new Response('missing verified identity', { status: 401 });
     return Response.json({ room: this.room });
+  }
+
+  /** The recorded seed and moves of one finished game, for the client to replay
+   *  through the same engine. */
+  private async handleReplay(request: Request, gameId: string): Promise<Response> {
+    if (!request.headers.get('X-Verified-User-Id')) return new Response('missing verified identity', { status: 401 });
+    const summary = this.room.games.find((g) => g.id === gameId);
+    if (!summary) return Response.json({ error: 'No such game in this room (replays expire when a room is cleaned up).' }, { status: 404 });
+    const events = await this.state.storage.list<RoomEvent>({ start: evKey(summary.firstSeq), end: evKey(summary.lastSeq + 1) });
+    const moves: ReplayDoc['moves'] = [];
+    for (const ev of events.values()) {
+      const a = ev.action;
+      if (a.type === 'place_tile' || a.type === 'place_meeple' || a.type === 'skip_meeple') moves.push({ seq: ev.seq, ts: ev.ts, playerId: ev.playerId, action: a });
+    }
+    const doc: ReplayDoc = { roomId: this.roomId, summary, moves };
+    return Response.json(doc);
+  }
+
+  /** Debug/ops: fold the whole log from scratch and report whether it matches the
+   *  live document. Cheap insurance that the event log really is the truth. */
+  private async handleVerify(request: Request): Promise<Response> {
+    if (!request.headers.get('X-Verified-User-Id')) return new Response('missing verified identity', { status: 401 });
+    const events = await this.state.storage.list<RoomEvent>({ prefix: 'ev:' });
+    const list = [...events.values()];
+    const first = list[0];
+    const rebuilt = foldEvents(list, first?.ts ?? this.room.createdAt);
+    // Rooms that predate the log carry state the log can't reproduce; compare only
+    // when the log starts at seq 1.
+    const comparable = first?.seq === 1;
+    const same = comparable && JSON.stringify(rebuilt.game) === JSON.stringify(this.room.game) && JSON.stringify(rebuilt.players) === JSON.stringify(this.room.players);
+    return Response.json({ events: list.length, seq: this.room.seq, comparable, matches: same });
   }
 }
 
@@ -236,6 +263,6 @@ function toAction(msg: unknown): Action | null {
     case 'skip_meeple': return { type: 'skip_meeple' };
     case 'new_game': return { type: 'new_game' };
     case 'chat': return typeof m.text === 'string' ? { type: 'chat', text: m.text } : null;
-    default: return null;
+    default: return null; // internal action types never come from clients
   }
 }

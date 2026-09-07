@@ -7,9 +7,10 @@ import { createGame, placeMeeple, placeTile, skipMeeple } from '../shared/engine
 import { PLAYER_COLORS } from '../shared/engine.js';
 import type { GameConfig, NpcDifficulty } from '../shared/types.js';
 import { DEFAULT_CONFIG } from '../shared/types.js';
-import type { Action, ChatEntry, RoomDoc, RoomPhase, RoomPlayer } from '../shared/room-types.js';
+import type { Action, ChatEntry, GameSummary, InternalAction, RoomDoc, RoomEvent, RoomPhase, RoomPlayer } from '../shared/room-types.js';
 import type { GameState } from '../shared/types.js';
-export type { Action, ChatEntry, RoomDoc, RoomPhase, RoomPlayer } from '../shared/room-types.js';
+import { mkRng } from '../shared/rng.js';
+export type { Action, ChatEntry, GameSummary, InternalAction, RoomDoc, RoomEvent, RoomPhase, RoomPlayer } from '../shared/room-types.js';
 
 export const MAX_PLAYERS = 6;
 export const MAX_NPCS = 5; // leave room for at least one human
@@ -25,6 +26,8 @@ export function freshRoom(now: number): RoomDoc {
     chat: [],
     createdAt: now,
     lastActivityAt: now,
+    seq: 0,
+    games: [],
   };
 }
 
@@ -36,6 +39,8 @@ export function migrateRoom(raw: unknown, now: number): RoomDoc {
   if (r.schemaVersion === 2 && r.config) {
     if (typeof r.lastActivityAt !== 'number') r.lastActivityAt = now;
     r.config = { ...DEFAULT_CONFIG, ...(r.config as Partial<GameConfig>), monasteryScoring: true, shieldBonus: true, meeplesPerPlayer: 7 };
+    if (typeof r.seq !== 'number') r.seq = 0;
+    if (!Array.isArray(r.games)) r.games = [];
     return r as RoomDoc;
   }
   return {
@@ -48,6 +53,8 @@ export function migrateRoom(raw: unknown, now: number): RoomDoc {
     chat: Array.isArray(r.chat) ? (r.chat as ChatEntry[]) : [],
     createdAt: (r.createdAt as number) ?? now,
     lastActivityAt: now,
+    seq: 0,
+    games: [],
   };
 }
 
@@ -88,6 +95,34 @@ export interface ApplyContext {
   now: number;
   rng: () => number;
   newId: () => string;
+  /** The event being applied, when there is one (replay and live both go through events). */
+  seq?: number;
+  seed?: number;
+}
+
+/** Fold one recorded event into the room. Everything random or time-based inside
+ *  the action comes from the event itself, so replaying the log rebuilds the exact
+ *  same document — that is the whole contract of the event log. */
+export function applyEvent(room: RoomDoc, ev: RoomEvent): void {
+  let n = 0;
+  const ctx: ApplyContext = { now: ev.ts, rng: mkRng(ev.seed), newId: () => `${ev.seq}.${++n}`, seq: ev.seq, seed: ev.seed };
+  applyAction(room, ev.playerId, ev.action, ctx);
+  room.seq = ev.seq;
+  room.lastActivityAt = ev.ts;
+}
+
+/** Rebuild a room from scratch out of its events. */
+export function foldEvents(events: RoomEvent[], createdAt: number): RoomDoc {
+  const room = freshRoom(createdAt);
+  for (const ev of events) applyEvent(room, ev);
+  return room;
+}
+
+/** When the host leaves, the next connected human takes over. */
+export function migrateHostIfNeeded(room: RoomDoc, departingId: string): void {
+  if (room.hostId !== departingId) return;
+  const next = room.players.find((p) => p.connected && !p.isNpc && p.id !== departingId);
+  room.hostId = next?.id ?? room.players.find((p) => !p.isNpc)?.id ?? null;
 }
 
 /** Shared by the WebSocket upgrade path and the MCP-facing RPC surface — anyone
@@ -113,15 +148,31 @@ function joinOrReconnect(room: RoomDoc, playerId: string, name: string, ctx: App
  *  a bare Error, so the DO can tell "rejected" apart from "actually crashed") if the
  *  action is illegal. The caller is responsible for persisting/broadcasting only on
  *  success — see room-do.ts's snapshot/rollback wrapper. */
-export function applyAction(room: RoomDoc, playerId: string, action: Action, ctx: ApplyContext): void {
+export function applyAction(room: RoomDoc, playerId: string, action: Action | InternalAction, ctx: ApplyContext): void {
   if (action.type === 'join') {
     joinOrReconnect(room, playerId, action.name, ctx);
+    return;
+  }
+  if (action.type === 'system_note') {
+    pushSystemChat(room, action.text, ctx.now, ctx.newId());
     return;
   }
   const player = room.players.find((p) => p.id === playerId);
   if (!player) throw new ActionError('Unknown player — join the room first');
 
   switch (action.type) {
+    case 'leave': {
+      room.players = room.players.filter((p) => p.id !== playerId);
+      migrateHostIfNeeded(room, playerId);
+      pushSystemChat(room, `${player.name} left.`, ctx.now, ctx.newId());
+      return;
+    }
+    case 'disconnect': {
+      player.connected = false;
+      migrateHostIfNeeded(room, playerId);
+      pushSystemChat(room, `${player.name} disconnected.`, ctx.now, ctx.newId());
+      return;
+    }
     case 'set_name': {
       const name = action.name.trim().slice(0, 24);
       if (name) player.name = name;
@@ -167,6 +218,8 @@ export function applyAction(room: RoomDoc, playerId: string, action: Action, ctx
         room.config,
       );
       room.phase = 'playing';
+      room.gameStart = ctx.seq !== undefined && ctx.seed !== undefined ? { seq: ctx.seq, seed: ctx.seed } : undefined;
+      room.gameStartedAt = ctx.now;
       pushSystemChat(room, 'The game has begun. Good luck!', ctx.now, ctx.newId());
       return;
     }
@@ -221,6 +274,27 @@ function maybeEndGame(room: RoomDoc, ctx: ApplyContext): void {
   if (room.game && room.game.phase === 'gameover' && room.phase !== 'ended') {
     room.phase = 'ended';
     pushSystemChat(room, 'The game has ended! Final scores are in.', ctx.now, ctx.newId());
+    // Record the game so it can be listed and replayed later. Only games whose
+    // `start` was itself an event can be replayed (older rooms predate the log).
+    if (room.gameStart && ctx.seq !== undefined) {
+      const g = room.game;
+      const summary: GameSummary = {
+        id: ctx.newId(),
+        no: room.games.length + 1,
+        startedAt: room.gameStartedAt ?? ctx.now,
+        endedAt: ctx.now,
+        config: { ...g.config },
+        players: g.players.map((p) => ({ id: p.id, name: p.name, color: p.color, isNpc: p.isNpc, npcDifficulty: p.npcDifficulty, score: p.score })),
+        winnerIds: g.winnerIds ?? [],
+        seed: room.gameStart.seed,
+        firstSeq: room.gameStart.seq,
+        lastSeq: ctx.seq,
+        tilesPlaced: Object.keys(g.board).length,
+      };
+      room.games.push(summary);
+      if (room.games.length > 50) room.games.shift();
+    }
+    room.gameStart = undefined;
   }
 }
 

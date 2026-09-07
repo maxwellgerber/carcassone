@@ -258,6 +258,20 @@ else {
   await scoreLine.click();
   if (await A.page.$('.log-entry-score.pinned')) errors.push('second click did not unpin');
 }
+// Event log: the server can rebuild this exact room from its events, the finished
+// game is summarised, and its replay reproduces the final board.
+const verify = await A.page.evaluate(async (r) => (await fetch(`/api/room/${r}/verify`)).json(), room);
+if (!verify.comparable || !verify.matches) errors.push(`event log does not rebuild the room: ${JSON.stringify(verify)}`);
+else console.log(`  🧾 event log: ${verify.events} events fold to the live room`);
+const summaries = await A.page.evaluate(() => window.__carcassonne.room().games);
+if (!summaries?.length) errors.push('no game summary recorded at game over');
+else {
+  const rep = await A.page.evaluate(async ([r, id]) => (await fetch(`/api/room/${r}/replay/${id}`)).json(), [room, summaries[0].id]);
+  if (!rep.moves?.length || rep.summary?.seed === undefined) errors.push(`replay doc incomplete: ${JSON.stringify(rep).slice(0, 200)}`);
+  else console.log(`  🎞  replay: ${rep.moves.length} moves, ${rep.summary.tilesPlaced} tiles`);
+  const hist = await A.page.evaluate(async () => (await fetch('/api/history')).json());
+  if (!hist.games?.some((g) => g.summary.id === summaries[0].id)) errors.push('finished game missing from /api/history');
+}
 await A.page.click('button:has-text("Final scores")');
 if (!(await A.page.$('.modal-backdrop'))) errors.push('end modal did not reopen');
 console.log('\nfinal:', finalA);

@@ -1,6 +1,6 @@
 export { GameRoom } from './room-do.js';
 import { getSession, handleCallback, handleDevLogin, handleLogin, handleLogout, handleSetName, isDevMode } from './auth.js';
-import { listRooms } from './registry.js';
+import { listHistory, listRooms } from './registry.js';
 import type { Env } from './env.js';
 
 function normalizeRoomId(id: string | undefined): string {
@@ -47,6 +47,11 @@ export default {
       const session = await getSession(request, env);
       return Response.json({ signedIn: !!session, sub: session?.sub ?? null, name: session?.name ?? null, devMode: isDevMode(env) });
     }
+    if (url.pathname === '/api/history') {
+      const session = await getSession(request, env);
+      if (!session) return new Response('Unauthorized', { status: 401 });
+      return Response.json({ games: await listHistory(env.ROOM_REGISTRY, session.sub) });
+    }
     if (url.pathname === '/api/rooms') {
       const session = verifyAgent(request, env) ?? (await getSession(request, env));
       if (!session) return new Response('Unauthorized', { status: 401 });
@@ -73,7 +78,7 @@ export default {
       const rest = url.pathname.slice('/api/room/'.length);
       const [rawId, sub] = rest.split('/');
       const roomId = normalizeRoomId(rawId);
-      if (!roomId || !sub || !['ws', 'action', 'state'].includes(sub)) return new Response('not found', { status: 404 });
+      if (!roomId || !sub || !['ws', 'action', 'state', 'replay', 'verify'].includes(sub)) return new Response('not found', { status: 404 });
 
       const agent = sub !== 'ws' ? verifyAgent(request, env) : null; // agents use the RPC surface, never hold a WS open
       let identity: VerifiedIdentity;
@@ -90,6 +95,7 @@ export default {
       const forwardHeaders = new Headers(request.headers);
       forwardHeaders.set('X-Verified-User-Id', identity.id);
       forwardHeaders.set('X-Verified-User-Name', identity.name);
+      forwardHeaders.set('X-Room-Id', roomId);
       const forwarded = new Request(request.url, { method: request.method, headers: forwardHeaders, body: request.body });
       return stub.fetch(forwarded);
     }

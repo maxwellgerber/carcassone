@@ -3,6 +3,7 @@
 // stay in sync, and this module can be imported verbatim everywhere.
 
 import { TILE_TYPES, SIDES, OPPOSITE, DIRS, NEIGHBOR_SLOT_PAIRS, buildDeck, rotateEdges, rotateSlot } from './tiles.js';
+import type { EdgeType } from './types.js';
 import type {
   GameConfig, GameState, Meeple, MeepleKind, MeepleOption, Placement, PlayerInfo, PlayerState,
 } from './types.js';
@@ -19,7 +20,7 @@ export const QUICK_GAME_TILE_COUNT = 36; // roughly half the full 72-tile deck
 
 export function createGame(playerInfos: PlayerInfo[], rng: () => number, config: Partial<GameConfig> = {}): GameState {
   const cfg: GameConfig = { ...DEFAULT_CONFIG, ...config };
-  const deck = buildDeck(rng, cfg.quickGame ? QUICK_GAME_TILE_COUNT : undefined);
+  const deck = buildDeck(rng, cfg.quickGame ? QUICK_GAME_TILE_COUNT : undefined, cfg.river);
   const players: PlayerState[] = playerInfos.map((p, i) => ({
     id: p.id,
     name: p.name,
@@ -49,6 +50,7 @@ export function createGame(playerInfos: PlayerInfo[], rng: () => number, config:
   // gets a meeple on it. `placedBy: -1` marks it as the table's, not a player's.
   const startTile = deck.shift()!;
   state.board[key(0, 0)] = { tileKey: startTile, rot: 0, placedBy: -1, placedTurn: -1 };
+  if (cfg.river) state.riverLastTurn = 0;
   drawNextTile(state);
   return state;
 }
@@ -100,7 +102,33 @@ export function isLegalPlacement(state: GameState, tileKey: string, rot: number,
     const theirs = nbEdges[OPPOSITE[sIdx]!];
     if (mine !== theirs) return false;
   }
-  return touchesAny;
+  if (!touchesAny) return false;
+  if (TILE_TYPES[tileKey]!.river) return riverPlacementOk(state, edges, x, y);
+  return true;
+}
+
+/** River tiles have two extra rules: each must continue the river (a water edge has to
+ *  meet the river's open end), and a bend may not turn the same way as the previous
+ *  bend, so the river never loops back into itself. */
+function riverPlacementOk(state: GameState, edges: EdgeType[], x: number, y: number): boolean {
+  const waterSides = [0, 1, 2, 3].filter((sIdx) => edges[sIdx] === 'V');
+  const joined = waterSides.filter((sIdx) => {
+    const d = DIRS[SIDES[sIdx]!];
+    const nb = getOccupied(state, x + d.dx, y + d.dy);
+    return !!nb && rotateEdges(TILE_TYPES[nb.tileKey]!.edges, nb.rot)[OPPOSITE[sIdx]!] === 'V';
+  });
+  if (joined.length === 0) return false;
+  const turn = riverTurn(waterSides, joined[0]!);
+  if ((turn === 1 || turn === 3) && state.riverLastTurn === turn) return false;
+  return true;
+}
+
+/** 0 = straight or river end, 1 = turns right, 3 = turns left (entering from `inSide`). */
+function riverTurn(waterSides: number[], inSide: number): number {
+  const out = waterSides.find((s) => s !== inSide);
+  if (out === undefined) return 0;
+  const t = (out - inSide + 4) % 4;
+  return t === 2 ? 0 : t;
 }
 
 /** Enumerate every legal {x,y,rot} for the current tile. Board is small; brute force is fine. */
@@ -129,6 +157,16 @@ export function placeTile(state: GameState, x: number, y: number, rot: number): 
   if (!state.currentTile) throw new Error('No tile to place');
   if (!isLegalPlacement(state, state.currentTile, rot, x, y)) throw new Error('Illegal placement');
   state.board[key(x, y)] = { tileKey: state.currentTile, rot, placedBy: state.currentPlayer, placedTurn: state.turnNumber };
+  const t = TILE_TYPES[state.currentTile]!;
+  if (t.river) {
+    const edges = rotateEdges(t.edges, rot);
+    const waterSides = [0, 1, 2, 3].filter((sIdx) => edges[sIdx] === 'V');
+    const inSide = waterSides.find((sIdx) => { const d = DIRS[SIDES[sIdx]!]; return !!getOccupied(state, x + d.dx, y + d.dy); });
+    const turn = inSide === undefined ? 0 : riverTurn(waterSides, inSide);
+    // Rules: "tiles showing a bend cannot be placed in the same direction as a
+    // previously placed bending tile" — so straights in between don't reset it.
+    if (turn === 1 || turn === 3) state.riverLastTurn = turn;
+  }
   state.phase = 'placeMeeple';
   state.lastPlaced = { x, y, rot };
   // Nothing on this tile can take a meeple (every feature already claimed, or the

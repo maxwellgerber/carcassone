@@ -1,6 +1,6 @@
 // "Parchment Atlas": an old cartographer's survey — foxed cream paper, sepia ink
 // linework, cross-hatched city blocks, dotted roads, a compass rose on the cloister.
-import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, roundRect, shieldPath, shieldAnchor } from './geometry.js';
+import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, roundRect, shieldPath, shieldAnchor, drawRiver, monasteryCenter } from './geometry.js';
 import type { Skin } from './types.js';
 
 const INK = '#4a3524';
@@ -97,6 +97,8 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   }
 
   // Cities: hatched blocks with an inked crenellated wall.
+  drawRiver(ctx, t, { water: '#cfd6c6', deep: '#c2ccbf', bank: '#a9a184', foam: 'rgba(74,53,36,0.45)', bridgeDeck: '#e6d7b3', bridgeRail: INK }, rng);
+
   t.cityGroups.forEach((_, gi) => {
     const city = cityPath(t, gi);
     ctx.fillStyle = CITY; ctx.fill(city);
@@ -109,6 +111,7 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   strokeWalls(ctx, t, 1.1, INK, [3, 3]); // battlements
 
   if (t.monastery) {
+    const [mx, my] = monasteryCenter(t); ctx.save(); ctx.translate(mx - 100, my - 100);
     compassRose(ctx, 100, 100, 26);
     // The chapel itself, small, to the south of the rose.
     ctx.save(); ctx.translate(100, 152);
@@ -116,6 +119,7 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
     ctx.beginPath(); ctx.rect(-18, -10, 36, 18); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-20, -10); ctx.lineTo(0, -22); ctx.lineTo(20, -10); ctx.closePath(); ctx.fillStyle = '#c8b087'; ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(0, -30); ctx.moveTo(-3, -27); ctx.lineTo(3, -27); ctx.stroke();
+    ctx.restore();
     ctx.restore();
   }
 

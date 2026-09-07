@@ -32,6 +32,8 @@ export const DIRS: Record<'N' | 'E' | 'S' | 'W', { dx: number; dy: number }> = {
   W: { dx: -1, dy: 0 },
 };
 
+// A road or a river running to an edge keeps that edge's two half-slots apart;
+// only an open field edge joins them.
 function computeFieldRegions(edges: EdgeType[], cityGroupOfSide: number[]): FieldRegion[] {
   const isCitySlot = (i: number) => edges[SLOT_SIDE[i]!] === 'C';
   const adj: Set<number>[] = Array.from({ length: 8 }, () => new Set());
@@ -95,6 +97,8 @@ interface TileSpec {
   shield?: boolean;
   monastery?: boolean;
   count: number;
+  river?: boolean;
+  riverRole?: 'spring' | 'lake';
 }
 
 function makeTile(spec: TileSpec): TileType {
@@ -120,6 +124,8 @@ function makeTile(spec: TileSpec): TileType {
     shield: !!spec.shield,
     monastery: !!spec.monastery,
     count: spec.count,
+    river: !!spec.river,
+    riverRole: spec.riverRole,
   };
 }
 
@@ -153,9 +159,27 @@ const SPECS: TileSpec[] = [
   { key: 'road_cross', label: 'Crossroads', edges: { N: 'R', E: 'R', S: 'R', W: 'R' }, count: 1 }, // X
 ];
 
-export const TILE_TYPES: Record<string, TileType> = Object.fromEntries(SPECS.map((s) => [s.key, makeTile(s)]));
+// The River (the mini-expansion boxed with the 3.0 base game): 12 tiles laid before
+// the base deck, from the spring to the lake. Water edges ('V') only ever meet water.
+const RIVER_SPECS: TileSpec[] = [
+  { key: 'river_spring', label: 'Spring', edges: { N: 'F', E: 'V', S: 'F', W: 'F' }, count: 1, river: true, riverRole: 'spring' },
+  { key: 'river_lake', label: 'Lake', edges: { N: 'F', E: 'F', S: 'F', W: 'V' }, count: 1, river: true, riverRole: 'lake' },
+  { key: 'river_straight', label: 'River', edges: { N: 'F', E: 'V', S: 'F', W: 'V' }, count: 1, river: true },
+  { key: 'river_curve', label: 'River Bend', edges: { N: 'F', E: 'F', S: 'V', W: 'V' }, count: 2, river: true },
+  { key: 'river_straight_road', label: 'Bridge', edges: { N: 'R', E: 'V', S: 'R', W: 'V' }, count: 1, river: true },
+  { key: 'river_straight_city', label: 'Riverside City', edges: { N: 'C', E: 'V', S: 'F', W: 'V' }, cityGroups: [['N']], count: 1, river: true },
+  { key: 'river_straight_two_cities', label: 'Two Banks', edges: { N: 'C', E: 'V', S: 'C', W: 'V' }, cityGroups: [['N'], ['S']], count: 1, river: true },
+  { key: 'river_straight_monastery', label: 'Riverside Cloister', edges: { N: 'F', E: 'V', S: 'F', W: 'V' }, monastery: true, count: 1, river: true },
+  { key: 'river_curve_city', label: 'City on the Bend', edges: { N: 'C', E: 'F', S: 'V', W: 'V' }, cityGroups: [['N']], count: 1, river: true },
+  { key: 'river_curve_road', label: 'Bend & Road', edges: { N: 'R', E: 'R', S: 'V', W: 'V' }, count: 1, river: true },
+  { key: 'river_curve_monastery', label: 'Cloister on the Bend', edges: { N: 'F', E: 'F', S: 'V', W: 'V' }, monastery: true, count: 1, river: true },
+];
+
+export const TILE_TYPES: Record<string, TileType> = Object.fromEntries([...SPECS, ...RIVER_SPECS].map((s) => [s.key, makeTile(s)]));
 export const START_TILE_KEY = 'city_cap_road_straight';
 export const TOTAL_TILE_COUNT = SPECS.reduce((a, s) => a + s.count, 0); // 72, matches the physical base game
+export const RIVER_TILE_COUNT = RIVER_SPECS.reduce((a, s) => a + s.count, 0); // 12
+export const RIVER_TILE_KEYS = RIVER_SPECS.map((s) => s.key);
 
 export function rotatedEdge(tileKey: string, rot: number, side: number): EdgeType {
   const t = TILE_TYPES[tileKey]!;
@@ -171,17 +195,24 @@ export { OPPOSITE, SLOT_SIDE, CORNER_PAIRS };
 /** `maxTiles` (the "quick game" mode) truncates the shuffled deck to roughly that
  *  many tiles — the start tile is always included and always first, so pass a
  *  count that includes it. Omit for the full 72-tile deck. */
-export function buildDeck(rng: () => number, maxTiles?: number): string[] {
+/** With `river`, the spring becomes the start tile, the other river tiles follow in
+ *  random order with the lake always last, and the whole base deck (start tile copy
+ *  included) is shuffled in after them. `maxTiles` then limits only the base part. */
+export function buildDeck(rng: () => number, maxTiles?: number, river = false): string[] {
+  const shuffle = (arr: string[]) => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j]!, arr[i]!]; } return arr; };
   const bag: string[] = [];
   for (const spec of SPECS) for (let i = 0; i < spec.count; i++) bag.push(spec.key);
-  const startIdx = bag.indexOf(START_TILE_KEY);
-  bag.splice(startIdx, 1);
-  // Fisher-Yates
-  for (let i = bag.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [bag[i], bag[j]] = [bag[j]!, bag[i]!];
+  if (!river) {
+    bag.splice(bag.indexOf(START_TILE_KEY), 1);
+    shuffle(bag);
+    const full = [START_TILE_KEY, ...bag];
+    if (maxTiles === undefined || maxTiles >= full.length) return full;
+    return full.slice(0, Math.max(1, maxTiles));
   }
-  const full = [START_TILE_KEY, ...bag];
-  if (maxTiles === undefined || maxTiles >= full.length) return full;
-  return full.slice(0, Math.max(1, maxTiles));
+  const middle: string[] = [];
+  for (const spec of RIVER_SPECS) if (!spec.riverRole) for (let i = 0; i < spec.count; i++) middle.push(spec.key);
+  shuffle(middle);
+  shuffle(bag);
+  const base = maxTiles === undefined ? bag : bag.slice(0, Math.max(1, maxTiles - 1));
+  return ['river_spring', ...middle, 'river_lake', ...base];
 }

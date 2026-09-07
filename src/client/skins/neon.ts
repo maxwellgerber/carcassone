@@ -1,7 +1,7 @@
 // "Neon Grid": a rain-slick night city — asphalt fields with a faint cyan survey
 // grid, cities as dense blocks of lit windows behind glowing walls, roads as dark
 // lanes with a hot yellow centre line, and the cloister a floodlit shrine.
-import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, shieldPath, shieldAnchor } from './geometry.js';
+import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, shieldPath, shieldAnchor, drawRiver, monasteryCenter } from './geometry.js';
 import type { Skin } from './types.js';
 
 const ASPHALT = '#161a2b';
@@ -79,9 +79,12 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
     }
   }
 
+  drawRiver(ctx, t, { water: '#0e2a3d', deep: '#0a1f2e', bank: 'rgba(63,240,255,0.35)', foam: 'rgba(63,240,255,0.55)', bridgeDeck: LANE, bridgeRail: CYAN }, rng);
+
   t.cityGroups.forEach((_, gi) => {
     const city = cityPath(t, gi);
     ctx.fillStyle = BLOCK; ctx.fill(city);
+
     ctx.save(); ctx.clip(city);
     ctx.strokeStyle = 'rgba(255,79,216,0.12)'; ctx.lineWidth = 1;
     for (let v = 0; v < SIZE; v += 10) { ctx.beginPath(); ctx.moveTo(v, 0); ctx.lineTo(v, SIZE); ctx.moveTo(0, v); ctx.lineTo(SIZE, v); ctx.stroke(); }
@@ -92,6 +95,7 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   strokeWalls(ctx, t, 1.8, CYAN, [], { color: CYAN, blur: 10 });
 
   if (t.monastery) {
+    const [mx, my] = monasteryCenter(t); ctx.save(); ctx.translate(mx - 100, my - 100);
     // A floodlit shrine: stepped platform, pagoda roof, beam of light.
     const g = ctx.createRadialGradient(100, 100, 4, 100, 100, 56);
     g.addColorStop(0, 'rgba(255,210,63,0.30)'); g.addColorStop(1, 'rgba(255,210,63,0)');
@@ -105,6 +109,7 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
     glow(ctx, AMBER, 14, () => { ctx.fillStyle = AMBER; ctx.beginPath(); ctx.arc(100, 98, 4, 0, Math.PI * 2); ctx.fill(); });
     ctx.strokeStyle = 'rgba(255,210,63,0.5)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(100, 66); ctx.lineTo(100, 52); ctx.stroke();
+    ctx.restore();
   }
 
   if (t.shield) {

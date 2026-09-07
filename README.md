@@ -15,9 +15,12 @@ MCP server.
 - No friends around, or hit an agent usage limit? Add an NPC opponent
   (easy/normal/hard) from the lobby — it plays its own turns automatically via
   a Durable Object alarm, using the same rules engine as everyone else.
-- Toggle game-mode variants in the lobby before starting: farm scoring,
-  cloisters, the shield bonus, a shorter "quick game" deck (~36 tiles instead
-  of 72), and meeples-per-player (5–9).
+- Game modes follow the 3.0 rulebook: cloisters are always in play, coats of
+  arms are always worth 2 points, everyone has 7 meeples. The lobby offers the
+  rules' real variables — **Fields** (farmers) and **The River** (12 river
+  tiles laid first, source to lake, continuing the river and never bending
+  back the way the last bend went) — plus a "quick game" house rule (~36
+  regular tiles instead of 72).
 - Tiles are hand-illustrated SVGs in the "Verdigris Gearworks" style (patinated
   brass, cross-hatch shading, chamfered corners) — see `docs/tile-geometry-contract.md`
   for how independently-drawn tiles are guaranteed to line up at every edge. The
@@ -130,7 +133,8 @@ The engine tests check the trickiest parts of the rules directly (no
 server/browser needed): placement legality and input validation, city/road/
 monastery completion via cross-tile graph traversal, farm scoring, the exact
 72-tile distribution, all game-mode variants, the pre-placed start tile, the
-automatic meeple skip, and the "unplaceable tile is discarded" rule.
+automatic meeple skip, the River's deck order and placement rules, and the
+"unplaceable tile is discarded" rule.
 
 Two heavier checks are available on demand:
 

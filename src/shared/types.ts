@@ -1,6 +1,6 @@
 // Shared types used by the engine, the server, and the client. No I/O, no framework deps.
 
-export type EdgeType = 'C' | 'R' | 'F'; // City, Road, Field
+export type EdgeType = 'C' | 'R' | 'F' | 'V'; // City, Road, Field, riVer
 export type Side = 0 | 1 | 2 | 3; // N, E, S, W
 export type MeepleKind = 'city' | 'road' | 'monastery' | 'farm';
 
@@ -15,6 +15,10 @@ export interface TileType {
   shield: boolean;
   monastery: boolean;
   count: number;
+  /** River expansion tile: placed before the base deck, must continue the river. */
+  river: boolean;
+  /** 'spring' is the first tile of the river (it replaces the start tile), 'lake' the last. */
+  riverRole?: 'spring' | 'lake';
 }
 
 export interface FieldRegion {
@@ -54,18 +58,24 @@ export type NpcDifficulty = 'easy' | 'normal' | 'hard';
 /** Game-mode / rule-variant toggles. Every field must have a safe default so older
  *  persisted rooms without a `config` at all still behave exactly as before. */
 export interface GameConfig {
+  /** Fields: farmers score 3 per completed city they supply at the end (rules 3.0 include this; it's the classic on/off). */
   farmScoring: boolean;
+  /** The River mini-expansion: 12 river tiles laid first, spring to lake, before the base deck. */
+  river: boolean;
+  quickGame: boolean; // roughly half the deck, for a shorter game (a house rule)
+  // The following are fixed by the rules and no longer offered in the lobby; they stay
+  // on the type so older rooms and the engine's own tests keep working unchanged.
   monasteryScoring: boolean;
-  shieldBonus: boolean; // +2 pts per shield when a city with one closes (on top of the base 2 pts/tile)
-  quickGame: boolean; // roughly half the deck, for a shorter game
-  meeplesPerPlayer: number;
+  shieldBonus: boolean; // coats of arms are always worth 2 points (1 unfinished)
+  meeplesPerPlayer: number; // 7
 }
 
 export const DEFAULT_CONFIG: GameConfig = {
   farmScoring: true,
+  river: false,
+  quickGame: false,
   monasteryScoring: true,
   shieldBonus: true,
-  quickGame: false,
   meeplesPerPlayer: 7,
 };
 
@@ -92,6 +102,9 @@ export interface GameState {
   turnNumber: number;
   lastPlaced: LastPlaced | null;
   winnerIds: string[] | null;
+  /** River: the turn the last river tile made (1 = right, 3 = left, 0 = straight/none), so
+   *  the next curve can be forbidden from doubling back. Absent in games without the river. */
+  riverLastTurn?: number;
 }
 
 export interface PlayerInfo {

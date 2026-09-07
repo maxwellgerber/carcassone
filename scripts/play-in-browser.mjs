@@ -59,6 +59,7 @@ await B.page.goto(`${BASE}/r/${room}`);
 await B.page.waitForSelector('text=The Table Is Set');
 await A.page.click('text=+ Hard NPC');
 await A.page.click('label:has-text("Quick game") input');
+if (process.env.RIVER) await A.page.click('label:has-text("The River") input');
 await A.page.waitForSelector('text=Start game (3 players)');
 await snap(A.page, '01-lobby');
 await A.page.click('text=Start game (3 players)');

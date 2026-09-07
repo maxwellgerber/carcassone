@@ -1,7 +1,7 @@
 // "Storybook Meadow": a picture-book countryside — bright pastel grass dotted with
 // flowers, pink castle walls with round blue-roofed towers, caramel roads with
 // white cobbles, and a gingerbread chapel with an icing roof.
-import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, roundRect, shieldPath, shieldAnchor } from './geometry.js';
+import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, roundRect, shieldPath, shieldAnchor, drawRiver, monasteryCenter } from './geometry.js';
 import type { Skin } from './types.js';
 
 const GRASS = '#a9dd7a';
@@ -85,9 +85,12 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
     }
   }
 
+  drawRiver(ctx, t, { water: '#6cc3ec', deep: '#4fb0e0', bank: '#e8d9a0', foam: 'rgba(255,255,255,0.8)', bridgeDeck: '#c98f5a', bridgeRail: OUTLINE }, rng);
+
   t.cityGroups.forEach((_, gi) => {
     const city = cityPath(t, gi);
     ctx.fillStyle = '#f7c9d9'; ctx.fill(city);
+
     ctx.save(); ctx.clip(city);
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     for (let yy = 4; yy < SIZE; yy += 9) for (let xx = (yy / 9) % 2 ? 0 : 7; xx < SIZE; xx += 14) { roundRect(ctx, xx, yy, 11, 5.5, 2); ctx.fill(); }
@@ -99,6 +102,7 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   strokeWalls(ctx, t, 1.4, OUTLINE);
 
   if (t.monastery) {
+    const [mx, my] = monasteryCenter(t); ctx.save(); ctx.translate(mx - 100, my - 100);
     // Gingerbread chapel with an icing roof and a candy-cane spire.
     ctx.fillStyle = 'rgba(60,30,50,0.18)'; ctx.beginPath(); ctx.ellipse(102, 130, 40, 9, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#b8743f'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.4;
@@ -113,6 +117,7 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.2; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(100, 66); ctx.lineTo(100, 50); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = '#ffd35e'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(100, 48, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     for (let i = 0; i < 6; i++) { ctx.fillStyle = ['#ff6f91', '#7dc4ff', '#ffd35e'][i % 3]!; ctx.beginPath(); ctx.arc(72 + i * 11, 122, 2, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
   }
 
   if (t.shield) {

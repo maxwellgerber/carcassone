@@ -6,6 +6,7 @@ import type { Skin } from './types.js';
 import { parchment } from './parchment.js';
 import { neon } from './neon.js';
 import { storybook } from './storybook.js';
+import { paintVerdigris } from './verdigris-river.js';
 
 export type { Skin } from './types.js';
 
@@ -43,6 +44,7 @@ export const verdigris: Skin = {
   ui: {},
   board: ['#5F7A6E', '#3E534A'],
   table: verdigrisTable,
+  paint: paintVerdigris, // only reached for tiles without SVG art (the River)
 };
 
 export const SKINS: Skin[] = [verdigris, parchment, neon, storybook];

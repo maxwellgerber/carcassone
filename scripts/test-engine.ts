@@ -1,6 +1,6 @@
 import * as E from '../src/shared/engine.js';
 import type { GameConfig, GameState } from '../src/shared/types.js';
-import { TILE_TYPES, TOTAL_TILE_COUNT, buildDeck } from '../src/shared/tiles.js';
+import { TILE_TYPES, TOTAL_TILE_COUNT, RIVER_TILE_COUNT, buildDeck } from '../src/shared/tiles.js';
 
 let pass = 0, fail = 0;
 function assert(cond: boolean, msg: string): void {
@@ -243,6 +243,42 @@ function blankGame(players: { id: string; name: string }[], seed: number, config
   assert(g.deck.length + 2 === 72, `72 tiles = start tile + current tile + ${g.deck.length} in the bag`);
   assert(E.getLegalPlacements(g).every((p) => !(p.x === 0 && p.y === 0)), 'nothing can go on top of the start tile');
   assert(E.getMeepleOptions(g).length === 0, 'no meeple decision is offered before a tile is placed');
+}
+
+// --- Test 16: the River — spring first, lake last, then the whole base deck ---
+{
+  const g = E.createGame([{ id: 'a', name: 'Alice' }, { id: 'b', name: 'Bob' }], mkRng(20), { river: true });
+  assert(g.board['0,0']?.tileKey === 'river_spring', 'the spring is the start tile');
+  assert(g.deck.length + 2 === TOTAL_TILE_COUNT + RIVER_TILE_COUNT, `river game deals ${TOTAL_TILE_COUNT + RIVER_TILE_COUNT} tiles, got ${g.deck.length + 2}`);
+  assert(RIVER_TILE_COUNT === 12, 'the River has 12 tiles');
+  const riverPart = [g.currentTile!, ...g.deck.slice(0, 10)];
+  assert(riverPart.every((k) => TILE_TYPES[k]!.river) && riverPart[riverPart.length - 1] === 'river_lake', `the 11 tiles after the spring are river tiles ending with the lake, got ${riverPart.join(',')}`);
+  assert(g.deck.slice(10).every((k) => !TILE_TYPES[k]!.river), 'no river tiles after the lake');
+  assert(g.deck.slice(10).includes('city_cap_road_straight') && g.deck.slice(10).length === TOTAL_TILE_COUNT, 'the base deck (start tile included) follows in full');
+}
+
+// --- Test 17: river tiles must continue the river and may not double back ---
+{
+  const g = E.createGame([{ id: 'a', name: 'Alice' }], mkRng(21), { river: true }); // spring at (0,0), water on E
+  g.currentTile = 'river_straight'; // water W–E at rot 0
+  assert(E.isLegalPlacement(g, 'river_straight', 0, 1, 0), 'a straight continues the river eastward');
+  assert(!E.isLegalPlacement(g, 'river_straight', 1, 1, 0), 'a straight turned N–S beside the spring does not meet the water');
+  assert(!E.isLegalPlacement(g, 'river_straight', 0, 0, 1), 'field-to-field on the spring\'s south side is not a river continuation');
+  g.currentTile = 'river_curve'; // water S+W at rot 0
+  E.placeTile(g, 1, 0, 0); // enters from W, leaves S
+  E.skipMeeple(g);
+  assert(g.riverLastTurn === 3, `first bend recorded (turn ${g.riverLastTurn})`);
+  g.currentTile = 'river_curve';
+  assert(!E.isLegalPlacement(g, 'river_curve', 1, 1, 1), 'a second bend the same way (a U-turn) is forbidden');
+  assert(E.isLegalPlacement(g, 'river_curve', 2, 1, 1), 'a bend the other way is fine');
+  g.currentTile = 'river_straight';
+  assert(E.isLegalPlacement(g, 'river_straight', 1, 1, 1), 'a straight between bends is fine');
+  assert(!E.isLegalPlacement(g, 'city_cap', 0, 1, 1), 'a base tile cannot sit on the open river end');
+  E.placeTile(g, 1, 1, 1); // river now flows south through (1,1)
+  E.skipMeeple(g);
+  g.currentTile = 'river_curve';
+  assert(!E.isLegalPlacement(g, 'river_curve', 1, 1, 2), 'after a straight, a bend the same way as the last bend is still forbidden');
+  assert(E.isLegalPlacement(g, 'river_curve', 2, 1, 2), 'a bend the other way is allowed');
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

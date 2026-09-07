@@ -35,6 +35,7 @@ export function migrateRoom(raw: unknown, now: number): RoomDoc {
   const r = raw as Partial<RoomDoc> & Record<string, unknown>;
   if (r.schemaVersion === 2 && r.config) {
     if (typeof r.lastActivityAt !== 'number') r.lastActivityAt = now;
+    r.config = { ...DEFAULT_CONFIG, ...(r.config as Partial<GameConfig>), monasteryScoring: true, shieldBonus: true, meeplesPerPlayer: 7 };
     return r as RoomDoc;
   }
   return {
@@ -225,13 +226,11 @@ function maybeEndGame(room: RoomDoc, ctx: ApplyContext): void {
 
 function sanitizeConfig(partial: Partial<GameConfig>): Partial<GameConfig> {
   const out: Partial<GameConfig> = {};
+  // Only the rules' real variables are settable: Fields, the River, and the quick-game
+  // house rule. Cloisters, coats of arms and the 7-meeple supply are fixed by the rules.
   if (typeof partial.farmScoring === 'boolean') out.farmScoring = partial.farmScoring;
-  if (typeof partial.monasteryScoring === 'boolean') out.monasteryScoring = partial.monasteryScoring;
-  if (typeof partial.shieldBonus === 'boolean') out.shieldBonus = partial.shieldBonus;
+  if (typeof partial.river === 'boolean') out.river = partial.river;
   if (typeof partial.quickGame === 'boolean') out.quickGame = partial.quickGame;
-  if (typeof partial.meeplesPerPlayer === 'number' && Number.isInteger(partial.meeplesPerPlayer) && partial.meeplesPerPlayer >= 1 && partial.meeplesPerPlayer <= 12) {
-    out.meeplesPerPlayer = partial.meeplesPerPlayer;
-  }
   return out;
 }
 

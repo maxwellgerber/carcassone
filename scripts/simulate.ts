@@ -23,6 +23,9 @@ const configs: Partial<GameConfig>[] = [
   { quickGame: true },
   { meeplesPerPlayer: 5 },
   { farmScoring: false, monasteryScoring: false, shieldBonus: false, quickGame: true, meeplesPerPlayer: 9 },
+  { river: true },
+  { river: true, quickGame: true },
+  { river: true, farmScoring: false },
 ];
 
 let autoSkips = 0, discards = 0, totalTurns = 0, maxTurnMs = 0;

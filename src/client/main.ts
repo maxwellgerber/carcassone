@@ -5,6 +5,7 @@ import type { GameConfig, MeepleKind, NpcDifficulty } from '../shared/types.js';
 import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, preloadTileArt, type MeepleLook } from './art.js';
 import { h, toast } from './dom.js';
 import { SKINS, currentSkin, setSkin, onSkinChange, applySkinToDocument } from './skins/index.js';
+import { monasteryCenter } from './skins/geometry.js';
 import {
   unlockAudio, isMusicOn, isSfxOn, setMusic, setSfx,
   sfxTilePlaced, sfxMeeplePlaced, sfxScore, sfxYourTurn, sfxGameOver,
@@ -281,17 +282,10 @@ function renderLobby(): HTMLElement {
 
   const modesPanel = h('div', { class: 'panel', style: 'padding:1rem 1.2rem' },
     h('h2', { style: 'font-size:1rem' }, '⚙️ Game modes'),
-    ...configToggle(r, isHost, 'farmScoring', 'Farm scoring', 'Farmers score points for completed cities at the end of the game. Turn off for a shorter, simpler game.'),
-    ...configToggle(r, isHost, 'monasteryScoring', 'Cloisters', 'Include cloister tiles and monk scoring.'),
-    ...configToggle(r, isHost, 'shieldBonus', 'Shield bonus', 'Cities with a shield score +2 extra points when they close (+1 if unfinished at game end).'),
-    ...configToggle(r, isHost, 'quickGame', 'Quick game', `Play with a ~${QUICK_GAME_TILE_COUNT}-tile deck instead of the full 72, for a shorter game.`),
-    h('label', { style: 'display:flex;gap:0.6rem;align-items:center;margin-top:0.3rem' },
-      h('span', {}, h('strong', {}, 'Meeples per player')),
-      h('select', {
-        disabled: !isHost,
-        onchange: (e: Event) => send({ type: 'set_config', config: { meeplesPerPlayer: Number((e.target as HTMLSelectElement).value) } }),
-      }, ...[5, 6, 7, 8, 9].map((n) => h('option', { value: n, selected: r.config.meeplesPerPlayer === n }, String(n)))),
-    ),
+    ...configToggle(r, isHost, 'farmScoring', 'Fields', 'Farmers claim fields and score 3 points per completed city their field supplies, at the end of the game. Turn off for a simpler game.'),
+    ...configToggle(r, isHost, 'river', 'The River', 'Twelve river tiles are laid first, from the spring to the lake, before the regular tiles. The river must keep flowing and may not double back.'),
+    ...configToggle(r, isHost, 'quickGame', 'Quick game', `A shorter game: about ${QUICK_GAME_TILE_COUNT} regular tiles instead of 72.`),
+    h('p', { style: 'color:var(--ink-soft);font-size:0.8rem;margin:0.2rem 0 0' }, 'Cloisters are always in play, coats of arms score 2 points each, and everyone has 7 meeples.'),
   );
 
   const skinPanel = h('div', { class: 'panel', style: 'padding:1rem 1.2rem' },
@@ -309,7 +303,7 @@ function renderLobby(): HTMLElement {
   const rules = h('div', { class: 'rules-card panel' },
     h('h3', {}, 'How to play'),
     h('p', {}, 'On your turn, place the drawn tile so its edges match its neighbours, then optionally place one meeple by clicking a ghost on that tile: a ', h('b', {}, 'knight'), ' in a city, a ', h('b', {}, 'highwayman'), ' on a road, a ', h('b', {}, 'monk'), ' in a cloister, or a ', h('b', {}, 'farmer'), ' in a field.'),
-    h('p', {}, 'Completed cities score 2 pts/tile (+2 per shield), roads 1 pt/tile, cloisters 9 pts. Unclaimed farms score 3 pts per completed city they touch — tallied at the very end.'),
+    h('p', {}, 'Completed cities score 2 pts per tile and 2 per coat of arms, roads 1 pt per tile, cloisters 9 pts. Unfinished features score 1 per tile at the end. Fields score 3 pts per completed city they supply — tallied at the very end.'),
   );
 
   return h('div', { class: 'lobby' },
@@ -416,7 +410,10 @@ function renderPlacementBar(): void {
   placementBarEl.innerHTML = '';
   if (!pending) {
     placementBarEl.className = 'board-hint';
-    placementBarEl.textContent = coarsePointer ? 'Tap a glowing cell to set the tile down' : 'Click a glowing cell to set the tile down • drag to pan • R to rotate';
+    const riverTile = !!room?.game?.currentTile && TILE_TYPES[room.game.currentTile]!.river;
+    placementBarEl.textContent = riverTile
+      ? (coarsePointer ? 'River tile: tap the glowing cell at the river\u2019s end' : 'River tile: click the glowing cell at the river\u2019s end • R to rotate')
+      : (coarsePointer ? 'Tap a glowing cell to set the tile down' : 'Click a glowing cell to set the tile down • drag to pan • R to rotate');
     return;
   }
   const rots = legalRotsAt(pending.x, pending.y);
@@ -515,7 +512,7 @@ function rawMeepleAnchor(tileKey: string, rot: number, kind: string, idx: number
   const t = TILE_TYPES[tileKey]!;
   const MID: Record<number, [number, number]> = { 0: [0.5, 0.06], 1: [0.94, 0.5], 2: [0.5, 0.94], 3: [0.06, 0.5] };
   const SLOT_POS: [number, number][] = [[0.3, 0.08], [0.7, 0.08], [0.92, 0.3], [0.92, 0.7], [0.7, 0.92], [0.3, 0.92], [0.08, 0.7], [0.08, 0.3]];
-  if (kind === 'monastery') return [0.5, 0.52];
+  if (kind === 'monastery') { const [mx, my] = monasteryCenter(t); return [mx / 200, my / 200 + 0.02]; }
   if (kind === 'city') {
     const abs = rotateGroupSides(t.cityGroups[idx]!, rot);
     const pts = abs.map((s) => MID[s]!);
@@ -643,7 +640,7 @@ function walkPathFor(m: { x: number; y: number; kind: MeepleKind; idx: number; p
   let loop = true, speed = 0.05; // tile units per second
   if (m.kind === 'road') { pts = roadPolyline(tileKey, rot, m.idx); loop = false; speed = 0.07; }
   else if (m.kind === 'city') { for (let i = 0; i <= 16; i++) { const t = (i / 16) * Math.PI * 2; pts.push([ax + Math.cos(t) * 0.075, ay + Math.sin(t) * 0.045]); } speed = 0.045; }
-  else if (m.kind === 'monastery') { for (let i = 0; i <= 20; i++) { const t = (i / 20) * Math.PI * 2; pts.push([0.5 + Math.cos(t) * 0.2, 0.55 + Math.sin(t) * 0.16]); } speed = 0.06; }
+  else if (m.kind === 'monastery') { const r = TILE_TYPES[tileKey]!.river ? 0.13 : 0.2; for (let i = 0; i <= 20; i++) { const t = (i / 20) * Math.PI * 2; pts.push([ax + Math.cos(t) * r, ay + 0.03 + Math.sin(t) * r * 0.8]); } speed = 0.06; }
   else { pts = [[ax, ay]]; speed = 0; }
   const cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1]! + Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]));

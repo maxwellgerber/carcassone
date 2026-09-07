@@ -83,7 +83,9 @@ onSkinChange(() => tileCanvasCache.clear());
 const canonicalCache = new Map<string, HTMLCanvasElement>();
 function canonicalArt(tileKey: string, size: number): CanvasImageSource | null {
   const skin = currentSkin();
-  if (!skin.paint) return tileImages.get(tileKey) ?? null;
+  // The hand-drawn set uses its SVG whenever it has one; only tiles without art
+  // (the River) fall through to its procedural painter.
+  if (!skin.paint || (skin.id === 'verdigris' && tileImages.has(tileKey))) return tileImages.get(tileKey) ?? null;
   const k = `${skin.id}:${tileKey}:${size}`;
   const cached = canonicalCache.get(k);
   if (cached) return cached;
@@ -104,8 +106,9 @@ export function getTileCanvasIn(skinId: string, tileKey: string, size: number): 
   canvas.width = size; canvas.height = size;
   const ctx = canvas.getContext('2d')!;
   const skin = SKINS.find((s) => s.id === skinId);
-  if (skin?.paint) { ctx.save(); ctx.scale(size / 200, size / 200); skin.paint(ctx, tileKey); ctx.restore(); }
-  else { const img = tileImages.get(tileKey); if (img) ctx.drawImage(img, 0, 0, size, size); }
+  const img = tileImages.get(tileKey);
+  if (skin?.paint && !(skin.id === 'verdigris' && img)) { ctx.save(); ctx.scale(size / 200, size / 200); skin.paint(ctx, tileKey); ctx.restore(); }
+  else if (img) ctx.drawImage(img, 0, 0, size, size);
   return canvas;
 }
 

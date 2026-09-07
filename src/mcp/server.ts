@@ -67,7 +67,7 @@ function randomRoomId(): string {
 const server = new McpServer({ name: 'carcassonne', version: '1.0.0' });
 
 server.tool('create_room', 'Create a new Carcassonne room and join it as this agent. Returns the room id and a shareable URL.', {
-  gameConfig: z.object({ farmScoring: z.boolean().optional(), monasteryScoring: z.boolean().optional() }).optional()
+  gameConfig: z.object({ farmScoring: z.boolean().optional(), river: z.boolean().optional(), quickGame: z.boolean().optional() }).optional()
     .describe('Optional game-mode toggles, host-only and only settable before start.'),
 }, async ({ gameConfig }) => {
   const roomId = randomRoomId();

@@ -10,6 +10,9 @@ export const SIZE = 200;
 export const ROAD_W = 40;
 export const HUB_R = 60;
 export const JUNCTION_R = 24;
+export const RIVER_W = 44;
+export const POOL_R = 30; // spring pool
+export const LAKE_R = 52;
 
 export type Pt = [number, number];
 
@@ -136,10 +139,110 @@ export function allRoadsPath(t: TileType): Path2D {
 
 export function hasJunction(t: TileType): boolean { return t.roadGroups.length >= 3; }
 
+export function waterSides(t: TileType): number[] { return [0, 1, 2, 3].filter((s) => t.edges[s] === 'V'); }
+
+/** Centre line of the river: straight, a quarter-circle bend (like roads), or from
+ *  the edge into the middle for the spring and the lake. */
+export function riverPath(t: TileType): Path2D | null {
+  const ws = waterSides(t);
+  if (!ws.length) return null;
+  const p = new Path2D();
+  const [ax, ay] = MID[ws[0]!]!;
+  p.moveTo(ax, ay);
+  if (ws.length === 2) {
+    const b = ws[1]!;
+    const [bx, by] = MID[b]!;
+    if ((ws[0]! + 2) % 4 === b) p.lineTo(bx, by);
+    else {
+      const [cx, cy] = CORNERS[[ws[0]!, b].sort((x, y) => x - y).join(',')]!;
+      const a0 = Math.atan2(ay - cy, ax - cx), a1 = Math.atan2(by - cy, bx - cx);
+      let d = a1 - a0; if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
+      p.arc(cx, cy, 100, a0, a1, d < 0);
+    }
+  } else {
+    p.lineTo(100, 100);
+  }
+  return p;
+}
+
+/** Where the cloister stands: the tile centre, unless a river runs through it, in
+ *  which case it moves onto the bank (north of a straight river, into the open
+ *  corner of a bend). Meeple anchors use the same spot. */
+export function monasteryCenter(t: TileType): Pt {
+  const ws = waterSides(t);
+  if (!t.monastery || ws.length === 0) return [100, 100];
+  if (ws.length === 2 && (ws[0]! + 2) % 4 === ws[1]) return ws.includes(0) ? [148, 100] : [100, 50];
+  // A bend hugs one corner; the cloister goes to the opposite one.
+  const cx = ws.includes(1) ? 52 : 148, cy = ws.includes(2) ? 52 : 148;
+  return [cx, cy];
+}
+
+/** Does the road cross the river on this tile? (Only on a straight-through pair.) */
+export function hasBridge(t: TileType): boolean {
+  const ws = waterSides(t);
+  return ws.length === 2 && (ws[0]! + 2) % 4 === ws[1] && t.roadGroups.some((g) => g.length === 2 && (g[0]! + 2) % 4 === g[1] && !ws.includes(g[0]!));
+}
+
+export interface RiverStyle {
+  water: string; deep: string; bank: string; foam: string;
+  /** Extra decoration drawn on top of the water (ripples, fish…), clipped to it. */
+  ripples?: (ctx: CanvasRenderingContext2D, rng: () => number) => void;
+  bridgeDeck: string; bridgeRail: string;
+}
+
+/** Paints the water: banks, the band, a pool at the spring or a lake at the mouth,
+ *  and a bridge deck where a road crosses. Call after roads, before cities. */
+export function drawRiver(ctx: CanvasRenderingContext2D, t: TileType, style: RiverStyle, rng: () => number): void {
+  const path = riverPath(t);
+  if (!path) return;
+  const pool = t.riverRole === 'spring' ? POOL_R : t.riverRole === 'lake' ? LAKE_R : 0;
+  const strokeWater = (w: number, color: string) => {
+    ctx.save(); ctx.lineWidth = w; ctx.strokeStyle = color; ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; ctx.stroke(path);
+    if (pool) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(100, 100, pool + (w - RIVER_W) / 2, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+  };
+  strokeWater(RIVER_W + 8, style.bank);
+  strokeWater(RIVER_W, style.water);
+  strokeWater(RIVER_W * 0.55, style.deep);
+  // Ripples / decoration, clipped to the water.
+  ctx.save();
+  const clip = new Path2D();
+  if (pool) { clip.moveTo(100 + pool, 100); clip.arc(100, 100, pool, 0, Math.PI * 2); }
+  // Approximate the band clip with a fat stroke rendered to a scratch layer would be
+  // costly; instead draw decoration with a wide dashed stroke along the path itself.
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = style.foam; ctx.lineWidth = 1.6; ctx.setLineDash([5, 11]); ctx.lineDashOffset = rng() * 16;
+  ctx.save(); ctx.translate(0, -RIVER_W * 0.22); ctx.stroke(path); ctx.restore();
+  ctx.save(); ctx.translate(0, RIVER_W * 0.22); ctx.lineDashOffset = 8; ctx.stroke(path); ctx.restore();
+  ctx.setLineDash([]);
+  if (pool) { ctx.clip(clip); style.ripples?.(ctx, rng); }
+  ctx.restore();
+  if (t.riverRole === 'spring') {
+    // A little stone spring in the middle of the pool.
+    ctx.fillStyle = style.bank; ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1;
+    for (const [dx, dy, r] of [[-6, -4, 5], [5, -6, 4], [2, 5, 5], [-7, 6, 3.5]] as [number, number, number][]) { ctx.beginPath(); ctx.arc(100 + dx, 100 + dy, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    ctx.strokeStyle = style.foam; ctx.lineWidth = 1.4;
+    for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(100, 100, 10 + i * 5, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  if (hasBridge(t)) {
+    const road = t.roadGroups.find((g) => g.length === 2)!;
+    const vertical = road.includes(0);
+    ctx.save(); ctx.translate(100, 100); if (!vertical) ctx.rotate(Math.PI / 2);
+    const hw = ROAD_W / 2 + 3, hl = RIVER_W / 2 + 10;
+    ctx.fillStyle = style.bridgeDeck; ctx.strokeStyle = style.bridgeRail; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.rect(-hw, -hl, hw * 2, hl * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-hw, -hl); ctx.lineTo(-hw, hl); ctx.moveTo(hw, -hl); ctx.lineTo(hw, hl); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+    for (let y = -hl + 4; y < hl; y += 5) { ctx.beginPath(); ctx.moveTo(-hw + 2, y); ctx.lineTo(hw - 2, y); ctx.stroke(); }
+    ctx.restore();
+  }
+}
+
 export interface Layout {
   t: TileType;
   cities: Path2D;
   roads: Path2D;
+  river: Path2D | null;
   /** True when (x,y) is clear of every city, road, monastery footprint and junction. */
   isOpenField(ctx: CanvasRenderingContext2D, x: number, y: number, pad?: number): boolean;
 }
@@ -148,17 +251,21 @@ export function layoutFor(key: string): Layout {
   const t = TILE_TYPES[key]!;
   const cities = allCitiesPath(t);
   const roads = allRoadsPath(t);
+  const river = riverPath(t);
+  const pool = t.riverRole === 'spring' ? POOL_R : t.riverRole === 'lake' ? LAKE_R : 0;
   return {
-    t, cities, roads,
+    t, cities, roads, river,
     isOpenField(ctx, x, y, pad = 8) {
       if (x < pad || y < pad || x > SIZE - pad || y > SIZE - pad) return false;
       const probe: Pt[] = [[x, y], [x - pad, y], [x + pad, y], [x, y - pad], [x, y + pad]];
       ctx.save();
       ctx.lineWidth = ROAD_W + pad * 2;
-      const bad = probe.some(([px, py]) => ctx.isPointInPath(cities, px, py) || (t.roadGroups.length > 0 && ctx.isPointInStroke(roads, px, py)));
+      let bad = probe.some(([px, py]) => ctx.isPointInPath(cities, px, py) || (t.roadGroups.length > 0 && ctx.isPointInStroke(roads, px, py)));
+      if (!bad && river) { ctx.lineWidth = RIVER_W + 8 + pad * 2; bad = probe.some(([px, py]) => ctx.isPointInStroke(river, px, py)); }
       ctx.restore();
       if (bad) return false;
-      if (t.monastery && Math.abs(x - 100) < 44 + pad && Math.abs(y - 100) < 34 + pad) return false;
+      if (pool && Math.hypot(x - 100, y - 100) < pool + 6 + pad) return false;
+      if (t.monastery) { const [mx, my] = monasteryCenter(t); if (Math.abs(x - mx) < 44 + pad && Math.abs(y - my) < 34 + pad) return false; }
       if (hasJunction(t) && Math.hypot(x - 100, y - 100) < JUNCTION_R + 18 + pad) return false;
       return true;
     },

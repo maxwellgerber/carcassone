@@ -1,9 +1,13 @@
 import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
 import { getLegalPlacements, getMeepleOptions, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
 import type { RoomDoc } from '../shared/room-types.js';
-import type { GameConfig, NpcDifficulty } from '../shared/types.js';
+import type { GameConfig, MeepleKind, NpcDifficulty } from '../shared/types.js';
 import { getTileCanvas, getTileBackCanvas, getMeepleCanvas, preloadTileArt } from './art.js';
 import { h, toast } from './dom.js';
+import {
+  unlockAudio, isMusicOn, isSfxOn, setMusic, setSfx,
+  sfxTilePlaced, sfxMeeplePlaced, sfxScore, sfxYourTurn, sfxGameOver,
+} from './audio.js';
 
 // ---------------------------------------------------------------------------
 // Session (identity now comes entirely from the server-verified cookie session —
@@ -166,9 +170,10 @@ function connectSocket(roomId: string): void {
   socket.addEventListener('message', (ev) => {
     const msg = JSON.parse(ev.data as string);
     if (msg.type === 'sync') {
-      const prevTile = room?.game?.currentTile;
+      const prev = room;
       room = msg.room as RoomDoc;
-      if (room.game && room.game.currentTile !== prevTile) previewRot = 0;
+      if (room.game && room.game.currentTile !== prev?.game?.currentTile) previewRot = 0;
+      reactToSync(prev, room);
       renderRoom();
     } else if (msg.type === 'error') {
       toast(msg.message);
@@ -182,6 +187,37 @@ function connectSocket(roomId: string): void {
 }
 
 function send(obj: Record<string, unknown>): void { if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(obj)); }
+
+/** Everything that should happen *because the world changed* (sounds, toasts) is
+ *  derived here by diffing the previous room document against the new one — the
+ *  server never sends events, only state, so this is the one place that notices
+ *  "a tile landed", "someone scored", "it's your turn now". */
+let awaitingMeepleDecision = false; // set when we place a tile, cleared on the next sync
+function reactToSync(prev: RoomDoc | null, next: RoomDoc): void {
+  const g = next.game, pg = prev?.game ?? null;
+  const justPlacedTile = awaitingMeepleDecision;
+  awaitingMeepleDecision = false;
+  if (!g) return;
+  const sameGame = !!pg && prev!.phase !== 'lobby';
+  if (!sameGame) return;
+
+  if (Object.keys(g.board).length > Object.keys(pg!.board).length) sfxTilePlaced();
+  if (g.meeples.length > pg!.meeples.length) sfxMeeplePlaced();
+
+  let biggest = 0, mine = false;
+  g.players.forEach((p, i) => {
+    const gained = p.score - (pg!.players[i]?.score ?? 0);
+    if (gained > biggest) { biggest = gained; mine = p.id === me.sub; }
+  });
+  if (biggest > 0) sfxScore(biggest, mine);
+
+  if (next.phase === 'ended' && prev!.phase !== 'ended') sfxGameOver();
+  else if (g.phase !== 'gameover' && isMyTurn() && !(pg!.players[pg!.currentPlayer]?.id === me.sub && pg!.phase !== 'gameover')) sfxYourTurn();
+
+  // We placed a tile and the server moved straight on to the next player: the engine
+  // found nothing a meeple could go on. Say so, since the board won't pause to ask.
+  if (justPlacedTile && g.phase === 'placeTile' && !isMyTurn() && g.log[0]?.includes('turn passes')) toast(g.log[0]);
+}
 
 function renderRoom(): void {
   root.innerHTML = '';
@@ -258,7 +294,7 @@ function renderLobby(): HTMLElement {
 
   const rules = h('div', { class: 'rules-card panel' },
     h('h3', {}, 'How to play'),
-    h('p', {}, 'On your turn, place the drawn tile so its edges match its neighbours, then optionally place one meeple: a ', h('b', {}, 'knight'), ' in a city, a ', h('b', {}, 'highwayman'), ' on a road, a ', h('b', {}, 'monk'), ' in a cloister, or a ', h('b', {}, 'farmer'), ' in a field.'),
+    h('p', {}, 'On your turn, place the drawn tile so its edges match its neighbours, then optionally place one meeple by clicking a ghost on that tile: a ', h('b', {}, 'knight'), ' in a city, a ', h('b', {}, 'highwayman'), ' on a road, a ', h('b', {}, 'monk'), ' in a cloister, or a ', h('b', {}, 'farmer'), ' in a field.'),
     h('p', {}, 'Completed cities score 2 pts/tile (+2 per shield), roads 1 pt/tile, cloisters 9 pts. Unclaimed farms score 3 pts per completed city they touch — tallied at the very end.'),
   );
 
@@ -317,6 +353,55 @@ let particles: { x: number; y: number; vx: number; vy: number; color: string; si
 let windowListenersAttached = false;
 let dragState: { x: number; y: number; cx: number; cy: number } | null = null;
 let dragMovedFar = false;
+let hoveredGhost: MeepleSpot | null = null;
+let ghostAnimFrame: number | null = null;
+let settingsOpen = false;
+
+/** The player's unplaced meeples, drawn as a stack: solid ones are in hand, faint
+ *  outlines are out on the board earning their keep. */
+function reserveStack(color: string, inHand: number, total: number): HTMLElement {
+  const size = 30, step = 16;
+  const cv = h('canvas', { width: step * (total - 1) + size + 6, height: size + 8 }) as HTMLCanvasElement;
+  const ctx = cv.getContext('2d')!;
+  for (let i = 0; i < total; i++) {
+    const x = 3 + i * step, y = 4 + (i % 2) * 3;
+    ctx.globalAlpha = i < inHand ? 1 : 0.22;
+    ctx.drawImage(getMeepleCanvas(color, size, false), x, y, size, size);
+  }
+  ctx.globalAlpha = 1;
+  return h('div', { class: 'meeple-reserve', title: `${inHand} of ${total} meeples in reserve` },
+    cv,
+    h('span', { class: 'meeple-reserve-count' }, `${inHand}`, h('small', {}, ` / ${total}`)),
+  );
+}
+
+function kindNoun(kind: MeepleKind): string {
+  return { city: 'claim this city', road: 'claim this road', monastery: 'claim this cloister', farm: 'claim this field' }[kind];
+}
+
+/** Keep the board repainting while ghost meeples are on it so they can pulse; stops
+ *  itself the moment there is nothing left to animate. */
+function ensureGhostAnimation(): void {
+  if (ghostAnimFrame !== null) return;
+  const step = () => {
+    ghostAnimFrame = null;
+    if (!boardCanvasEl || !room?.game || !isMyTurn() || room.game.phase !== 'placeMeeple') return;
+    drawBoard(boardCanvasEl);
+    ghostAnimFrame = requestAnimationFrame(step);
+  };
+  ghostAnimFrame = requestAnimationFrame(step);
+}
+
+function ghostAt(clientX: number, clientY: number, canvasEl: HTMLCanvasElement): MeepleSpot | null {
+  const rect = canvasEl.getBoundingClientRect();
+  const px = clientX - rect.left, py = clientY - rect.top;
+  let best: { spot: MeepleSpot; d: number } | null = null;
+  for (const g of ghostTargets(rect.width, rect.height)) {
+    const d = Math.hypot(g.sx - px, g.sy - py);
+    if (d <= Math.max(18, g.size * 0.65) && (!best || d < best.d)) best = { spot: g.spot, d };
+  }
+  return best?.spot ?? null;
+}
 
 function boardBounds(board: RoomDoc['game'] extends null ? never : NonNullable<RoomDoc['game']>['board']) {
   const keys = Object.keys(board);
@@ -344,11 +429,13 @@ function screenToWorld(sx: number, sy: number, cw: number, ch: number): [number,
   return [(sx - cw / 2) / camera.scale + camera.x, (sy - ch / 2) / camera.scale + camera.y];
 }
 
-function meepleAnchor(tileKey: string, rot: number, kind: string, idx: number): [number, number] {
+interface MeepleSpot { kind: MeepleKind; idx: number; x: number; y: number }
+
+function rawMeepleAnchor(tileKey: string, rot: number, kind: string, idx: number): [number, number] {
   const t = TILE_TYPES[tileKey]!;
   const MID: Record<number, [number, number]> = { 0: [0.5, 0.06], 1: [0.94, 0.5], 2: [0.5, 0.94], 3: [0.06, 0.5] };
   const SLOT_POS: [number, number][] = [[0.3, 0.08], [0.7, 0.08], [0.92, 0.3], [0.92, 0.7], [0.7, 0.92], [0.3, 0.92], [0.08, 0.7], [0.08, 0.3]];
-  if (kind === 'monastery') return [0.5, 0.78];
+  if (kind === 'monastery') return [0.5, 0.52];
   if (kind === 'city') {
     const abs = rotateGroupSides(t.cityGroups[idx]!, rot);
     const pts = abs.map((s) => MID[s]!);
@@ -357,16 +444,90 @@ function meepleAnchor(tileKey: string, rot: number, kind: string, idx: number): 
   }
   if (kind === 'road') {
     const abs = rotateGroupSides(t.roadGroups[idx]!, rot);
-    if (abs.length === 2) { const a = MID[abs[0]!]!, b = MID[abs[1]!]!; return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
-    const a = MID[abs[0]!]!; return [a[0] + (0.5 - a[0]) * 0.6, a[1] + (0.5 - a[1]) * 0.6];
+    if (abs.length === 2) {
+      const a = MID[abs[0]!]!, b = MID[abs[1]!]!;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      // A bend is drawn as a quarter-circle around the tile corner, whose midpoint
+      // lies a little closer to the tile centre than the chord midpoint does.
+      const isBend = Math.abs(abs[0]! - abs[1]!) % 2 === 1;
+      return isBend ? [mx - (mx - 0.5) * 0.3, my - (my - 0.5) * 0.3] : [mx, my];
+    }
+    const a = MID[abs[0]!]!; return [a[0] + (0.5 - a[0]) * 0.55, a[1] + (0.5 - a[1]) * 0.55];
   }
   if (kind === 'farm') {
     const slots = t.fieldRegions[idx]!.slots.map((s) => rotateSlot(s, rot));
     const pts = slots.map((s) => SLOT_POS[s]!);
     const cx = pts.reduce((a, p) => a + p[0], 0) / pts.length, cy = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+    // A field wrapping most of the tile averages out near the middle, where the city
+    // or road art is — pull it toward the tile's grassiest edge instead.
+    const d = Math.hypot(cx - 0.5, cy - 0.5);
+    if (d < 0.12) {
+      const far = pts.reduce((best, p) => (Math.hypot(p[0] - 0.5, p[1] - 0.5) > Math.hypot(best[0] - 0.5, best[1] - 0.5) ? p : best), pts[0]!);
+      return [0.5 + (far[0] - 0.5) * 0.55, 0.5 + (far[1] - 0.5) * 0.55];
+    }
     return [cx, cy];
   }
   return [0.5, 0.5];
+}
+
+const meepleSpotCache = new Map<string, MeepleSpot[]>();
+/** Every place a meeple can stand on this tile (one per feature), spread apart so two
+ *  never sit on top of each other. Used both for drawing placed meeples and for the
+ *  click-to-place ghosts, so what you click is exactly where the meeple will appear. */
+function meepleSpots(tileKey: string, rot: number): MeepleSpot[] {
+  const ck = `${tileKey}:${rot}`;
+  const cached = meepleSpotCache.get(ck);
+  if (cached) return cached;
+  const t = TILE_TYPES[tileKey]!;
+  const spots: MeepleSpot[] = [];
+  const add = (kind: MeepleKind, idx: number) => { const [x, y] = rawMeepleAnchor(tileKey, rot, kind, idx); spots.push({ kind, idx, x, y }); };
+  t.cityGroups.forEach((_, g) => add('city', g));
+  t.roadGroups.forEach((_, g) => add('road', g));
+  if (t.monastery) add('monastery', 0);
+  t.fieldRegions.forEach((_, r) => add('farm', r));
+  // Relax: push any pair closer than `minGap` apart, then keep everything on the tile.
+  const minGap = 0.26;
+  for (let iter = 0; iter < 24; iter++) {
+    let moved = false;
+    for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) {
+      const a = spots[i]!, b = spots[j]!;
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d = Math.hypot(dx, dy);
+      if (d >= minGap) continue;
+      if (d < 1e-4) { dx = 0.01 * (j - i); dy = -0.013; d = Math.hypot(dx, dy); }
+      const push = (minGap - d) / 2;
+      a.x -= (dx / d) * push; a.y -= (dy / d) * push;
+      b.x += (dx / d) * push; b.y += (dy / d) * push;
+      moved = true;
+    }
+    for (const s of spots) { s.x = Math.min(0.84, Math.max(0.16, s.x)); s.y = Math.min(0.84, Math.max(0.16, s.y)); }
+    if (!moved) break;
+  }
+  meepleSpotCache.set(ck, spots);
+  return spots;
+}
+
+function meepleAnchor(tileKey: string, rot: number, kind: string, idx: number): [number, number] {
+  const s = meepleSpots(tileKey, rot).find((sp) => sp.kind === kind && sp.idx === idx);
+  return s ? [s.x, s.y] : [0.5, 0.5];
+}
+
+/** Ghost meeples the current player can click, in screen space. */
+function ghostTargets(cw: number, ch: number): { spot: MeepleSpot; sx: number; sy: number; size: number; label: string }[] {
+  const game = room?.game;
+  if (!game || !isMyTurn() || game.phase !== 'placeMeeple' || !game.lastPlaced) return [];
+  const { x, y } = game.lastPlaced;
+  const tile = game.board[`${x},${y}`];
+  if (!tile) return [];
+  const options = getMeepleOptions(game);
+  const size = Math.max(22, camera.scale * 0.34);
+  return meepleSpots(tile.tileKey, tile.rot)
+    .filter((s) => options.some((o) => o.kind === s.kind && o.idx === s.idx))
+    .map((spot) => {
+      const [sx, sy] = worldToScreen(x + spot.x, y + spot.y, cw, ch);
+      const label = options.find((o) => o.kind === spot.kind && o.idx === spot.idx)!.label;
+      return { spot, sx, sy, size, label };
+    });
 }
 
 function isMyTurn(): boolean {
@@ -453,6 +614,58 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     ctx.drawImage(getMeepleCanvas(player.color, size, m.kind === 'farm'), sx - size / 2, sy - size / 2, size, size);
   }
 
+  // Meeple decision: the freshly placed tile glows and every feature you could claim
+  // shows a translucent meeple in your colour. Hover one to see what it is; click to
+  // place it. (The Skip button lives in the overlay above the board.)
+  const ghosts = ghostTargets(cw, ch);
+  if (ghosts.length && game.lastPlaced) {
+    const meColor = game.players[game.currentPlayer]!.color;
+    const [tx, ty] = worldToScreen(game.lastPlaced.x, game.lastPlaced.y, cw, ch);
+    const s = camera.scale;
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 380);
+    ctx.save();
+    ctx.shadowColor = `rgba(63,203,184,${0.5 + 0.4 * pulse})`;
+    ctx.shadowBlur = 14 + 10 * pulse;
+    ctx.strokeStyle = 'rgba(63,203,184,0.95)';
+    ctx.lineWidth = 3;
+    roundRect(ctx, tx + 2, ty + 2, s - 4, s - 4, 6);
+    ctx.stroke();
+    ctx.restore();
+    for (const g of ghosts) {
+      const hot = hoveredGhost === g.spot;
+      const size = g.size * (hot ? 1.18 : 1);
+      ctx.save();
+      // A soft disc behind the ghost so it stands out on busy art at any zoom level.
+      ctx.beginPath();
+      ctx.arc(g.sx, g.sy, size * 0.58, 0, Math.PI * 2);
+      ctx.fillStyle = hot ? 'rgba(255,255,255,0.55)' : `rgba(255,255,255,${0.18 + 0.12 * pulse})`;
+      ctx.fill();
+      ctx.strokeStyle = hot ? '#ffffff' : `rgba(255,255,255,${0.45 + 0.35 * pulse})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash(hot ? [] : [4, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = hot ? 1 : 0.55 + 0.2 * pulse;
+      ctx.drawImage(getMeepleCanvas(meColor, size, g.spot.kind === 'farm'), g.sx - size / 2, g.sy - size / 2, size, size);
+      ctx.restore();
+    }
+    const hot = ghosts.find((g) => hoveredGhost === g.spot);
+    if (hot) {
+      ctx.save();
+      ctx.font = '600 13px "Space Grotesk", sans-serif';
+      const text = `${hot.label} — ${kindNoun(hot.spot.kind)}`;
+      const tw = ctx.measureText(text).width + 18;
+      const bx = Math.min(cw - tw - 4, Math.max(4, hot.sx - tw / 2)), by = hot.sy - hot.size * 0.7 - 30;
+      roundRect(ctx, bx, by, tw, 24, 12);
+      ctx.fillStyle = 'rgba(31,46,43,0.92)';
+      ctx.fill();
+      ctx.fillStyle = '#E7EDEA';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + 9, by + 12);
+      ctx.restore();
+    }
+  }
+
   if (myTurn && game.phase === 'placeTile' && hovered && game.currentTile) {
     const k = `${hovered.x},${hovered.y}`;
     const rots = legalByCell.get(k);
@@ -508,9 +721,38 @@ function renderGame(): HTMLElement {
   if (myTurn && game.phase === 'placeTile') {
     wrap.appendChild(h('div', { class: 'board-hint' }, 'Click a glowing tile to place • drag to pan • scroll to zoom • R to rotate'));
   }
-  wrap.appendChild(h('div', { class: 'board-controls' },
+  if (myTurn && game.phase === 'placeMeeple' && meP) {
+    // The meeple decision happens on the board itself: ghosts on the glowing tile are
+    // the choices, and this bar is the "no thanks".
+    wrap.appendChild(h('div', { class: 'board-hint meeple-bar' },
+      h('canvas', { class: 'meeple-swatch', width: 22, height: 22, 'data-color': meP.color }),
+      h('span', {}, h('strong', {}, 'Place a meeple?'), ' Click a ghost on the glowing tile'),
+      h('button', { class: 'small primary', onclick: () => send({ type: 'skip_meeple' }) }, 'Skip (Esc)'),
+    ));
+    ensureGhostAnimation();
+  } else {
+    hoveredGhost = null;
+  }
+  // Upper right: view + settings. The settings popover holds the audio toggles.
+  const settingsRow = (label: string, on: boolean, onChange: (v: boolean) => void) => h('label', { class: 'settings-row' },
+    h('span', {}, label),
+    h('input', { type: 'checkbox', checked: on, onchange: (e: Event) => onChange((e.target as HTMLInputElement).checked) }),
+  );
+  const popover = h('div', { class: 'settings-pop panel', hidden: !settingsOpen },
+    h('h2', {}, 'Settings'),
+    settingsRow('🎵 Background music', isMusicOn(), (v) => setMusic(v)),
+    settingsRow('🔔 Sound effects', isSfxOn(), (v) => setSfx(v)),
+    h('p', { class: 'settings-note' }, 'Esc skips the meeple step • R rotates the tile'),
+  );
+  const gear = h('button', { class: 'small icon-btn', title: 'Settings', 'aria-expanded': String(settingsOpen), onclick: () => { settingsOpen = !settingsOpen; popover.hidden = !settingsOpen; gear.setAttribute('aria-expanded', String(settingsOpen)); } }, '⚙️');
+  wrap.appendChild(h('div', { class: 'board-controls top' },
     h('button', { class: 'small icon-btn', onclick: () => { userAdjustedCamera = false; redraw(); } }, '🎯 Recenter'),
+    gear,
+    popover,
   ));
+
+  // Lower right: your meeples in reserve, as a little pile on the table edge.
+  if (meP) wrap.appendChild(reserveStack(meP.color, meP.meeples, game.config.meeplesPerPlayer));
 
   const redraw = () => {
     if (!boardWrapEl || !boardCanvasEl) return;
@@ -519,7 +761,13 @@ function renderGame(): HTMLElement {
     drawBoard(boardCanvasEl);
   };
 
-  canvas.addEventListener('mousedown', (e) => { dragState = { x: e.clientX, y: e.clientY, cx: camera.x, cy: camera.y }; dragMovedFar = false; });
+  // Pointer events cover mouse, touch and pen alike, so dragging to pan works on phones.
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    dragState = { x: e.clientX, y: e.clientY, cx: camera.x, cy: camera.y }; dragMovedFar = false;
+    if (settingsOpen) { settingsOpen = false; popover.hidden = true; gear.setAttribute('aria-expanded', 'false'); }
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* not supported — fine */ }
+  });
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     userAdjustedCamera = true;
@@ -533,7 +781,7 @@ function renderGame(): HTMLElement {
 
   if (!windowListenersAttached) {
     windowListenersAttached = true;
-    window.addEventListener('mousemove', (e) => {
+    window.addEventListener('pointermove', (e) => {
       if (!boardCanvasEl || !room) return;
       const rect = boardCanvasEl.getBoundingClientRect();
       if (dragState) {
@@ -545,20 +793,39 @@ function renderGame(): HTMLElement {
       }
       const [wx, wy] = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
       hovered = { x: Math.floor(wx), y: Math.floor(wy) };
+      const g = ghostAt(e.clientX, e.clientY, boardCanvasEl);
+      boardCanvasEl.style.cursor = g ? 'pointer' : dragState ? 'grabbing' : '';
+      hoveredGhost = g;
       if (!dragState) drawBoard(boardCanvasEl);
     });
-    window.addEventListener('mouseup', (e) => {
+    const endDrag = (e: PointerEvent) => {
       if (dragState && !dragMovedFar && boardCanvasEl) handleBoardClick(e, boardCanvasEl);
       dragState = null;
-    });
+    };
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', () => { dragState = null; });
     window.addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() === 'r' && boardCanvasEl && room?.game && isMyTurn() && room.game.phase === 'placeTile') { previewRot = (previewRot + 1) % 4; drawBoard(boardCanvasEl); }
+      if (!boardCanvasEl || !room?.game || !isMyTurn()) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key.toLowerCase() === 'r' && room.game.phase === 'placeTile') { previewRot = (previewRot + 1) % 4; drawBoard(boardCanvasEl); }
+      if (e.key === 'Escape' && room.game.phase === 'placeMeeple') send({ type: 'skip_meeple' });
     });
     window.addEventListener('resize', () => redraw());
+    // Browsers only let audio start from a user gesture: the first tap anywhere unlocks it.
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('keydown', unlock);
   }
 
-  function handleBoardClick(e: MouseEvent, canvasEl: HTMLCanvasElement): void {
-    if (!room?.game || !isMyTurn() || room.game.phase !== 'placeTile') return;
+  function handleBoardClick(e: PointerEvent, canvasEl: HTMLCanvasElement): void {
+    if (!room?.game || !isMyTurn()) return;
+    if (room.game.phase === 'placeMeeple') {
+      const g = ghostAt(e.clientX, e.clientY, canvasEl);
+      if (g) send({ type: 'place_meeple', kind: g.kind, idx: g.idx });
+      return;
+    }
+    if (room.game.phase !== 'placeTile') return;
     const rect = canvasEl.getBoundingClientRect();
     const [wx, wy] = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
     const gx = Math.floor(wx), gy = Math.floor(wy);
@@ -567,23 +834,24 @@ function renderGame(): HTMLElement {
     const pr = ((previewRot % 4) + 4) % 4;
     const chosen = legal.find((p) => p.rot === pr) ?? legal[0]!;
     previewRot = chosen.rot;
+    awaitingMeepleDecision = true;
     send({ type: 'place_tile', x: gx, y: gy, rot: chosen.rot });
   }
 
   requestAnimationFrame(() => redraw());
 
-  const sidebar = buildSidebar(game, meP, myTurn);
+  const sidebar = buildSidebar(game, myTurn);
   const container = h('div', { class: 'game' }, wrap, sidebar);
   if (room!.phase === 'ended') container.appendChild(renderEndModal(game));
   return container;
 }
 
-function buildSidebar(game: NonNullable<RoomDoc['game']>, meP: NonNullable<RoomDoc['game']>['players'][number] | null, myTurn: boolean): HTMLElement {
+function buildSidebar(game: NonNullable<RoomDoc['game']>, myTurn: boolean): HTMLElement {
   const turnBanner = h('div', { class: `turn-banner${myTurn ? ' mine' : ''}` },
     game.phase === 'gameover'
       ? h('span', {}, 'The game has ended.')
       : myTurn
-        ? h('span', {}, game.phase === 'placeTile' ? h('strong', {}, 'Your turn — place a tile') : h('strong', {}, 'Your turn — place a meeple or skip'))
+        ? h('span', {}, game.phase === 'placeTile' ? h('strong', {}, 'Your turn — place a tile') : h('strong', {}, 'Your turn — place a meeple on the board, or skip'))
         : h('span', {}, `Waiting for `, h('strong', {}, game.players[game.currentPlayer]?.name ?? '…')),
   );
 
@@ -606,17 +874,6 @@ function buildSidebar(game: NonNullable<RoomDoc['game']>, meP: NonNullable<RoomD
     ),
   );
 
-  const meepleBox = (myTurn && game.phase === 'placeMeeple' && meP)
-    ? h('div', { class: 'meeple-menu panel', style: 'padding:0.8rem' },
-        h('h2', { style: 'font-size:0.95rem' }, 'Place a meeple?'),
-        ...getMeepleOptions(game).map((o) => h('button', { class: 'meeple-choice', onclick: () => send({ type: 'place_meeple', kind: o.kind, idx: o.idx }) },
-          meepleIconCanvas(meP.color, o.kind),
-          h('span', {}, meepleLabel(o.kind)),
-        )),
-        h('button', { class: 'ghost small', onclick: () => send({ type: 'skip_meeple' }) }, 'Skip — place no meeple'),
-      )
-    : null;
-
   const scoreboard = h('div', { class: 'panel', style: 'padding:0.8rem' },
     h('h2', { style: 'font-size:0.95rem' }, 'Scoreboard'),
     h('div', { class: 'scoreboard' }, ...game.players.map((p, i) => {
@@ -626,7 +883,8 @@ function buildSidebar(game: NonNullable<RoomDoc['game']>, meP: NonNullable<RoomD
       h('canvas', { class: 'meeple-swatch', width: 18, height: 18, 'data-color': p.color }),
       h('span', { class: 'sname' }, p.name + (p.id === me.sub ? ' (you)' : p.isNpc ? ' 🤖' : '')),
       offline ? h('span', { class: 'offline-dot', title: 'disconnected' }, '●') : null,
-      h('span', { class: 'smeeples' }, '●'.repeat(p.meeples) + '○'.repeat(Math.max(0, game.config.meeplesPerPlayer - p.meeples))),
+      h('span', { class: 'smeeples', title: `${p.meeples} of ${game.config.meeplesPerPlayer} meeples in reserve` },
+        h('canvas', { class: 'meeple-swatch', width: 14, height: 14, 'data-color': p.color }), ` ×${p.meeples}`),
       h('span', { class: 'spoints' }, String(p.score)),
       );
     })),
@@ -651,18 +909,9 @@ function buildSidebar(game: NonNullable<RoomDoc['game']>, meP: NonNullable<RoomD
   );
 
   const invite = h('button', { class: 'small', onclick: () => { navigator.clipboard?.writeText(location.href); toast('Link copied!'); } }, '🔗 Copy invite link');
-  const sidebar = h('div', { class: 'sidebar' }, turnBanner, tilePreview, meepleBox, scoreboard, invite, log, chat);
+  const sidebar = h('div', { class: 'sidebar' }, turnBanner, tilePreview, scoreboard, invite, log, chat);
   queueMicrotask(() => { paintMeepleSwatches(sidebar); const cl = sidebar.querySelector('#chatlog'); if (cl) cl.scrollTop = cl.scrollHeight; });
   return sidebar;
-}
-
-function meepleLabel(kind: string): string {
-  return { city: 'Knight — claim the city', road: 'Highwayman — claim the road', monastery: 'Monk — claim the cloister', farm: 'Farmer — claim the field' }[kind] ?? kind;
-}
-function meepleIconCanvas(color: string, kind: string): HTMLCanvasElement {
-  const cv = document.createElement('canvas'); cv.width = 24; cv.height = 24;
-  cv.getContext('2d')!.drawImage(getMeepleCanvas(color, 24, kind === 'farm'), 0, 0);
-  return cv;
 }
 
 let lastEndedShown = false;
@@ -689,6 +938,28 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement {
     ),
   );
 }
+
+// Read-only hooks for browser automation (scripts/play-in-browser.mjs): where things
+// are on screen, so a test can click them the way a person would. Nothing here can
+// mutate state — all moves still go through the same clicks/keys as a human.
+(window as unknown as { __carcassonne: unknown }).__carcassonne = {
+  room: () => room,
+  myTurn: () => isMyTurn(),
+  legalCells: () => {
+    if (!room?.game || !boardCanvasEl) return [];
+    const r = boardCanvasEl.getBoundingClientRect();
+    return getLegalPlacements(room.game).map((p) => {
+      const [sx, sy] = worldToScreen(p.x + 0.5, p.y + 0.5, r.width, r.height);
+      return { ...p, sx: sx + r.left, sy: sy + r.top };
+    });
+  },
+  ghosts: () => {
+    if (!boardCanvasEl) return [];
+    const r = boardCanvasEl.getBoundingClientRect();
+    return ghostTargets(r.width, r.height).map((g) => ({ kind: g.spot.kind, idx: g.spot.idx, label: g.label, sx: g.sx + r.left, sy: g.sy + r.top }));
+  },
+  previewRot: () => ((previewRot % 4) + 4) % 4,
+};
 
 // Tile art is decoded from inline SVG data: URIs before the very first render —
 // this is well under a frame for 22 small images, and it means drawBoard() (which

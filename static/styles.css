@@ -158,10 +158,8 @@ input[type=text]:focus-visible { outline: 2px solid var(--accent); outline-offse
 .score-row .meeple-swatch { width: 18px; height: 18px; }
 .score-row .sname { flex: 1; font-size: 0.95rem; }
 .score-row .spoints { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
-.score-row .smeeples { font-size: 0.72rem; color: var(--ink-soft); }
-.meeple-menu { display: flex; flex-direction: column; gap: 0.5rem; }
-.meeple-choice { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.7rem; background: var(--bg); border: 1.5px solid var(--panel-border); cursor: pointer; text-align: left; }
-.meeple-choice:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+.score-row .smeeples { font-size: 0.78rem; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 0.15rem; }
+.score-row .smeeples .meeple-swatch { width: 14px; height: 14px; }
 .log-panel { flex: 1; min-height: 90px; display: flex; flex-direction: column; gap: 0.3rem; overflow-y: auto; font-size: 0.83rem; color: var(--ink-soft); }
 .log-entry { padding: 0.15rem 0; border-bottom: 1px dotted color-mix(in srgb, var(--ink) 20%, transparent); }
 .chat-log { height: 130px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.25rem; background: var(--bg); border: 1.5px solid var(--panel-border); padding: 0.5rem; }
@@ -169,8 +167,23 @@ input[type=text]:focus-visible { outline: 2px solid var(--accent); outline-offse
 .chat-form { display: flex; gap: 0.4rem; }
 .chat-form input { flex: 1; min-width: 0; }
 
-.board-controls { position: absolute; bottom: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 5; }
-.board-hint { position: absolute; top: 1rem; left: 50%; transform: translateX(-50%); background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1.5px solid var(--panel-border); border-radius: 999px; padding: 0.4rem 1rem; font-size: 0.85rem; z-index: 5; box-shadow: var(--shadow); }
+.board-controls { position: absolute; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 6; align-items: flex-start; }
+.settings-pop { position: absolute; top: calc(100% + 0.5rem); right: 0; width: 240px; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.settings-pop[hidden] { display: none; }
+.settings-pop h2 { font-size: 0.95rem; }
+.settings-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; font-size: 0.9rem; cursor: pointer; }
+.settings-row input { width: 18px; height: 18px; accent-color: var(--accent); }
+.settings-note { margin: 0.2rem 0 0; font-size: 0.75rem; color: var(--ink-soft); }
+.meeple-reserve { position: absolute; bottom: 0.8rem; right: 1rem; z-index: 5; display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.35rem 0.7rem 0.3rem 0.5rem; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1.5px solid var(--panel-border); border-radius: 999px; box-shadow: var(--shadow); pointer-events: none; }
+.meeple-reserve canvas { display: block; }
+.meeple-reserve-count { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.1rem; line-height: 1; padding-bottom: 0.3rem; }
+.meeple-reserve-count small { font-weight: 500; font-size: 0.7rem; color: var(--ink-soft); }
+.board-hint { position: absolute; top: 1rem; left: 50%; transform: translateX(-50%); background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1.5px solid var(--panel-border); border-radius: 999px; padding: 0.4rem 1rem; font-size: 0.85rem; z-index: 5; box-shadow: var(--shadow); white-space: nowrap; max-width: calc(100% - 2rem); }
+.board-hint:not(.meeple-bar) { pointer-events: none; }
+.meeple-bar { display: flex; align-items: center; gap: 0.7rem; padding: 0.4rem 0.5rem 0.4rem 0.9rem; border-color: var(--accent); }
+.meeple-bar strong { color: var(--accent); }
+.meeple-bar button { border-radius: 999px; clip-path: none; }
+.board-wrap canvas { cursor: grab; }
 
 .copy-toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 0.5em 1em; border-radius: 6px; font-size: 0.85rem; z-index: 50; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
 .copy-toast.show { opacity: 0.95; }

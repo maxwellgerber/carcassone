@@ -111,7 +111,7 @@ server.tool('add_npc', 'Add an NPC opponent to the lobby (host only, before star
   roomId: z.string(), difficulty: z.enum(['easy', 'normal', 'hard']).default('normal'),
 }, async ({ roomId, difficulty }) => text(await callAction(roomId, { type: 'add_npc', difficulty })));
 
-server.tool('place_tile', 'Place the current tile at (x, y) with the given rotation (0-3, 90-degree clockwise turns). Must be this agent\'s turn and phase "placeTile" — check get_legal_moves first.', {
+server.tool('place_tile', 'Place the current tile at (x, y) with the given rotation (0-3, 90-degree clockwise turns). Must be this agent\'s turn and phase "placeTile" — check get_legal_moves first. If nothing on the placed tile can take a meeple (or you have none left), the turn ends immediately and the phase moves on without a place_meeple/skip_meeple step — check get_state afterwards.', {
   roomId: z.string(), x: z.number().int(), y: z.number().int(), rot: z.number().int().min(0).max(3),
 }, async ({ roomId, x, y, rot }) => text(await callAction(roomId, { type: 'place_tile', x, y, rot })));
 

@@ -45,6 +45,10 @@ export function createGame(playerInfos: PlayerInfo[], rng: () => number, config:
     lastPlaced: null,
     winnerIds: null,
   };
+  // The start tile is on the table before anyone draws — nobody places it and nobody
+  // gets a meeple on it. `placedBy: -1` marks it as the table's, not a player's.
+  const startTile = deck.shift()!;
+  state.board[key(0, 0)] = { tileKey: startTile, rot: 0, placedBy: -1, placedTurn: -1 };
   drawNextTile(state);
   return state;
 }
@@ -127,6 +131,16 @@ export function placeTile(state: GameState, x: number, y: number, rot: number): 
   state.board[key(x, y)] = { tileKey: state.currentTile, rot, placedBy: state.currentPlayer, placedTurn: state.turnNumber };
   state.phase = 'placeMeeple';
   state.lastPlaced = { x, y, rot };
+  // Nothing on this tile can take a meeple (every feature already claimed, or the
+  // player is out of meeples) — there is no decision to make, so don't stop for one.
+  if (getMeepleOptions(state).length === 0) {
+    const player = state.players[state.currentPlayer]!;
+    state.log.unshift(player.meeples <= 0
+      ? `${player.name} has no meeples left — turn passes.`
+      : `No room for a meeple on ${player.name}'s tile — turn passes.`);
+    resolveCompletedFeatures(state);
+    advanceTurn(state);
+  }
   return { x, y, rot };
 }
 
@@ -456,7 +470,8 @@ function finishGame(state: GameState): void {
       state.log.unshift('Farm scoring hit a snag and was skipped for safety — other scores are final.');
     }
   }
-  state.meeples = [];
+  // Meeples stay where they stand for the final tableau — the board at game end
+  // should look like the table does, so everyone can see what scored what.
   const top = Math.max(...state.players.map((p) => p.score));
   state.winnerIds = state.players.filter((p) => p.score === top).map((p) => p.id);
 }

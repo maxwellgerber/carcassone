@@ -1,4 +1,4 @@
-// Tile art: each of the 22 canonical tile types is a hand-authored SVG (see
+// Tile art: each of the 24 canonical tile types is a hand-authored SVG (see
 // docs/tile-geometry-contract.md) in the "Verdigris Gearworks" style, drawn once
 // in canonical (unrotated) orientation. Rotation to any of the 4 orientations is
 // done via canvas transform at draw time — the SVGs are never re-authored per
@@ -28,17 +28,37 @@ import road_curve from './tiles/road_curve.svg';
 import road_fork from './tiles/road_fork.svg';
 import road_cross from './tiles/road_cross.svg';
 
+// The two shield-bearing road variants (base-game types O and S) share every line
+// of their art with the unshielded tile except the shield itself, so rather than
+// keep two more 50–250 KB SVGs in sync by hand, the shield is composited on here —
+// the same group the hand-drawn shield tiles use, at the same spot.
+const SHIELD_SVG = `<g transform="translate(100 100)">
+<path d="M-14,-16 L14,-16 V3 Q13,14 0,21 Q-13,14 -14,3Z" fill="#294940" opacity=".55" transform="translate(2 3)"/>
+<path d="M-14,-16 L14,-16 V3 Q13,14 0,21 Q-13,14 -14,3Z" fill="#d4b16c" stroke="#243f36" stroke-width="1.8"/>
+<path d="M-10,-12 H10 V3 Q9,10 0,16 Q-9,10 -10,3Z" fill="#326b61" stroke="#f0d998" stroke-width="1"/>
+<path d="M0,-8 L3,-2 L8,0 L3,3 L0,10 L-3,3 L-8,0 L-3,-2Z" fill="#edd293"/>
+<circle cx="0" cy="0" r="2" fill="#b47d45"/>
+</g>`;
+function withShield(svg: string, title: string): string {
+  const retitled = svg.replace(/<title>[^<]*<\/title>/, `<title>${title} — Verdigris Atlas</title>`);
+  const end = retitled.lastIndexOf('</g></svg>');
+  if (end === -1) throw new Error('tile SVG does not end with the expected </g></svg>');
+  return retitled.slice(0, end) + SHIELD_SVG + '</g></svg>';
+}
+const city_adjacent_shield_road = withShield(city_adjacent_road, 'Grand Walled Corner');
+const city_three_shield_road = withShield(city_three_road, 'Fortress Gate');
+
 const TILE_SVG: Record<string, string> = {
   monastery_plain, monastery_road, city_cap, city_cap_road_straight, city_cap_road_curve_a,
   city_cap_road_curve_b, city_cap_3way, city_opposite_shield, city_opposite, city_opposite_separate,
-  city_adjacent_separate, city_adjacent_shield, city_adjacent, city_adjacent_road,
-  city_three_shield, city_three, city_three_road, city_four_shield,
+  city_adjacent_separate, city_adjacent_shield, city_adjacent, city_adjacent_road, city_adjacent_shield_road,
+  city_three_shield, city_three, city_three_road, city_three_shield_road, city_four_shield,
   road_straight, road_curve, road_fork, road_cross,
 };
 
 const tileImages = new Map<string, HTMLImageElement>();
 
-/** Decode every tile SVG into an Image up front. 22 small inline data: URIs decode
+/** Decode every tile SVG into an Image up front. 24 small inline data: URIs decode
  *  in well under a frame — call this once at boot, before the first board render,
  *  rather than lazily (an <img> with a data: URI is technically async to decode,
  *  and the board draw path is synchronous). */

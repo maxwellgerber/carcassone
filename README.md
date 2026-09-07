@@ -20,7 +20,16 @@ MCP server.
   of 72), and meeples-per-player (5–9).
 - Tiles are hand-illustrated SVGs in the "Verdigris Gearworks" style (patinated
   brass, cross-hatch shading, chamfered corners) — see `docs/tile-geometry-contract.md`
-  for how independently-drawn tiles are guaranteed to line up at every edge.
+  for how independently-drawn tiles are guaranteed to line up at every edge. The
+  deck is the exact 72-tile, 24-type distribution of the physical base game, with
+  the start tile already on the table when play begins.
+- Meeples are placed on the board itself: after your tile lands, every feature you
+  could claim shows a ghost meeple in your colour — click one, or skip. If nothing
+  on the tile can take a meeple, the turn moves on without asking.
+- Sound: a looping lute-and-pipe tune in D Dorian and effects for tiles landing,
+  meeples, scoring, your turn, and game over — all synthesised in the browser with
+  the Web Audio API (`src/client/audio.ts`), nothing to download. Music and effects
+  toggle independently from the ⚙️ menu on the board; the choice is remembered.
 - Everyone connects over a WebSocket to a per-room Durable Object, the single
   source of truth for game state. The server never trusts anything the client
   claims about its own identity — the Worker verifies the session (or an
@@ -112,9 +121,17 @@ npm run typecheck
 
 The engine tests check the trickiest parts of the rules directly (no
 server/browser needed): placement legality and input validation, city/road/
-monastery completion via cross-tile graph traversal, farm scoring, the
-72-tile deck count, all game-mode variants, and the "unplaceable tile is
-discarded" rule.
+monastery completion via cross-tile graph traversal, farm scoring, the exact
+72-tile distribution, all game-mode variants, the pre-placed start tile, the
+automatic meeple skip, and the "unplaceable tile is discarded" rule.
+
+Two heavier checks are available on demand:
+
+```sh
+npx tsx scripts/simulate.ts 40        # 40 full NPC-vs-NPC games with invariants checked every move
+node scripts/play-in-browser.mjs      # two humans + an NPC clicking through a real game in headless
+                                      # Chromium against `npm run dev` (needs playwright-core; see the file)
+```
 
 ## Deploy checklist
 
@@ -166,13 +183,16 @@ src/server/
 src/client/
   main.ts                  routing, WebSocket sync, canvas board, all UI
   art.ts                   loads the SVG tile art + procedural meeples/tile-back
-  tiles/*.svg              the 22 hand-illustrated tile types
+  audio.ts                 Web Audio soundtrack (the tune + all sound effects)
+  tiles/*.svg              the 24 hand-illustrated tile types
   dom.ts                   tiny DOM builder helper
 src/mcp/server.ts        MCP server exposing the game to agents (see above)
 static/                  index.html shell + styles.css, copied as-is into the build
 scripts/
   build-client.mjs         esbuild bundler for the client
   test-engine.ts           engine correctness tests
+  simulate.ts              plays whole NPC games against the engine, checking invariants
+  play-in-browser.mjs      drives a real game through the UI in headless Chromium
   bot.ts                   dev-only: a second "player" over a raw WebSocket (logs in via dev mode first)
   generate-base-tile-svgs.ts  regenerates the locked tile-geometry skeletons (see docs/tile-geometry-contract.md)
 docs/tile-geometry-contract.md  why independently-illustrated tiles still align

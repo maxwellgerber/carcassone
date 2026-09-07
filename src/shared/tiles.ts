@@ -123,29 +123,34 @@ function makeTile(spec: TileSpec): TileType {
   };
 }
 
+// Counts match the physical 72-tile base game (the standard A–X distribution), with
+// the four start-tile copies (D) including the one pulled out first. Any change here
+// must keep TOTAL_TILE_COUNT at 72 — scripts/test-engine.ts checks it.
 const SPECS: TileSpec[] = [
-  { key: 'monastery_plain', label: 'Cloister', edges: { N: 'F', E: 'F', S: 'F', W: 'F' }, monastery: true, count: 5 },
-  { key: 'monastery_road', label: 'Cloister & Road', edges: { N: 'F', E: 'F', S: 'R', W: 'F' }, monastery: true, count: 2 },
-  { key: 'city_cap', label: 'City Edge', edges: { N: 'C', E: 'F', S: 'F', W: 'F' }, cityGroups: [['N']], count: 6 },
-  { key: 'city_cap_road_straight', label: 'City & Highway', edges: { N: 'C', E: 'R', S: 'F', W: 'R' }, cityGroups: [['N']], count: 4 },
-  { key: 'city_cap_road_curve_a', label: 'City & Bend', edges: { N: 'C', E: 'R', S: 'R', W: 'F' }, cityGroups: [['N']], count: 3 },
-  { key: 'city_cap_road_curve_b', label: 'City & Bend', edges: { N: 'C', E: 'F', S: 'R', W: 'R' }, cityGroups: [['N']], count: 3 },
-  { key: 'city_cap_3way', label: 'City & Fork', edges: { N: 'C', E: 'R', S: 'R', W: 'R' }, cityGroups: [['N']], count: 3 },
-  { key: 'city_opposite_shield', label: 'Twin Cities', edges: { N: 'C', E: 'F', S: 'C', W: 'F' }, cityGroups: [['N', 'S']], shield: true, count: 2 },
-  { key: 'city_opposite', label: 'Twin Cities', edges: { N: 'C', E: 'F', S: 'C', W: 'F' }, cityGroups: [['N', 'S']], count: 1 },
-  { key: 'city_opposite_separate', label: 'Rival Cities', edges: { N: 'C', E: 'F', S: 'C', W: 'F' }, cityGroups: [['N'], ['S']], count: 4 },
-  { key: 'city_adjacent_separate', label: 'Rival Cities', edges: { N: 'C', E: 'C', S: 'F', W: 'F' }, cityGroups: [['N'], ['E']], count: 2 },
-  { key: 'city_adjacent_shield', label: 'Grand Corner', edges: { N: 'C', E: 'C', S: 'F', W: 'F' }, cityGroups: [['N', 'E']], shield: true, count: 2 },
-  { key: 'city_adjacent', label: 'City Corner', edges: { N: 'C', E: 'C', S: 'F', W: 'F' }, cityGroups: [['N', 'E']], count: 4 },
-  { key: 'city_adjacent_road', label: 'Walled Corner', edges: { N: 'C', E: 'C', S: 'R', W: 'R' }, cityGroups: [['N', 'E']], count: 2 },
-  { key: 'city_three_shield', label: 'Fortress', edges: { N: 'C', E: 'C', S: 'C', W: 'F' }, cityGroups: [['N', 'E', 'S']], shield: true, count: 1 },
-  { key: 'city_three', label: 'Fortress', edges: { N: 'C', E: 'C', S: 'C', W: 'F' }, cityGroups: [['N', 'E', 'S']], count: 2 },
-  { key: 'city_three_road', label: 'Fortress Gate', edges: { N: 'C', E: 'C', S: 'C', W: 'R' }, cityGroups: [['N', 'E', 'S']], count: 1 },
-  { key: 'city_four_shield', label: 'Capital', edges: { N: 'C', E: 'C', S: 'C', W: 'C' }, cityGroups: [['N', 'E', 'S', 'W']], shield: true, count: 1 },
-  { key: 'road_straight', label: 'Road', edges: { N: 'F', E: 'R', S: 'F', W: 'R' }, count: 9 },
-  { key: 'road_curve', label: 'Bend', edges: { N: 'F', E: 'F', S: 'R', W: 'R' }, count: 10 },
-  { key: 'road_fork', label: 'Fork', edges: { N: 'F', E: 'R', S: 'R', W: 'R' }, count: 4 },
-  { key: 'road_cross', label: 'Crossroads', edges: { N: 'R', E: 'R', S: 'R', W: 'R' }, count: 1 },
+  { key: 'monastery_plain', label: 'Cloister', edges: { N: 'F', E: 'F', S: 'F', W: 'F' }, monastery: true, count: 4 }, // B
+  { key: 'monastery_road', label: 'Cloister & Road', edges: { N: 'F', E: 'F', S: 'R', W: 'F' }, monastery: true, count: 2 }, // A
+  { key: 'city_cap', label: 'City Edge', edges: { N: 'C', E: 'F', S: 'F', W: 'F' }, cityGroups: [['N']], count: 5 }, // E
+  { key: 'city_cap_road_straight', label: 'City & Highway', edges: { N: 'C', E: 'R', S: 'F', W: 'R' }, cityGroups: [['N']], count: 4 }, // D (incl. start tile)
+  { key: 'city_cap_road_curve_a', label: 'City & Bend', edges: { N: 'C', E: 'R', S: 'R', W: 'F' }, cityGroups: [['N']], count: 3 }, // J
+  { key: 'city_cap_road_curve_b', label: 'City & Bend', edges: { N: 'C', E: 'F', S: 'R', W: 'R' }, cityGroups: [['N']], count: 3 }, // K
+  { key: 'city_cap_3way', label: 'City & Fork', edges: { N: 'C', E: 'R', S: 'R', W: 'R' }, cityGroups: [['N']], count: 3 }, // L
+  { key: 'city_opposite_shield', label: 'Twin Cities', edges: { N: 'C', E: 'F', S: 'C', W: 'F' }, cityGroups: [['N', 'S']], shield: true, count: 2 }, // F
+  { key: 'city_opposite', label: 'Twin Cities', edges: { N: 'C', E: 'F', S: 'C', W: 'F' }, cityGroups: [['N', 'S']], count: 1 }, // G
+  { key: 'city_opposite_separate', label: 'Rival Cities', edges: { N: 'C', E: 'F', S: 'C', W: 'F' }, cityGroups: [['N'], ['S']], count: 3 }, // H
+  { key: 'city_adjacent_separate', label: 'Rival Cities', edges: { N: 'C', E: 'C', S: 'F', W: 'F' }, cityGroups: [['N'], ['E']], count: 2 }, // I
+  { key: 'city_adjacent_shield', label: 'Grand Corner', edges: { N: 'C', E: 'C', S: 'F', W: 'F' }, cityGroups: [['N', 'E']], shield: true, count: 2 }, // M
+  { key: 'city_adjacent', label: 'City Corner', edges: { N: 'C', E: 'C', S: 'F', W: 'F' }, cityGroups: [['N', 'E']], count: 3 }, // N
+  { key: 'city_adjacent_shield_road', label: 'Grand Walled Corner', edges: { N: 'C', E: 'C', S: 'R', W: 'R' }, cityGroups: [['N', 'E']], shield: true, count: 2 }, // O
+  { key: 'city_adjacent_road', label: 'Walled Corner', edges: { N: 'C', E: 'C', S: 'R', W: 'R' }, cityGroups: [['N', 'E']], count: 3 }, // P
+  { key: 'city_three_shield', label: 'Fortress', edges: { N: 'C', E: 'C', S: 'C', W: 'F' }, cityGroups: [['N', 'E', 'S']], shield: true, count: 1 }, // Q
+  { key: 'city_three', label: 'Fortress', edges: { N: 'C', E: 'C', S: 'C', W: 'F' }, cityGroups: [['N', 'E', 'S']], count: 3 }, // R
+  { key: 'city_three_shield_road', label: 'Fortress Gate', edges: { N: 'C', E: 'C', S: 'C', W: 'R' }, cityGroups: [['N', 'E', 'S']], shield: true, count: 2 }, // S
+  { key: 'city_three_road', label: 'Fortress Gate', edges: { N: 'C', E: 'C', S: 'C', W: 'R' }, cityGroups: [['N', 'E', 'S']], count: 1 }, // T
+  { key: 'city_four_shield', label: 'Capital', edges: { N: 'C', E: 'C', S: 'C', W: 'C' }, cityGroups: [['N', 'E', 'S', 'W']], shield: true, count: 1 }, // C
+  { key: 'road_straight', label: 'Road', edges: { N: 'F', E: 'R', S: 'F', W: 'R' }, count: 8 }, // U
+  { key: 'road_curve', label: 'Bend', edges: { N: 'F', E: 'F', S: 'R', W: 'R' }, count: 9 }, // V
+  { key: 'road_fork', label: 'Fork', edges: { N: 'F', E: 'R', S: 'R', W: 'R' }, count: 4 }, // W
+  { key: 'road_cross', label: 'Crossroads', edges: { N: 'R', E: 'R', S: 'R', W: 'R' }, count: 1 }, // X
 ];
 
 export const TILE_TYPES: Record<string, TileType> = Object.fromEntries(SPECS.map((s) => [s.key, makeTile(s)]));

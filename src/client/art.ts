@@ -221,10 +221,18 @@ export function getMeepleCanvas(color: string, size: number, look: MeepleLook | 
     ctx.fillStyle = '#b8342c'; ctx.strokeStyle = ink; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(37, 22); ctx.lineTo(63, 22); ctx.quadraticCurveTo(58, 34, 50, 34); ctx.quadraticCurveTo(42, 34, 37, 22); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(63, 22); ctx.lineTo(70, 16); ctx.lineTo(68, 24); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#a8845a';
-    ctx.beginPath(); ctx.ellipse(74, 40, 10, 12, 0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = '#5a3d20'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(66, 30); ctx.lineTo(56, 22); ctx.stroke();
-    ctx.strokeStyle = ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(69, 31); ctx.lineTo(75, 33); ctx.stroke();
+    // A bindle: a stick over the shoulder with a knotted kerchief of loot hanging off the end.
+    ctx.strokeStyle = '#5a3d20'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(58, 40); ctx.lineTo(86, 10); ctx.stroke();
+    ctx.fillStyle = '#e9d8a6'; ctx.strokeStyle = ink; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(84, 14); ctx.quadraticCurveTo(100, 20, 94, 34); ctx.quadraticCurveTo(84, 42, 76, 32); ctx.quadraticCurveTo(72, 22, 84, 14); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Knot ears where the kerchief is tied to the stick.
+    ctx.beginPath(); ctx.moveTo(84, 14); ctx.lineTo(80, 6); ctx.lineTo(87, 11); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(84, 14); ctx.lineTo(92, 8); ctx.lineTo(90, 15); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Red polka dots, the universal sign of a runaway's bundle.
+    ctx.fillStyle = '#b8342c';
+    for (const [dx, dy] of [[82, 24], [90, 22], [86, 31], [93, 29]] as [number, number][]) { ctx.beginPath(); ctx.arc(dx, dy, 1.7, 0, Math.PI * 2); ctx.fill(); }
+    ctx.lineCap = 'butt';
   } else if (kind === 'monastery') {
     // A hood drawn up, a rope belt, and a small cross.
     ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.strokeStyle = ink; ctx.lineWidth = 1.5;

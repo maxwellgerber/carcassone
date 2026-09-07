@@ -25,7 +25,7 @@ import {
   sortCards,
 } from './cards.js';
 import { type Meld, asMeld } from './melds.js';
-import { type Analysis, type Move, type Plan, type TableMeld, MAX_HAND, analyze, solveHand } from './solver.js';
+import { type Analysis, type Move, type Plan, type TableMeld, type VarInfo, MAX_HAND, analyze, evaluateSetting, solveHand, solveRelaxed } from './solver.js';
 
 interface State {
   hand: Card[];
@@ -35,9 +35,11 @@ interface State {
   /** Cards picked in the table grid but not yet added as a meld. */
   pending: Card[];
   rules: Rules;
+  /** The reader's own on/off setting of the variables in the explainer, keyed by the hand it was made for. */
+  sandbox: { key: string; on: Set<string> } | null;
 }
 
-const state: State = { hand: [], table: [], discardTop: null, pending: [], rules: { ...DEFAULT_RULES } };
+const state: State = { hand: [], table: [], discardTop: null, pending: [], rules: { ...DEFAULT_RULES }, sandbox: null };
 const root = document.getElementById('rummy')!;
 
 // --- URL hash <-> state (so a situation can be shared) ------------------------------
@@ -356,55 +358,17 @@ function planSteps(plan: Plan, discard: Card | null): HTMLElement {
   return h('ol', { class: 'steps' }, ...steps);
 }
 
-/** Render the integer program behind a plan: objective, constraints, and the solution. */
-function equationsView(plan: Plan): HTMLElement {
-  const { variables, constraints } = plan.model;
-  const chosen = new Set(plan.chosen);
-  const sub = (name: string) => name.replace(/^m(\d+)$/, 'm$1').replace(/^l(\d+)_(\d+)$/, 'l$1.$2');
-  const v = (name: string) => h('span', { class: `var ${chosen.has(name) ? 'one' : ''}`, title: chosen.has(name) ? '= 1 in the optimal solution' : '= 0 in the optimal solution' }, sub(name));
-  const term = (name: string, coeff: number, first: boolean) => {
-    const parts: unknown[] = [];
-    if (coeff < 0) parts.push(first ? '−' : ' − ');
-    else if (!first) parts.push(' + ');
-    if (Math.abs(coeff) !== 1) parts.push(`${Math.abs(coeff)}·`);
-    parts.push(v(name));
-    return parts;
-  };
-
-  const objective = h('div', { class: 'eq' },
-    h('span', { class: 'eq-kw' }, 'maximise'),
-    h('span', { class: 'eq-body' }, ...variables.flatMap((x, i) => term(x.name, x.points, i === 0))),
-  );
-  const rows = constraints.map((k) => h('div', { class: `eq ${k.kind}` },
-    h('span', { class: 'eq-label' }, k.kind === 'card' ? cardChip(k.terms.length ? parseCard(k.label.split(' ')[0]!)! : { rank: 1, suit: 'S' }) : k.kind === 'chain' ? 'chain' : 'set'),
-    h('span', { class: 'eq-body' }, ...(k.terms.length ? k.terms.flatMap(([name, coeff], i) => term(name, coeff, i === 0)) : ['0']), ` ≤ ${k.max}`),
-    h('span', { class: 'eq-why' }, k.terms.length ? k.label : `${k.label.split(' ')[0]} fits nothing — deadwood`),
-  ));
-  const legend = h('div', { class: 'legend' }, ...variables.map((x) => h('div', { class: `legend-row ${chosen.has(x.name) ? 'one' : ''}` },
-    v(x.name), h('span', { class: 'eq-body' }, `= 1 if you ${x.describe}`), h('span', { class: 'eq-why' }, `${x.points} pts`))));
-  const value = variables.filter((x) => chosen.has(x.name)).reduce((t, x) => t + x.points, 0);
-
-  return h('details', { open: true, class: 'equations' },
-    h('summary', {}, 'The integer program ', h('small', {}, `${variables.length} binary variables, ${constraints.length} constraints — highlighted variables are 1 in the optimum`)),
-    h('p', { class: 'hint' }, 'Every way to use a card from your hand is a yes/no variable. The objective counts the points those choices meld; the constraints say each card can only be used once, a run can only grow outward one card at a time, and a set can hold at most four. Maximising melded points is the same as minimising deadwood.'),
-    objective,
-    h('div', { class: 'eq-st' }, 'subject to'),
-    ...rows,
-    h('div', { class: 'eq' }, h('span', { class: 'eq-label' }), h('span', { class: 'eq-body' }, 'every variable ∈ {0, 1}')),
-    h('div', { class: 'eq-st' }, `optimum: ${value} pts melded → ${plan.deadwoodPoints} pts of deadwood`),
-    legend,
-  );
+function currentAnalysis(): Analysis | Error | null {
+  if (!state.hand.length) return null;
+  try { return analyze(state.hand, state.table, state.rules); } catch (e) { return e as Error; }
 }
 
-function resultsPanel(): HTMLElement {
-  if (!state.hand.length) {
+function resultsPanel(a: Analysis | Error | null): HTMLElement {
+  if (a === null) {
     return h('section', { class: 'panel' }, h('h2', {}, 'Analysis'), h('div', { class: 'empty' }, 'Add some cards to your hand — or ', h('a', { href: '#', onclick: (e: Event) => { e.preventDefault(); loadExample(); } }, 'load an example'), '.'));
   }
-  let a: Analysis;
-  try {
-    a = analyze(state.hand, state.table, state.rules);
-  } catch (e) {
-    return h('section', { class: 'panel' }, h('h2', {}, 'Analysis'), h('div', { class: 'error' }, (e as Error).message));
+  if (a instanceof Error) {
+    return h('section', { class: 'panel' }, h('h2', {}, 'Analysis'), h('div', { class: 'error' }, a.message));
   }
 
   // Verdict
@@ -454,8 +418,6 @@ function resultsPanel(): HTMLElement {
     ? h('div', { class: 'melds' }, ...a.layoffs.map(moveRow))
     : h('div', { class: 'empty' }, state.table.length ? 'Nothing in hand fits a table meld.' : 'No melds on the table to lay off onto.');
 
-  const eq = equationsView(a.best);
-
   return h('section', { class: 'panel' },
     h('h2', {}, 'Analysis ', h('small', {}, `${a.hand.length + 1} integer programs in ${a.solveMs.toFixed(1)} ms`)),
     verdict,
@@ -463,13 +425,155 @@ function resultsPanel(): HTMLElement {
     h('details', { open: true }, h('summary', {}, 'Discard options ', h('small', {}, 'best first')), discards),
     h('details', { open: true }, h('summary', {}, 'Legal melds from hand ', h('small', {}, `${a.melds.length} — every set and run you could lay, including overlapping ones`)), meldList),
     h('details', { open: true }, h('summary', {}, 'Legal lay-offs ', h('small', {}, `${a.layoffs.length} — highlighted cards would be added`)), layoffList),
-    eq,
     h('div', { class: 'stat' }, `Model: one binary per candidate meld and per lay-off card, one "used at most once" constraint per hand card; objective maximises melded points. Solved with YALPS, a pure-JS branch-and-cut simplex.`),
+  );
+}
+
+
+// --- The explainer: the integer program, taught from the live hand -------------------
+
+function varLabel(name: string): string {
+  return name.replace(/^l(\d+)_(\d+)$/, 'l$1.$2');
+}
+
+function sandboxFor(a: Analysis): Set<string> {
+  const key = [state.hand.map(cardToString).join(','), state.table.map((t) => t.meld.cards.map(cardToString).join(',')).join(';'), JSON.stringify(state.rules)].join('|');
+  if (!state.sandbox || state.sandbox.key !== key) state.sandbox = { key, on: new Set(a.best.chosen) };
+  return state.sandbox.on;
+}
+
+function explainerSection(a: Analysis | Error | null): HTMLElement {
+  const sec = (n: number, title: string, ...body: unknown[]) =>
+    h('section', { class: 'step' }, h('div', { class: 'step-n' }, String(n)), h('div', { class: 'step-body' }, h('h3', {}, title), ...body));
+
+  if (!a || a instanceof Error) {
+    return h('section', { class: 'explainer' },
+      h('header', { class: 'ex-head' }, h('h2', {}, 'How the solver thinks'), h('p', {}, 'Add some cards to your hand and this section will write out, step by step, the arithmetic problem the solver builds for it.')));
+  }
+
+  const info = a.best.model;
+  const vars = info.variables;
+  const on = sandboxFor(a);
+  const ev = evaluateSetting(info, a.hand, on);
+  const optimum = new Set(a.best.chosen);
+  const optScore = vars.filter((v) => optimum.has(v.name)).reduce((t, v) => t + v.points, 0);
+  const handPts = a.hand.reduce((t, c) => t + cardPoints(c, state.rules), 0);
+  const isOpt = ev.feasible && ev.score === optScore;
+  const byName = new Map(vars.map((v) => [v.name, v]));
+
+  const flip = (name: string) => { if (on.has(name)) on.delete(name); else on.add(name); render(); };
+  const sw = (name: string, opts: { withValue?: boolean } = {}) =>
+    h('button', {
+      class: `sw ${on.has(name) ? 'on' : ''}`, type: 'button', onclick: () => flip(name),
+      title: `${varLabel(name)} is ${on.has(name) ? 1 : 0} — click to flip`,
+    }, varLabel(name), opts.withValue ? h('span', { class: 'sw-val' }, on.has(name) ? '= 1' : '= 0') : null);
+
+  const optionRow = (v: VarInfo) => h('div', { class: `opt ${on.has(v.name) ? 'on' : ''}` },
+    sw(v.name, { withValue: true }),
+    h('span', { class: 'cards' }, ...v.cards.map((c) => cardChip(c))),
+    h('span', { class: 'opt-what' }, v.describe.replace(/^lay off \S+ /, 'lay off onto ').replace(/^add \S+ to /, 'add to ').replace(/^lay .* as a (set|run)$/, 'lay as a $1')),
+    h('span', { class: 'opt-pts' }, `${v.points} pts`),
+  );
+
+  // Step 1 — options
+  const meldOpts = vars.filter((v) => 'meld' in v.move);
+  const layOpts = vars.filter((v) => !('meld' in v.move));
+  const step1 = sec(1, 'Write down every option',
+    h('p', {}, 'Look at your hand and list every complete thing you could do with it: each set or run you could lay, and each single card you could lay off onto a meld already on the table. Overlapping options are fine, and they are the whole point: a card that fits two options is exactly where a decision has to be made.'),
+    h('p', {}, `Your hand has `, h('b', {}, `${meldOpts.length} melds`), ' you could lay and ', h('b', {}, `${layOpts.length} lay-off cards`), `, ${vars.length} options in all. There is nothing clever here yet; this is a plain list.`),
+    vars.length ? null : h('p', { class: 'empty' }, 'Right now there are none, so the whole hand is deadwood and the solver has nothing to decide. Deal a hand with some pairs and sequences to see the rest.'),
+  );
+
+  // Step 2 — variables
+  const step2 = sec(2, 'Give each option a switch',
+    h('p', {}, 'Each option gets a variable that can only be 0 or 1: off or on. Lay that meld, or don\'t. That is all a "binary variable" is. Meld options are named ', h('code', {}, 'm0, m1, …'), ' and lay-off cards ', h('code', {}, 'l1.0, l1.1, …'), ' where the second number is the card\'s place in the chain.'),
+    h('p', {}, 'A full setting of the switches is one possible way to play the hand. ', h('b', {}, 'Try it:'), ' click any switch below to flip it. Everything further down recomputes for your setting, including the rules you break.'),
+    vars.length ? h('div', { class: 'opts' }, ...vars.map(optionRow)) : null,
+    vars.length ? h('div', { class: 'row' },
+      h('button', { class: 'small', type: 'button', onclick: () => { on.clear(); render(); } }, 'All off'),
+      h('button', { class: 'small', type: 'button', onclick: () => { on.clear(); for (const v of vars) on.add(v.name); render(); } }, 'All on'),
+      h('button', { class: 'small', type: 'button', onclick: () => { on.clear(); for (const n of optimum) on.add(n); render(); } }, 'Back to the solver\'s answer'),
+      h('span', { class: 'hint' }, `${vars.length} switches means 2^${vars.length} = ${(2 ** vars.length).toLocaleString()} possible settings.`),
+    ) : null,
+  );
+
+  // Step 3 — objective
+  const objTerms = vars.flatMap((v, i) => [i ? ' + ' : '', h('span', { class: 'term' }, `${v.points}×`, sw(v.name))]);
+  const step3 = sec(3, 'Score a setting: the objective',
+    h('p', {}, 'Multiply each switch by the points of its option and add them up. A switch that is off contributes 0, so the sum is simply the points you have melded. Making this as large as possible is the same as leaving as little deadwood as possible, because every card is either melded or deadwood.'),
+    vars.length ? h('div', { class: 'formula' },
+      h('div', { class: 'f-line' }, h('span', { class: 'f-kw' }, 'maximise'), h('span', { class: 'f-body' }, ...objTerms)),
+      h('div', { class: 'f-line' }, h('span', { class: 'f-kw' }, 'your setting'), h('span', { class: 'f-body' }, vars.filter((v) => on.has(v.name)).map((v) => v.points).join(' + ') || '0', ` = `, h('b', {}, `${ev.score} pts melded`), ` → ${handPts} − ${ev.score} = `, h('b', {}, `${handPts - ev.score} pts of deadwood`))),
+    ) : null,
+    h('p', { class: 'hint' }, 'The objective alone is useless: switching everything on gives the biggest number. What makes it a real problem is the rules that follow.'),
+  );
+
+  // Step 4 — constraints
+  const lhsText = (k: (typeof ev.checks)[number]) => {
+    const parts = k.constraint.terms.map(([n, c]) => `${c < 0 ? '−' : ''}${on.has(n) ? 1 : 0}`);
+    return parts.length ? parts.join(' + ').replace(/\+ −/g, '− ') : '0';
+  };
+  const conRow = (k: (typeof ev.checks)[number]) => {
+    const kk = k.constraint;
+    const card = kk.kind === 'card' ? parseCard(kk.label.split(' ')[0]!) : null;
+    const terms = kk.terms.length ? kk.terms.flatMap(([n, c], i) => [i ? (c < 0 ? ' − ' : ' + ') : (c < 0 ? '−' : ''), sw(n)]) : ['0'];
+    return h('div', { class: `con ${k.ok ? 'ok' : 'bad'}` },
+      h('span', { class: 'con-who' }, card ? cardChip(card) : kk.kind === 'chain' ? 'order' : 'room'),
+      h('span', { class: 'con-eq' }, ...terms, ` ≤ ${kk.max}`),
+      h('span', { class: 'con-val' }, `${lhsText(k)} = ${k.lhs}`, k.ok ? ' ✓' : ` ✗ over by ${k.lhs - kk.max}`),
+      h('span', { class: 'con-why' }, kk.terms.length ? kk.label : `${kk.label.split(' ')[0]} fits no option — it can only be deadwood`),
+    );
+  };
+  const cardCons = ev.checks.filter((k) => k.constraint.kind === 'card');
+  const chainCons = ev.checks.filter((k) => k.constraint.kind === 'chain');
+  const capCons = ev.checks.filter((k) => k.constraint.kind === 'capacity');
+  const step4 = sec(4, 'Forbid the impossible: the constraints',
+    h('p', {}, 'A constraint is an inequality the switches must satisfy. Each one encodes a rule of the game as arithmetic. The solver never "understands" rummy; it only knows these lines.'),
+    h('h4', {}, 'Each card can be used once'),
+    h('p', {}, 'For every card in your hand, add up the switches of the options that use it. That sum may be at most 1. If a card sits in two options, this line is what stops you laying it twice. Cards that appear in only one option, or none, get a trivial line, but the solver writes them all the same.'),
+    h('div', { class: 'cons' }, ...cardCons.map(conRow)),
+    chainCons.length ? h('h4', {}, 'A run grows outward in order') : null,
+    chainCons.length ? h('p', {}, 'You can only lay the second card of an extension if the first is laid too. "Second minus first is at most 0" says exactly that: the only forbidden combination is second on, first off, which would make the left side 1.') : null,
+    chainCons.length ? h('div', { class: 'cons' }, ...chainCons.map(conRow)) : null,
+    capCons.length ? h('h4', {}, 'A set holds at most four') : null,
+    capCons.length ? h('p', {}, 'The cards you add to a table set may not exceed the room left in it.') : null,
+    capCons.length ? h('div', { class: 'cons' }, ...capCons.map(conRow)) : null,
+    h('div', { class: `verdict ${ev.feasible ? 'yes' : 'no'}` },
+      h('h3', {}, ev.feasible ? 'Your setting is legal' : `Your setting breaks ${ev.checks.filter((k) => !k.ok).length} rule${ev.checks.filter((k) => !k.ok).length === 1 ? '' : 's'}`),
+      h('div', { class: 'hint' }, ev.feasible
+        ? `It melds ${ev.score} pts. The best legal setting melds ${optScore}.${isOpt ? ' That is the optimum — you found it.' : ` You are ${optScore - ev.score} short.`}`
+        : 'A setting that breaks a rule is not a way to play the hand at all, whatever it scores. Only settings that pass every line count.'),
+    ),
+    h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Your hand under this setting:'),
+      h('span', { class: 'cards' }, ...sortCards(a.hand).map((c) => { const u = ev.usage.get(cardToString(c)) ?? 0; return cardChip(c, u === 0 ? 'dead' : u === 1 ? 'new' : 'clash'); })),
+      h('span', { class: 'hint' }, 'solid = melded, dashed = deadwood, red ring = used twice')),
+  );
+
+  // Step 5 — solving
+  const relax = solveRelaxed(info);
+  const frac = relax.fractional;
+  const step5 = sec(5, 'Find the best legal setting',
+    h('p', {}, `That is the whole problem: ${vars.length} switches, ${info.constraints.length} rules, one score to maximise. Because the score and every rule are sums of "number × switch" with no products or anything fancier, it is a `, h('b', {}, 'linear'), ' program; because the switches must be whole numbers, it is an ', h('b', {}, 'integer'), ' linear program. This shape is so common that general-purpose solvers exist for it, and they do not care that the numbers came from a card game.'),
+    h('p', {}, 'The solver here works in two moves. First it pretends the switches may be fractions, any value from 0 to 1. That relaxed problem has no combinatorial explosion at all: the simplex method walks straight to its best answer. Then, if that answer uses fractions, it picks one fractional switch and tries both possibilities, 0 and 1, solving the relaxed problem again for each. Any branch whose relaxed score cannot beat the best whole-number setting found so far is thrown away unsolved. That pruning is why it never visits anything like all 2^n settings.'),
+    h('div', { class: 'formula' },
+      h('div', { class: 'f-line' }, h('span', { class: 'f-kw' }, 'fractions allowed'), h('span', { class: 'f-body' }, `best score ${Number.isInteger(relax.value) ? relax.value : relax.value.toFixed(2)} pts`, frac.length ? h('span', { class: 'hint' }, ` — with ${frac.map(([n, x]) => `${varLabel(n)} = ${x.toFixed(2)}`).join(', ')}, so it has to branch`) : h('span', { class: 'hint' }, ' — already whole numbers, so no branching was needed'))),
+      h('div', { class: 'f-line' }, h('span', { class: 'f-kw' }, 'whole numbers'), h('span', { class: 'f-body' }, `best score `, h('b', {}, `${optScore} pts`), ` → ${a.best.deadwoodPoints} pts of deadwood, with `, h('span', { class: 'cards' }, ...[...optimum].map((n) => byName.get(n)!).map((v) => h('span', { class: 'sw on static' }, varLabel(v.name)))), optimum.size ? '' : 'nothing switched on')),
+    ),
+    h('p', {}, 'The page runs this once for your whole hand, and once more for each card you might discard. That is what "', h(`b`, {}, `${a.hand.length + 1} integer programs`), '" in the analysis heading means.'),
+  );
+
+  return h('section', { class: 'explainer' },
+    h('header', { class: 'ex-head' },
+      h('h2', {}, 'How the solver thinks'),
+      h('p', {}, 'The solver never searches through arrangements of your hand. It translates the question "what is the best thing I can do with these cards?" into a small arithmetic puzzle and hands that to a general-purpose optimiser. Here is the translation, for the exact hand above.'),
+    ),
+    step1, step2, step3, step4, step5,
   );
 }
 
 function render(): void {
   writeHash();
+  const a = currentAnalysis();
   root.replaceChildren(
     h('header', { class: 'rm-head' },
       h('h1', {}, 'Rummy solver'),
@@ -478,8 +582,9 @@ function render(): void {
     ),
     h('div', { class: 'rm-grid' },
       h('div', { style: 'display:flex;flex-direction:column;gap:1.2rem' }, handPanel(), tablePanel()),
-      resultsPanel(),
+      resultsPanel(a),
     ),
+    explainerSection(a),
   );
 }
 

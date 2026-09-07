@@ -277,3 +277,65 @@ export function analyze(hand: readonly Card[], table: readonly TableMeld[] = [],
 function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
+
+// --- Teaching helpers: evaluate a hand-picked setting, and the LP relaxation ---------
+
+export interface ConstraintCheck {
+  readonly constraint: ConstraintInfo;
+  /** Left-hand side under the setting. */
+  readonly lhs: number;
+  readonly ok: boolean;
+}
+
+export interface SettingEval {
+  readonly score: number;
+  readonly checks: readonly ConstraintCheck[];
+  readonly feasible: boolean;
+  /** How many chosen variables use each hand card (0 = deadwood, 1 = melded, 2+ = conflict). */
+  readonly usage: ReadonlyMap<string, number>;
+}
+
+/** Score and check an arbitrary on/off setting of the variables, without solving anything. */
+export function evaluateSetting(info: ModelInfo, hand: readonly Card[], on: ReadonlySet<string>): SettingEval {
+  let score = 0;
+  const usage = new Map<string, number>();
+  for (const c of hand) usage.set(cardKey(c), 0);
+  for (const v of info.variables) {
+    if (!on.has(v.name)) continue;
+    score += v.points;
+    for (const c of v.cards) usage.set(cardKey(c), (usage.get(cardKey(c)) ?? 0) + 1);
+  }
+  const checks = info.constraints.map((k) => {
+    const lhs = k.terms.reduce((t, [name, coeff]) => t + (on.has(name) ? coeff : 0), 0);
+    return { constraint: k, lhs, ok: lhs <= k.max };
+  });
+  return { score, checks, feasible: checks.every((c) => c.ok), usage };
+}
+
+export interface Relaxation {
+  readonly value: number;
+  /** Variables with a non-integer value in the relaxed optimum. */
+  readonly fractional: readonly (readonly [string, number])[];
+}
+
+/**
+ * Solve the same model with the "whole numbers only" rule dropped, so each
+ * variable may take any value between 0 and 1. This is the linear relaxation a
+ * branch-and-bound solver starts from.
+ */
+export function solveRelaxed(info: ModelInfo): Relaxation {
+  if (info.variables.length === 0) return { value: 0, fractional: [] };
+  const variables = new Map<string, [string, number][]>();
+  const constraints = new Map<string, { max: number }>();
+  for (const v of info.variables) {
+    variables.set(v.name, [['obj', v.points], [`ub:${v.name}`, 1]]);
+    constraints.set(`ub:${v.name}`, { max: 1 });
+  }
+  for (const k of info.constraints) {
+    constraints.set(k.name, { max: k.max });
+    for (const [vname, coeff] of k.terms) variables.get(vname)!.push([k.name, coeff]);
+  }
+  const sol = solve({ direction: 'maximize', objective: 'obj', constraints, variables });
+  const fractional = sol.variables.filter(([, x]) => x > 1e-6 && x < 1 - 1e-6).map(([n, x]) => [n, x] as const);
+  return { value: Number.isFinite(sol.result) ? sol.result : 0, fractional };
+}

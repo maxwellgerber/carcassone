@@ -89,3 +89,45 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .equations .legend-row { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 0.2rem 0.6rem; padding: 0.1rem 0; font-size: 0.84rem; }
 .equations .legend-row .eq-body { font-family: 'IBM Plex Sans', sans-serif; }
 @media (max-width: 600px) { .equations .eq, .equations .legend-row { grid-template-columns: 3rem minmax(0, 1fr); } .equations .eq-why { grid-column: 2; text-align: left; white-space: normal; } }
+
+/* explainer */
+.explainer { display: flex; flex-direction: column; gap: 1.4rem; padding-top: 0.6rem; border-top: 1px solid var(--line); }
+.ex-head h2 { font-size: 1.7rem; font-weight: 600; }
+.ex-head p { max-width: 68ch; color: var(--ink-soft); margin: 0.4rem 0 0; font-size: 1.02rem; }
+.step { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); gap: 0.8rem; }
+.step-n { font-family: 'Space Grotesk', sans-serif; font-size: 1.8rem; font-weight: 600; line-height: 1; color: var(--accent); text-align: right; padding-top: 0.15rem; }
+.step-body { display: flex; flex-direction: column; gap: 0.6rem; min-width: 0; }
+.step-body h3 { font-size: 1.25rem; font-weight: 600; }
+.step-body h4 { font-family: 'IBM Plex Sans', sans-serif; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); margin: 0.5rem 0 0; }
+.step-body p { margin: 0; max-width: 72ch; }
+.step-body code { font-family: 'IBM Plex Mono', monospace; font-size: 0.88em; }
+.sw { font: 500 0.8rem 'IBM Plex Mono', monospace; padding: 0.1em 0.45em; border-radius: 3px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); display: inline-flex; gap: 0.35em; align-items: baseline; vertical-align: baseline; line-height: 1.5; }
+.sw.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.sw.static { cursor: default; }
+.sw-val { opacity: 0.8; font-weight: 400; }
+.opts { display: flex; flex-direction: column; gap: 0.3rem; max-width: 60rem; }
+.opt { display: grid; grid-template-columns: 5.2rem minmax(8rem, auto) minmax(0, 1fr) 4rem; gap: 0.6rem; align-items: center; padding: 0.3rem 0.5rem; border-radius: 3px; border: 1px solid transparent; }
+.opt.on { background: color-mix(in srgb, var(--accent) 15%, transparent); border-color: var(--line); }
+.opt-what { font-size: 0.88rem; color: var(--ink-soft); }
+.opt-pts { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; text-align: right; font-variant-numeric: tabular-nums; }
+.formula { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.6rem 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; max-width: 60rem; }
+.f-line { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: 0.6rem; align-items: baseline; }
+.f-kw { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+.f-body { font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem; line-height: 2; overflow-wrap: anywhere; }
+.term { white-space: nowrap; }
+.cons { display: flex; flex-direction: column; gap: 0.25rem; max-width: 60rem; }
+.con { display: grid; grid-template-columns: 3rem minmax(10rem, 1.2fr) minmax(7rem, 0.8fr) minmax(0, 1.4fr); gap: 0.6rem; align-items: center; padding: 0.25rem 0.5rem; border-radius: 3px; border-left: 3px solid transparent; }
+.con.ok { border-left-color: var(--accent); }
+.con.bad { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.con-who { font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--ink-soft); }
+.con-eq, .con-val { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; line-height: 1.9; }
+.con.bad .con-val { color: var(--danger); font-weight: 600; }
+.con-why { font-size: 0.82rem; color: var(--ink-soft); }
+.card.clash { box-shadow: 0 0 0 2px var(--danger); }
+@media (max-width: 700px) {
+  .opt { grid-template-columns: 5.2rem minmax(0, 1fr); }
+  .opt-what, .opt-pts { grid-column: 2; text-align: left; }
+  .con { grid-template-columns: 3rem minmax(0, 1fr); }
+  .con-val, .con-why { grid-column: 2; }
+  .f-line { grid-template-columns: 1fr; }
+}

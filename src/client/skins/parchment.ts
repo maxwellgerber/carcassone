@@ -132,6 +132,46 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   roundRect(ctx, 1, 1, SIZE - 2, SIZE - 2, 0); ctx.stroke();
 }
 
+/** The table is the uncharted sea around the survey: pale wash, inked wave ticks,
+ *  rhumb lines, and a sea serpent where the cartographer ran out of coastline. */
+function table(ctx: CanvasRenderingContext2D): void {
+  const T = 400;
+  const rng = seeded('parchment:table');
+  ctx.fillStyle = '#d6cfae'; ctx.fillRect(0, 0, T, T);
+  for (let i = 0; i < 90; i++) {
+    ctx.fillStyle = `rgba(140,100,50,${0.03 + rng() * 0.05})`;
+    ctx.beginPath(); ctx.ellipse(rng() * T, rng() * T, 4 + rng() * 14, 3 + rng() * 7, rng() * Math.PI, 0, Math.PI * 2); ctx.fill();
+  }
+  // Rhumb lines radiating from a point well inside the tile — they run off the edges,
+  // but faintly enough that the repeat reads as texture rather than a grid.
+  ctx.strokeStyle = 'rgba(74,53,36,0.10)'; ctx.lineWidth = 0.8;
+  for (let i = 0; i < 16; i++) { const a = (i * Math.PI) / 8; ctx.beginPath(); ctx.moveTo(200, 200); ctx.lineTo(200 + Math.cos(a) * 320, 200 + Math.sin(a) * 320); ctx.stroke(); }
+  // Wave ticks in staggered rows: the cartographer's shorthand for open water.
+  ctx.strokeStyle = 'rgba(74,53,36,0.45)'; ctx.lineWidth = 0.9; ctx.lineCap = 'round';
+  for (let row = 0; row < 20; row++) for (let col = 0; col < 10; col++) {
+    const x = col * 40 + (row % 2 ? 20 : 0) + 8, y = row * 20 + 10;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 4, y - 3, x + 8, y); ctx.quadraticCurveTo(x + 12, y + 3, x + 16, y); ctx.stroke();
+  }
+  // Sea serpent: three humps and a head, in ink.
+  ctx.save(); ctx.translate(120, 300);
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.6; ctx.fillStyle = '#c9b98d'; ctx.lineJoin = 'round';
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(i * 34, 0, 15, Math.PI, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(-18, 0); ctx.quadraticCurveTo(-30, -8, -34, -22); ctx.quadraticCurveTo(-26, -34, -14, -28); ctx.quadraticCurveTo(-10, -18, -18, -2); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(-27, -27, 1.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-34, -22); ctx.lineTo(-44, -20); ctx.stroke();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 3; i++) for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(i * 34 + k * 6, -14 + Math.abs(k) * 3); ctx.lineTo(i * 34 + k * 6, -20 + Math.abs(k) * 3); ctx.stroke(); }
+  ctx.restore();
+  // A tiny galleon, sails full.
+  ctx.save(); ctx.translate(290, 130);
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.fillStyle = '#e4d8b6';
+  ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(16, 0); ctx.lineTo(11, 7); ctx.lineTo(-11, 7); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(-6, -22); ctx.moveTo(6, 0); ctx.lineTo(6, -18); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-6, -20); ctx.quadraticCurveTo(-16, -12, -6, -5); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6, -16); ctx.quadraticCurveTo(15, -10, 6, -4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
 export const parchment: Skin = {
   id: 'parchment',
   name: 'Parchment Atlas',
@@ -143,4 +183,5 @@ export const parchment: Skin = {
   },
   board: ['#c9b48e', '#a48c62'],
   paint,
+  table,
 };

@@ -117,6 +117,34 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   ctx.strokeStyle = 'rgba(63,240,255,0.18)'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, SIZE - 1, SIZE - 1);
 }
 
+/** The table is wet asphalt at night: a dot grid, faint scanlines, and a few
+ *  neon reflections smeared across the puddles. */
+function table(ctx: CanvasRenderingContext2D): void {
+  const T = 400;
+  const rng = seeded('neon:table');
+  ctx.fillStyle = '#0a0c18'; ctx.fillRect(0, 0, T, T);
+  for (let i = 0; i < 6; i++) {
+    // Keep each puddle fully inside the repeat so its edge never gets clipped square.
+    const r = 50 + rng() * 50, x = r + rng() * (T - 2 * r), y = r + rng() * (T - 2 * r);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    const c = rng() < 0.5 ? '63,240,255' : '255,79,216';
+    g.addColorStop(0, `rgba(${c},0.09)`); g.addColorStop(1, `rgba(${c},0)`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, T, T);
+  }
+  ctx.fillStyle = 'rgba(63,240,255,0.22)';
+  for (let y = 10; y < T; y += 20) for (let x = 10; x < T; x += 20) { ctx.beginPath(); ctx.arc(x, y, 0.9, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)'; ctx.lineWidth = 1;
+  for (let y = 0; y < T; y += 4) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(T, y + 0.5); ctx.stroke(); }
+  // Reflections: short smeared neon streaks, vertical like lights on wet ground.
+  for (let i = 0; i < 10; i++) {
+    const x = 20 + rng() * (T - 40), y = 20 + rng() * (T - 60), len = 14 + rng() * 26;
+    const c = ['#3ff0ff', '#ff4fd8', '#ffd23f'][Math.floor(rng() * 3)]!;
+    const g = ctx.createLinearGradient(x, y, x, y + len);
+    g.addColorStop(0, c); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.35; ctx.fillStyle = g; ctx.fillRect(x - 1, y, 2, len); ctx.globalAlpha = 1;
+  }
+}
+
 export const neon: Skin = {
   id: 'neon',
   name: 'Neon Grid',
@@ -128,4 +156,5 @@ export const neon: Skin = {
   },
   board: ['#0a0c18', '#141a30'],
   paint,
+  table,
 };

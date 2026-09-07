@@ -570,6 +570,21 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
+let tablePatternCache: { skinId: string; pattern: CanvasPattern } | null = null;
+onSkinChange(() => { tablePatternCache = null; });
+function tablePattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
+  const skin = currentSkin();
+  if (!skin.table) return null;
+  if (tablePatternCache?.skinId === skin.id) return tablePatternCache.pattern;
+  const T = skin.tableSize ?? 400;
+  const c = document.createElement('canvas'); c.width = T; c.height = T;
+  const pctx = c.getContext('2d')!;
+  pctx.save(); pctx.beginPath(); pctx.rect(0, 0, T, T); pctx.clip(); skin.table(pctx); pctx.restore();
+  const pattern = ctx.createPattern(c, 'repeat')!;
+  tablePatternCache = { skinId: skin.id, pattern };
+  return pattern;
+}
+
 function drawBoard(canvas: HTMLCanvasElement): void {
   if (!room?.game) return;
   const ctx = canvas.getContext('2d')!;
@@ -580,6 +595,15 @@ function drawBoard(canvas: HTMLCanvasElement): void {
   const [top, bottom] = currentSkin().board;
   g.addColorStop(0, top); g.addColorStop(1, bottom);
   ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch);
+  // The table surface: a seamless pattern pinned to the world grid, so it scrolls
+  // and zooms with the tiles instead of sitting still behind them like wallpaper.
+  const pattern = tablePattern(ctx);
+  if (pattern) {
+    const [ox, oy] = worldToScreen(0, 0, cw, ch);
+    const m = new DOMMatrix().translate(ox, oy).scale(camera.scale / 200);
+    pattern.setTransform(m);
+    ctx.save(); ctx.fillStyle = pattern; ctx.fillRect(0, 0, cw, ch); ctx.restore();
+  }
 
   const game = room.game;
   const board = game.board;

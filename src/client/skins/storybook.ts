@@ -126,6 +126,62 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   ctx.strokeStyle = 'rgba(90,61,74,0.35)'; ctx.lineWidth = 1.2; ctx.strokeRect(0.6, 0.6, SIZE - 1.2, SIZE - 1.2);
 }
 
+/** The table is the sea: rolling wave bands, whitecaps, a fish or two and a little
+ *  sailboat. Everything repeats every 400 units with no visible join. */
+function table(ctx: CanvasRenderingContext2D): void {
+  const T = 600;
+  const rng = seeded('storybook:table');
+  const g = ctx.createLinearGradient(0, 0, 0, T);
+  g.addColorStop(0, '#6cc3ec'); g.addColorStop(0.5, '#5fb6e4'); g.addColorStop(1, '#6cc3ec');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, T, T);
+  // Wave bands: sine rows whose period divides 400 so the left and right edges meet.
+  for (let row = 0; row < 24; row++) {
+    const y0 = row * 25 + 12, amp = 3.5, period = 100, phase = row * 1.3;
+    ctx.beginPath();
+    for (let x = 0; x <= T; x += 4) ctx.lineTo(x, y0 + Math.sin((x / period) * Math.PI * 2 + phase) * amp);
+    ctx.strokeStyle = row % 2 ? 'rgba(255,255,255,0.28)' : 'rgba(30,90,150,0.18)'; ctx.lineWidth = row % 2 ? 2 : 1.4; ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+  // Whitecaps: little foam arcs, kept away from the edges so the tile stays seamless.
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2.2;
+  for (let i = 0; i < 22; i++) {
+    const x = 20 + rng() * (T - 40), y = 20 + rng() * (T - 40), r = 5 + rng() * 5;
+    ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x + r * 1.6, y + 2, r * 0.7, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+  }
+  // Fish.
+  const fish = (x: number, y: number, s: number, flip: boolean, color: string) => {
+    ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s);
+    ctx.fillStyle = color; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1 / s;
+    ctx.beginPath(); ctx.ellipse(0, 0, 8, 4.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(-13, -4.5); ctx.lineTo(-13, 4.5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(4, -1, 1.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = OUTLINE; ctx.beginPath(); ctx.arc(4.4, -1, 0.7, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  };
+  fish(90, 300, 1.1, false, '#ff9f4a'); fish(310, 120, 0.9, true, '#ffd35e'); fish(230, 540, 0.8, false, '#ff8fb1'); fish(520, 380, 1, true, '#c79bff');
+  // A sailboat.
+  ctx.save(); ctx.translate(430, 230);
+  ctx.fillStyle = '#e07a5f'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(18, 0); ctx.lineTo(13, 8); ctx.lineTo(-13, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = '#8a5a3a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -28); ctx.stroke();
+  ctx.fillStyle = '#fffaf0'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.1;
+  ctx.beginPath(); ctx.moveTo(1, -27); ctx.lineTo(17, -4); ctx.lineTo(1, -4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ff6f91'; ctx.beginPath(); ctx.moveTo(-1, -26); ctx.lineTo(-12, -6); ctx.lineTo(-1, -6); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-24, 10); ctx.quadraticCurveTo(-10, 14, 0, 11); ctx.stroke();
+  ctx.restore();
+  // A friendly whale spouting in the corner region (well inside the tile).
+  ctx.save(); ctx.translate(110, 110);
+  ctx.fillStyle = '#4e7fc9'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.ellipse(0, 0, 22, 11, 0, Math.PI, Math.PI * 2); ctx.lineTo(22, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(20, -2); ctx.quadraticCurveTo(30, -12, 34, -3); ctx.quadraticCurveTo(30, 2, 20, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-10, -4, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = OUTLINE; ctx.beginPath(); ctx.arc(-9.6, -4, 0.8, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-4, -11); ctx.quadraticCurveTo(-8, -22, -14, -24); ctx.moveTo(-4, -11); ctx.quadraticCurveTo(0, -22, 6, -24); ctx.moveTo(-4, -11); ctx.lineTo(-4, -26); ctx.stroke();
+  ctx.restore();
+}
+
 export const storybook: Skin = {
   id: 'storybook',
   name: 'Storybook Meadow',
@@ -137,4 +193,6 @@ export const storybook: Skin = {
   },
   board: ['#7fc9e8', '#5aa9d4'],
   paint,
+  table,
+  tableSize: 600,
 };

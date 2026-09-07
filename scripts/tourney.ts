@@ -12,10 +12,11 @@ import { chooseNpcMeepleMove as oldMeeple, chooseNpcTilePlacement as oldTile } f
 import type { GameState, NpcDifficulty, Placement } from '../src/shared/types.js';
 import { writeFileSync } from 'node:fs';
 
-type BotName = 'easy' | 'normal' | 'hard' | 'old-normal' | 'old-hard' | 'net' | 'blend' | 'net-hard';
-const BOTS: BotName[] = ['easy', 'normal', 'hard', 'old-normal', 'old-hard', 'net', 'blend', 'net-hard'];
-/** Which evaluator each bot thinks with; switched per move so bots can share a table. */
-const EVALUATOR: Partial<Record<BotName, 'hand' | 'net' | 'blend'>> = { net: 'net', 'net-hard': 'net', blend: 'blend' };
+type BotName = 'easy' | 'normal' | 'hard' | 'old-normal' | 'old-hard' | 'net' | 'net-hard' | 'blend' | 'blend-hard' | 'hand' | 'hand-hard';
+const BOTS: BotName[] = ['easy', 'normal', 'hard', 'old-normal', 'old-hard', 'net', 'net-hard', 'blend', 'blend-hard', 'hand', 'hand-hard'];
+/** Which evaluator each bot thinks with (switched per move so bots can share a table);
+ *  plain normal/hard use whatever NPC_TUNING.evaluator ships with. */
+const EVALUATOR: Partial<Record<BotName, 'hand' | 'net' | 'blend'>> = { net: 'net', 'net-hard': 'net', blend: 'blend', 'blend-hard': 'blend', hand: 'hand', 'hand-hard': 'hand' };
 
 function mkRng(seed: number): () => number {
   let s = seed >>> 0 || 1;
@@ -39,7 +40,7 @@ const onlyBots = arg('bots', '');
 const POOL: BotName[] = onlyBots ? (onlyBots.split(',') as BotName[]) : BOTS.filter((b) => !EVALUATOR[b]);
 
 const baseEvaluator = NPC_TUNING.evaluator;
-function difficultyOf(bot: BotName): NpcDifficulty { return bot === 'net-hard' ? 'hard' : bot === 'net' || bot === 'blend' ? 'normal' : bot as NpcDifficulty; }
+function difficultyOf(bot: BotName): NpcDifficulty { return bot.endsWith('-hard') ? 'hard' : EVALUATOR[bot] ? 'normal' : bot as NpcDifficulty; }
 function tileMove(bot: BotName, g: GameState, rng: () => number): Placement {
   if (bot === 'old-normal') return oldTile(g, 'normal', rng);
   if (bot === 'old-hard') return oldTile(g, 'hard', rng);

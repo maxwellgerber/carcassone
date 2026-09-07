@@ -27,7 +27,7 @@ export type NpcMove =
  *  Durable Object alarm never runs long; the tourney script raises it. */
 export const NPC_SEARCH = { candidates: 5, rollouts: 12, depth: 4, thinkMs: 150, staticWeight: 0.6 };
 /** Evaluation knobs, exposed so scripts/tourney.ts can sweep them. */
-export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'hand' };
+export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend' };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;

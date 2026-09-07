@@ -24,11 +24,11 @@ new_sqlite_classes = ["GameRoom"]
 # then replace the ids below. `wrangler dev` simulates KV locally regardless of id.
 [[kv_namespaces]]
 binding = "ROOM_REGISTRY"
-id = "REPLACE_WITH_REAL_KV_ID"
+id = "34b246eb94744b08937c96ceb2035f33"
 
 [[kv_namespaces]]
 binding = "USER_PROFILES"
-id = "REPLACE_WITH_REAL_KV_ID"
+id = "e5585b4494674442a4b13ace69df07ca"
 
 # OIDC + session config. OIDC_ISSUER/OIDC_CLIENT_ID are not secret and are the
 # same for local dev and production, so they live here. OIDC_REDIRECT_URI

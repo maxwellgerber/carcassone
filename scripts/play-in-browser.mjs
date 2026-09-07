@@ -274,6 +274,32 @@ else {
 }
 await A.page.click('button:has-text("Final scores")');
 if (!(await A.page.$('.modal-backdrop'))) errors.push('end modal did not reopen');
+// Replay: open it from the end modal, scrub it, and check it lands on the final board.
+if (!(await A.page.$('button:has-text("Replay")'))) errors.push('no Replay button on the end modal');
+else {
+  const finalTiles = await A.page.evaluate(() => Object.keys(window.__carcassonne.room().game.board).length);
+  await A.page.click('button:has-text("Replay")');
+  await A.page.waitForSelector('.replay-bar', { timeout: 8000 });
+  await afterFrame(A.page);
+  const t0 = await A.page.evaluate(() => Object.keys(window.__carcassonne.room().game.board).length);
+  if (t0 !== 1) errors.push(`replay should start with only the start tile, got ${t0}`);
+  await A.page.click('.replay-controls button[title="End"]');
+  await afterFrame(A.page);
+  const tEnd = await A.page.evaluate(() => Object.keys(window.__carcassonne.room().game.board).length);
+  if (tEnd !== finalTiles) errors.push(`replay end has ${tEnd} tiles, live game had ${finalTiles}`);
+  await A.page.click('.replay-controls button[title="Start"]');
+  await A.page.click('.replay-controls button[title="Play"]');
+  await A.page.waitForTimeout(2500);
+  const tMid = await A.page.evaluate(() => Object.keys(window.__carcassonne.room().game.board).length);
+  if (tMid <= 1) errors.push('replay did not advance while playing');
+  await snap(A.page, '11-replay');
+  const stepText = await A.page.$eval('.replay-step', (e) => e.textContent);
+  console.log(`  🎞  replay scrubbed to ${stepText}, ${tMid} tiles mid-play, ${tEnd} at the end`);
+  // Home page lists the game with a replay link.
+  await A.page.click('button:has-text("Home")');
+  await A.page.waitForSelector('.history-row', { timeout: 8000 }).catch(() => errors.push('home page shows no game history'));
+  await snap(A.page, '12-home-history');
+}
 console.log('\nfinal:', finalA);
 console.log(`humans placed ${placedByHumans} tiles, ${meeplesPlaced} meeples via ghosts, ${skips} button skips, ${pillSkips} on-tile skips, ${escSkips} Esc skips, ${autoSkipToasts} auto-skip toasts; ${routeSmooth} walkers kept their spot across a tile landing`);
 await browser.close();

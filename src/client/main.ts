@@ -1,6 +1,7 @@
 import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
-import { getLegalPlacements, getMeepleOptions, placeMeeple, placeTile, skipMeeple, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
-import type { RoomDoc } from '../shared/room-types.js';
+import { createGame, getLegalPlacements, getMeepleOptions, placeMeeple, placeTile, skipMeeple, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
+import type { RoomDoc, ReplayDoc, GameSummary } from '../shared/room-types.js';
+import { mkRng } from '../shared/rng.js';
 import type { GameConfig, MeepleKind, NpcDifficulty, ScoreEvent } from '../shared/types.js';
 import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, preloadTileArt, type MeepleLook } from './art.js';
 import { h, toast } from './dom.js';
@@ -43,7 +44,9 @@ window.addEventListener('popstate', route);
 function route(): void {
   teardownRoom();
   const m = location.pathname.match(/^\/r\/([a-z0-9-]+)\/?$/i);
+  const rp = location.pathname.match(/^\/r\/([a-z0-9-]+)\/replay\/([a-z0-9.-]+)\/?$/i);
   if (location.pathname === '/welcome') { void mountWelcome(); return; }
+  if (rp) { void mountReplay(rp[1]!.toLowerCase(), rp[2]!); return; }
   if (m) { void mountRoom(m[1]!.toLowerCase()); return; }
   void mountHome();
 }
@@ -113,13 +116,39 @@ async function mountHome(): Promise<void> {
     ? h('p', { class: 'home-footer' }, `Signed in as ${me.name}. `, h('a', { href: '#', onclick: (e: Event) => { e.preventDefault(); window.location.href = '/auth/logout'; } }, 'Sign out'), '.')
     : h('p', { class: 'home-footer' }, me.devMode ? 'Running in local dev mode — no real identity provider configured.' : 'No spam, no passwords stored by us — sign-in is handled by your identity provider.');
 
+  const historyEl = me.signedIn ? h('div', { class: 'history panel', hidden: true }) : null;
   root.appendChild(h('div', { class: 'home' },
     h('div', { class: 'home-banner' }, bannerCanvas()),
     h('h1', { class: 'home-title display' }, 'Carcassonne'),
     h('p', { class: 'home-subtitle' }, 'Draw a tile, extend the land, place your meeple, and race your friends — or a table of NPCs — to claim the roads, cities, and cloisters of the countryside.'),
     authArea,
+    historyEl,
     footer,
   ));
+  if (historyEl) void fillHistory(historyEl);
+}
+
+/** Past games for the signed-in player, newest first, each with a replay link. */
+async function fillHistory(el: HTMLElement): Promise<void> {
+  let games: { roomId: string; summary: GameSummary }[] = [];
+  try { games = ((await (await fetch('/api/history')).json()) as { games: typeof games }).games ?? []; } catch { return; }
+  if (!games.length) return;
+  el.hidden = false;
+  el.appendChild(h('h3', {}, '📜 Your games'));
+  for (const { roomId, summary } of games.slice(0, 12)) {
+    const top = Math.max(...summary.players.map((p) => p.score));
+    const mine = summary.players.find((p) => p.id === me.sub);
+    const won = !!mine && mine.score === top;
+    el.appendChild(h('div', { class: 'history-row' },
+      h('span', { class: 'history-when' }, new Date(summary.endedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })),
+      h('span', { class: 'history-result' + (won ? ' won' : '') }, won ? '🏆 Won' : 'Lost'),
+      h('span', { class: 'history-players' }, ...summary.players.map((p) => h('span', { class: 'history-player' + (p.score === top ? ' winner' : '') },
+        h('canvas', { class: 'meeple-swatch', width: 14, height: 14, 'data-color': p.color }), ` ${p.name} ${p.score}`))),
+      h('a', { href: `/r/${roomId}/replay/${summary.id}`, onclick: (e: Event) => { e.preventDefault(); navigate(`/r/${roomId}/replay/${summary.id}`); } }, '🎞 Replay'),
+      h('a', { href: `/r/${roomId}`, onclick: (e: Event) => { e.preventDefault(); navigate(`/r/${roomId}`); } }, 'Table'),
+    ));
+  }
+  paintMeepleSwatches(el);
 }
 
 async function mountWelcome(): Promise<void> {
@@ -149,6 +178,8 @@ let previewRot = 0;
 
 function teardownRoom(): void {
   if (socket) { try { socket.close(); } catch { /* ignore */ } socket = null; }
+  if (replay?.timer) clearInterval(replay.timer);
+  replay = null;
   room = null; currentRoomId = null; connStatus = 'connecting';
   boardCanvasEl = null; boardWrapEl = null; hovered = null;
   userAdjustedCamera = false;
@@ -196,6 +227,120 @@ function connectSocket(roomId: string): void {
 }
 
 function send(obj: Record<string, unknown>): void { if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(obj)); }
+
+// ---------------------------------------------------------------------------
+// Replays: a finished game rebuilt move by move from its recorded seed and actions,
+// through the very same engine, and shown on the ordinary board renderer.
+// ---------------------------------------------------------------------------
+interface Replay { doc: ReplayDoc; states: NonNullable<RoomDoc['game']>[]; step: number; playing: boolean; timer: ReturnType<typeof setInterval> | null; speed: number }
+let replay: Replay | null = null;
+
+async function mountReplay(roomId: string, gameId: string): Promise<void> {
+  await refreshMe();
+  if (!me.signedIn) { window.location.href = `/auth/login?next=${encodeURIComponent(location.pathname)}`; return; }
+  currentRoomId = roomId;
+  root.innerHTML = '';
+  root.appendChild(h('div', { class: 'home' }, h('p', {}, 'Rewinding the game…')));
+  let doc: ReplayDoc;
+  try {
+    const res = await fetch(`/api/room/${roomId}/replay/${encodeURIComponent(gameId)}`);
+    if (!res.ok) { const body = await res.json().catch(() => ({})) as { error?: string }; throw new Error(body.error ?? `HTTP ${res.status}`); }
+    doc = await res.json() as ReplayDoc;
+  } catch (err) {
+    root.innerHTML = '';
+    root.appendChild(h('div', { class: 'home' },
+      h('h2', {}, 'No replay here'),
+      h('p', { class: 'home-subtitle' }, String(err instanceof Error ? err.message : err)),
+      h('button', { onclick: () => navigate('/') }, 'Home'),
+    ));
+    return;
+  }
+  const sm = doc.summary;
+  const g0 = createGame(sm.players.map((p) => ({ id: p.id, name: p.name, color: p.color, isNpc: p.isNpc, npcDifficulty: p.npcDifficulty })), mkRng(sm.seed), sm.config);
+  const states = [structuredClone(g0)];
+  const g = g0;
+  for (const mv of doc.moves) {
+    try {
+      const a = mv.action;
+      if (a.type === 'place_tile') placeTile(g, a.x, a.y, a.rot);
+      else if (a.type === 'place_meeple') placeMeeple(g, a.kind, a.idx);
+      else skipMeeple(g);
+    } catch (err) {
+      console.error('replay diverged at move', states.length, err);
+      break;
+    }
+    states.push(structuredClone(g));
+  }
+  replay = { doc, states, step: 0, playing: false, timer: null, speed: 1 };
+  connStatus = 'connected';
+  setReplayStep(0);
+}
+
+function replayRoomDoc(): RoomDoc {
+  const r = replay!;
+  const sm = r.doc.summary;
+  return {
+    schemaVersion: 2, phase: 'ended', hostId: null, game: r.states[r.step]!, config: sm.config, chat: [],
+    players: sm.players.map((p) => ({ id: p.id, name: p.name, color: p.color, connected: true, isNpc: p.isNpc, npcDifficulty: p.npcDifficulty })),
+    createdAt: sm.startedAt, lastActivityAt: sm.endedAt, seq: 0, games: [],
+  };
+}
+
+function setReplayStep(step: number): void {
+  if (!replay) return;
+  const last = replay.states.length - 1;
+  replay.step = Math.max(0, Math.min(last, step));
+  if (replay.step === last && replay.playing) replayPlay(false);
+  walkCache.clear();
+  room = replayRoomDoc();
+  renderRoom();
+}
+
+function replayPlay(on: boolean): void {
+  if (!replay) return;
+  replay.playing = on;
+  if (replay.timer) { clearInterval(replay.timer); replay.timer = null; }
+  if (on) {
+    replay.timer = setInterval(() => {
+      if (!replay) return;
+      // A tile landing gets a beat; the meeple decision that follows goes by quickly.
+      setReplayStep(replay.step + 1);
+    }, 900 / replay.speed);
+  }
+  renderReplayBar();
+}
+
+let replayBarEl: HTMLElement | null = null;
+function renderReplayBar(): void {
+  if (!replay || !replayBarEl) return;
+  const r = replay;
+  const last = r.states.length - 1;
+  const sm = r.doc.summary;
+  const mv = r.step > 0 ? r.doc.moves[r.step - 1] : null;
+  const who = mv ? sm.players.find((p) => p.id === mv.playerId)?.name ?? '?' : null;
+  const role: Record<MeepleKind, string> = { city: 'knight in the city', road: 'highwayman on the road', monastery: 'monk in the cloister', farm: 'farmer in the field' };
+  const what = !mv ? 'The table is set.' : mv.action.type === 'place_tile' ? `${who} lays a tile` : mv.action.type === 'place_meeple' ? `${who} places a ${role[mv.action.kind]}` : `${who} keeps their meeples`;
+  replayBarEl.innerHTML = '';
+  const slider = h('input', { type: 'range', min: 0, max: last, value: r.step, class: 'replay-slider', oninput: (e: Event) => { replayPlay(false); setReplayStep(Number((e.target as HTMLInputElement).value)); } });
+  const bar = replayBarEl;
+  bar.appendChild(h('div', { class: 'replay-title' }, h('strong', {}, `🎞 Replay`), ` · game ${sm.no} in "${r.doc.roomId}" · ${new Date(sm.endedAt).toLocaleDateString()}`));
+  bar.appendChild(h('div', { class: 'replay-controls' },
+      h('button', { class: 'small', title: 'Start', onclick: () => { replayPlay(false); setReplayStep(0); } }, '⏮'),
+      h('button', { class: 'small', title: 'Back', onclick: () => { replayPlay(false); setReplayStep(r.step - 1); } }, '◀'),
+      h('button', { class: 'small primary', title: r.playing ? 'Pause' : 'Play', onclick: () => { if (r.step >= last) setReplayStep(0); replayPlay(!r.playing); } }, r.playing ? '❚❚' : '▶'),
+      h('button', { class: 'small', title: 'Forward', onclick: () => { replayPlay(false); setReplayStep(r.step + 1); } }, '▶|'),
+      h('button', { class: 'small', title: 'End', onclick: () => { replayPlay(false); setReplayStep(last); } }, '⏭'),
+      h('select', { class: 'small', onchange: (e: Event) => { r.speed = Number((e.target as HTMLSelectElement).value); if (r.playing) replayPlay(true); } },
+        ...[0.5, 1, 2, 4].map((sp) => h('option', { value: sp, selected: sp === r.speed }, `${sp}×`))),
+      h('span', { class: 'replay-step' }, `${r.step} / ${last}`),
+    ));
+  bar.appendChild(slider);
+  bar.appendChild(h('div', { class: 'replay-caption' }, what));
+  bar.appendChild(h('div', { style: 'display:flex;gap:0.5rem;justify-content:center' },
+      h('button', { class: 'small', onclick: () => navigate(`/r/${r.doc.roomId}`) }, 'Back to the table'),
+      h('button', { class: 'small', onclick: () => navigate('/') }, 'Home'),
+    ));
+}
 
 /** Everything that should happen *because the world changed* (sounds, toasts) is
  *  derived here by diffing the previous room document against the new one — the
@@ -1592,8 +1737,15 @@ function renderGame(): HTMLElement {
   if (animateMeeples) ensureBoardAnimation();
 
   const sidebar = buildSidebar(game, myTurn);
+  if (replay) {
+    replayBarEl = h('div', { class: 'panel replay-bar' });
+    sidebar.insertBefore(replayBarEl, sidebar.firstChild);
+    renderReplayBar();
+  } else {
+    replayBarEl = null;
+  }
   const container = h('div', { class: 'game' }, wrap, sidebar);
-  if (room!.phase === 'ended') { const modal = renderEndModal(game); if (modal) container.appendChild(modal); }
+  if (room!.phase === 'ended' && !replay) { const modal = renderEndModal(game); if (modal) container.appendChild(modal); }
   return container;
 }
 
@@ -1698,6 +1850,7 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement | null 
       ))),
       h('div', { style: 'display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap' },
         h('button', { class: 'small', onclick: () => { endModalDismissed = true; renderRoom(); } }, '🔍 Look at the board'),
+        room!.games.length ? h('button', { class: 'small', onclick: () => navigate(`/r/${currentRoomId}/replay/${room!.games[room!.games.length - 1]!.id}`) }, '🎞 Replay') : null,
         isHost ? h('button', { class: 'primary', onclick: () => { lastEndedShown = false; send({ type: 'new_game' }); } }, 'Play again') : null,
       ),
       isHost ? null : h('p', { style: 'color:var(--ink-soft);margin:0.8rem 0 0' }, 'Waiting for the host to start a new game…'),

@@ -224,3 +224,23 @@ input[type=text]:focus-visible { outline: 2px solid var(--accent); outline-offse
 /* Chronicle scoring lines light up the scored feature on the board. */
 .log-entry-score { cursor: pointer; border-left: 3px solid transparent; margin-left: -0.4rem; padding-left: 0.4rem; border-radius: 3px; transition: background 0.12s; }
 .log-entry-score:hover, .log-entry-score.pinned { background: color-mix(in srgb, var(--accent, #D4B85A) 18%, transparent); border-left-color: var(--accent, #D4B85A); }
+
+/* Replays */
+.replay-bar { padding: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.replay-title { font-size: 0.85rem; color: var(--ink-soft); }
+.replay-controls { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
+.replay-controls select.small { padding: 0.25rem 0.4rem; font-size: 0.8rem; }
+.replay-step { margin-left: auto; font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 0.85rem; }
+.replay-slider { width: 100%; accent-color: var(--accent); }
+.replay-caption { font-size: 0.9rem; min-height: 1.2em; }
+
+/* Game history on the home page */
+.history { width: min(640px, 100%); padding: 1rem 1.2rem; text-align: left; display: flex; flex-direction: column; gap: 0.4rem; }
+.history h3 { font-size: 1.05rem; margin-bottom: 0.3rem; }
+.history-row { display: flex; gap: 0.7rem; align-items: center; font-size: 0.9rem; padding: 0.3rem 0; border-top: 1px dotted color-mix(in srgb, var(--ink) 20%, transparent); flex-wrap: wrap; }
+.history-when { color: var(--ink-soft); width: 4.2em; }
+.history-result { width: 4.5em; font-weight: 600; color: var(--ink-soft); }
+.history-result.won { color: var(--accent); }
+.history-players { flex: 1; display: flex; gap: 0.7rem; flex-wrap: wrap; }
+.history-player { display: inline-flex; align-items: center; gap: 0.2rem; }
+.history-player.winner { font-weight: 700; }

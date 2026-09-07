@@ -1,5 +1,5 @@
 import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
-import { getLegalPlacements, getMeepleOptions, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
+import { getLegalPlacements, getMeepleOptions, placeMeeple, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
 import type { RoomDoc } from '../shared/room-types.js';
 import type { GameConfig, MeepleKind, NpcDifficulty } from '../shared/types.js';
 import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, preloadTileArt } from './art.js';
@@ -174,6 +174,7 @@ function connectSocket(roomId: string): void {
       const prev = room;
       room = msg.room as RoomDoc;
       if (room.game && room.game.currentTile !== prev?.game?.currentTile) previewRot = 0;
+      if (room.phase === 'lobby' || (prev?.phase !== 'playing' && room.phase === 'playing')) walkCache.clear();
       reactToSync(prev, room);
       renderRoom();
     } else if (msg.type === 'error') {
@@ -370,6 +371,8 @@ let dragMovedFar = false;
 let hoveredGhost: MeepleSpot | null = null;
 let ghostAnimFrame: number | null = null;
 let settingsOpen = false;
+const PREF_OWNERS = 'carcassonne.showOwners';
+let showOwners = (() => { try { return localStorage.getItem(PREF_OWNERS) === 'on'; } catch { return false; } })();
 
 /** The player's unplaced meeples, drawn as a stack: solid ones are in hand, faint
  *  outlines are out on the board earning their keep. */
@@ -521,13 +524,113 @@ function meepleSpots(tileKey: string, rot: number): MeepleSpot[] {
   return spots;
 }
 
+// ---------------------------------------------------------------------------
+// Idle animation: meeples patrol the feature they stand on. Each gets a path in
+// tile-local coordinates (0..1) and walks it at its own pace; roads are walked back
+// and forth along the real road line, cities and cloisters are looped.
+// ---------------------------------------------------------------------------
+const PREF_ANIMATE = 'carcassonne.animate';
+let animateMeeples = (() => { try { return localStorage.getItem(PREF_ANIMATE) !== 'off'; } catch { return true; } })();
+interface WalkPath { pts: [number, number][]; cum: number[]; length: number; loop: boolean; speed: number; phase: number }
+const walkCache = new Map<string, WalkPath>();
+
+function rotatePt([x, y]: [number, number], rot: number): [number, number] {
+  let px = x, py = y;
+  for (let i = 0; i < ((rot % 4) + 4) % 4; i++) { const nx = 1 - py, ny = px; px = nx; py = ny; }
+  return [px, py];
+}
+
+function roadPolyline(tileKey: string, rot: number, idx: number): [number, number][] {
+  const grp = TILE_TYPES[tileKey]!.roadGroups[idx]!;
+  const MID: [number, number][] = [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]];
+  const pts: [number, number][] = [];
+  const a = grp[0]!;
+  if (grp.length === 2) {
+    const b = grp[1]!;
+    if ((a + 2) % 4 === b) { pts.push(MID[a]!, MID[b]!); }
+    else {
+      // Quarter circle around the shared corner, matching how every skin draws bends.
+      const [lo, hi] = [Math.min(a, b), Math.max(a, b)];
+      const corner: [number, number] = lo === 0 && hi === 3 ? [0, 0] : lo === 0 ? [1, 0] : lo === 1 ? [1, 1] : [0, 1];
+      const [ax, ay] = MID[a]!, [bx, by] = MID[b]!;
+      const a0 = Math.atan2(ay - corner[1], ax - corner[0]), a1 = Math.atan2(by - corner[1], bx - corner[0]);
+      let d = a1 - a0; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+      for (let i = 0; i <= 12; i++) { const t = a0 + (d * i) / 12; pts.push([corner[0] + Math.cos(t) * 0.5, corner[1] + Math.sin(t) * 0.5]); }
+    }
+  } else {
+    pts.push(MID[a]!, [0.5, 0.5]);
+  }
+  // Trim the ends so the walker turns around a little inside the tile edge / junction.
+  const trimmed = pts.map((p) => p);
+  const shrink = (p: [number, number], q: [number, number], k: number): [number, number] => [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k];
+  trimmed[0] = shrink(trimmed[0]!, trimmed[1]!, 0.18);
+  const n = trimmed.length - 1;
+  trimmed[n] = shrink(trimmed[n]!, trimmed[n - 1]!, grp.length === 2 ? 0.18 : 0.35);
+  return trimmed.map((p) => rotatePt(p, rot));
+}
+
+function walkPathFor(m: { x: number; y: number; kind: MeepleKind; idx: number; playerIdx: number }, tileKey: string, rot: number): WalkPath {
+  const key = `${m.x},${m.y}|${m.kind}|${m.idx}|${m.playerIdx}`;
+  const hit = walkCache.get(key);
+  if (hit) return hit;
+  const [ax, ay] = meepleAnchor(tileKey, rot, m.kind, m.idx);
+  const seed = ((m.x * 73856093) ^ (m.y * 19349663) ^ (m.idx * 83492791)) >>> 0;
+  const phase = (seed % 1000) / 1000;
+  let pts: [number, number][] = [];
+  let loop = true, speed = 0.05; // tile units per second
+  if (m.kind === 'road') { pts = roadPolyline(tileKey, rot, m.idx); loop = false; speed = 0.07; }
+  else if (m.kind === 'city') { for (let i = 0; i <= 16; i++) { const t = (i / 16) * Math.PI * 2; pts.push([ax + Math.cos(t) * 0.075, ay + Math.sin(t) * 0.045]); } speed = 0.045; }
+  else if (m.kind === 'monastery') { for (let i = 0; i <= 20; i++) { const t = (i / 20) * Math.PI * 2; pts.push([0.5 + Math.cos(t) * 0.2, 0.55 + Math.sin(t) * 0.16]); } speed = 0.06; }
+  else { pts = [[ax, ay]]; speed = 0; }
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1]! + Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]));
+  const wp: WalkPath = { pts, cum, length: cum[cum.length - 1]!, loop, speed, phase };
+  walkCache.set(key, wp);
+  return wp;
+}
+
+/** Where a meeple is right now, in tile-local units, plus which way it faces. */
+function meeplePose(m: { x: number; y: number; kind: MeepleKind; idx: number; playerIdx: number }, tileKey: string, rot: number, now: number): { x: number; y: number; flip: boolean; bob: number } {
+  const wp = walkPathFor(m, tileKey, rot);
+  if (!animateMeeples || wp.length === 0 || wp.speed === 0) {
+    const p = wp.pts[0]!;
+    const rock = animateMeeples && m.kind === 'farm' ? Math.sin(now / 900 + wp.phase * 6) * 0.004 : 0;
+    return { x: p[0], y: p[1] + rock, flip: false, bob: 0 };
+  }
+  const t = (now / 1000) * wp.speed + wp.phase * wp.length * 2;
+  let d: number, forward = true;
+  if (wp.loop) d = t % wp.length;
+  else { const cycle = t % (wp.length * 2); if (cycle <= wp.length) d = cycle; else { d = wp.length * 2 - cycle; forward = false; } }
+  let i = 1; while (i < wp.cum.length - 1 && wp.cum[i]! < d) i++;
+  const seg0 = wp.cum[i - 1]!, seg1 = wp.cum[i]!;
+  const k = seg1 > seg0 ? (d - seg0) / (seg1 - seg0) : 0;
+  const p = wp.pts[i - 1]!, q = wp.pts[i]!;
+  const dx = (q[0] - p[0]) * (forward ? 1 : -1);
+  const bob = Math.abs(Math.sin(now / 140 + wp.phase * 10)) * 0.012;
+  return { x: p[0] + (q[0] - p[0]) * k, y: p[1] + (q[1] - p[1]) * k - bob, flip: dx < -0.0005, bob };
+}
+
+let boardAnimFrame: number | null = null;
+let lastAnimDraw = 0;
+/** Keep the board alive at ~30fps while a game is on screen and animation is on. */
+function ensureBoardAnimation(): void {
+  if (boardAnimFrame !== null) return;
+  const step = (ts: number) => {
+    boardAnimFrame = null;
+    if (!boardCanvasEl || !room?.game || !animateMeeples) return;
+    if (ts - lastAnimDraw >= 33 && !dragState) { lastAnimDraw = ts; drawBoard(boardCanvasEl); }
+    boardAnimFrame = requestAnimationFrame(step);
+  };
+  boardAnimFrame = requestAnimationFrame(step);
+}
+
 function meepleAnchor(tileKey: string, rot: number, kind: string, idx: number): [number, number] {
   const s = meepleSpots(tileKey, rot).find((sp) => sp.kind === kind && sp.idx === idx);
   return s ? [s.x, s.y] : [0.5, 0.5];
 }
 
 /** Ghost meeples the current player can click, in screen space. */
-function ghostTargets(cw: number, ch: number): { spot: MeepleSpot; sx: number; sy: number; size: number; label: string }[] {
+function ghostTargets(cw: number, ch: number): { spot: MeepleSpot; sx: number; sy: number; size: number; label: string; instant: number }[] {
   const game = room?.game;
   if (!game || !isMyTurn() || game.phase !== 'placeMeeple' || !game.lastPlaced) return [];
   const { x, y } = game.lastPlaced;
@@ -540,8 +643,30 @@ function ghostTargets(cw: number, ch: number): { spot: MeepleSpot; sx: number; s
     .map((spot) => {
       const [sx, sy] = worldToScreen(x + spot.x, y + spot.y, cw, ch);
       const label = options.find((o) => o.kind === spot.kind && o.idx === spot.idx)!.label;
-      return { spot, sx, sy, size, label };
+      return { spot, sx, sy, size, label, instant: instantPoints(spot.kind, spot.idx) };
     });
+}
+
+/** Points the current player would bank right now by placing this meeple — i.e.
+ *  the feature is already complete and scores the moment it is claimed. Cached per
+ *  option for the current tile, since this runs a full scoring pass on a copy. */
+let instantCache: { turn: number; values: Map<string, number> } | null = null;
+function instantPoints(kind: MeepleKind, idx: number): number {
+  const game = room?.game;
+  if (!game) return 0;
+  if (!instantCache || instantCache.turn !== game.turnNumber) instantCache = { turn: game.turnNumber, values: new Map() };
+  const k = `${kind}:${idx}`;
+  const hit = instantCache.values.get(k);
+  if (hit !== undefined) return hit;
+  let gained = 0;
+  try {
+    const trial = structuredClone(game);
+    const me = trial.currentPlayer;
+    placeMeeple(trial, kind, idx);
+    gained = trial.players[me]!.score - game.players[me]!.score;
+  } catch { gained = 0; }
+  instantCache.values.set(k, gained);
+  return gained;
 }
 
 function isMyTurn(): boolean {
@@ -627,30 +752,64 @@ function drawBoard(canvas: HTMLCanvasElement): void {
   }
   ctx.restore();
 
+  // The most recently placed tile (by anyone) stays marked in its placer's colour
+  // until the next one lands, so you can always see what just happened.
+  let newest: { x: number; y: number; by: number; turn: number } | null = null;
   for (const k of Object.keys(board)) {
     const [x, y] = k.split(',').map(Number) as [number, number];
-    const { tileKey, rot } = board[k]!;
+    const { tileKey, rot, placedBy, placedTurn } = board[k]!;
     const [sx, sy] = worldToScreen(x, y, cw, ch);
     const s = camera.scale;
     ctx.drawImage(getTileCanvas(tileKey, rot, TILE_ART_SIZE), sx, sy, s, s);
-    if (game.lastPlaced && game.lastPlaced.x === x && game.lastPlaced.y === y) {
+    if (placedBy >= 0 && (!newest || placedTurn > newest.turn)) newest = { x, y, by: placedBy, turn: placedTurn };
+    if (showOwners && placedBy >= 0) {
+      const color = game.players[placedBy]?.color ?? '#888';
+      const r = Math.max(3, s * 0.05);
       ctx.save();
-      ctx.strokeStyle = 'rgba(212,184,90,0.95)';
-      ctx.lineWidth = 3;
-      roundRect(ctx, sx + 2, sy + 2, s - 4, s - 4, 6);
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(sx + r * 2, sy + r * 2, r, 0, Math.PI * 2);
+      ctx.fillStyle = color; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1; ctx.stroke();
       ctx.restore();
     }
   }
+  if (newest && !(game.phase === 'placeMeeple' && game.lastPlaced && game.lastPlaced.x === newest.x && game.lastPlaced.y === newest.y)) {
+    const color = game.players[newest.by]?.color ?? '#D4B85A';
+    const [sx, sy] = worldToScreen(newest.x, newest.y, cw, ch);
+    const s = camera.scale;
+    ctx.save();
+    ctx.strokeStyle = color; ctx.lineWidth = 3.5;
+    ctx.shadowColor = color; ctx.shadowBlur = 8;
+    roundRect(ctx, sx + 2, sy + 2, s - 4, s - 4, 6);
+    ctx.stroke();
+    // A small tab with the placer's meeple, so the colour reads even on busy art.
+    const tab = Math.max(16, s * 0.22);
+    roundRect(ctx, sx + s - tab - 3, sy + 3, tab, tab, 4);
+    ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(245,248,246,0.92)'; ctx.fill();
+    ctx.drawImage(getMeepleCanvas(color, tab - 4, false), sx + s - tab - 1, sy + 5, tab - 4, tab - 4);
+    ctx.restore();
+  }
+  if (game.phase === 'placeMeeple' && game.lastPlaced && !isMyTurn()) {
+    // Someone else is deciding about a meeple on this tile right now.
+    const [sx, sy] = worldToScreen(game.lastPlaced.x, game.lastPlaced.y, cw, ch);
+    const s = camera.scale;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(212,184,90,0.95)'; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
+    roundRect(ctx, sx + 2, sy + 2, s - 4, s - 4, 6);
+    ctx.stroke();
+    ctx.restore();
+  }
 
+  const now = performance.now();
   for (const m of game.meeples) {
     const tile = board[`${m.x},${m.y}`];
     if (!tile) continue;
-    const [ax, ay] = meepleAnchor(tile.tileKey, tile.rot, m.kind, m.idx);
-    const [sx, sy] = worldToScreen(m.x + ax, m.y + ay, cw, ch);
+    const pose = meeplePose(m, tile.tileKey, tile.rot, now);
+    const [sx, sy] = worldToScreen(m.x + pose.x, m.y + pose.y, cw, ch);
     const size = camera.scale * 0.34;
     const player = game.players[m.playerIdx]!;
-    ctx.drawImage(getMeepleCanvas(player.color, size, m.kind === 'farm'), sx - size / 2, sy - size / 2, size, size);
+    const img = getMeepleCanvas(player.color, size, m.kind === 'farm');
+    if (pose.flip) { ctx.save(); ctx.translate(sx, sy); ctx.scale(-1, 1); ctx.drawImage(img, -size / 2, -size / 2, size, size); ctx.restore(); }
+    else ctx.drawImage(img, sx - size / 2, sy - size / 2, size, size);
   }
 
   // Meeple decision: the freshly placed tile glows and every feature you could claim
@@ -687,12 +846,25 @@ function drawBoard(canvas: HTMLCanvasElement): void {
       ctx.globalAlpha = hot ? 1 : 0.55 + 0.2 * pulse;
       ctx.drawImage(getMeepleCanvas(meColor, size, g.spot.kind === 'farm'), g.sx - size / 2, g.sy - size / 2, size, size);
       ctx.restore();
+      if (g.instant > 0) {
+        // This claim banks points immediately: say so on the ghost itself.
+        ctx.save();
+        ctx.font = '700 11px "Space Grotesk", sans-serif';
+        const text = `+${g.instant}`;
+        const w = ctx.measureText(text).width + 10;
+        const bx = g.sx + size * 0.32, by = g.sy - size * 0.62;
+        roundRect(ctx, bx, by, w, 16, 8);
+        ctx.fillStyle = '#D4B85A'; ctx.fill();
+        ctx.strokeStyle = 'rgba(31,46,43,0.8)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = '#1F2E2B'; ctx.textBaseline = 'middle'; ctx.fillText(text, bx + 5, by + 8.5);
+        ctx.restore();
+      }
     }
     const hot = ghosts.find((g) => hoveredGhost === g.spot);
     if (hot) {
       ctx.save();
       ctx.font = '600 13px "Space Grotesk", sans-serif';
-      const text = `${hot.label} — ${kindNoun(hot.spot.kind)}`;
+      const text = `${hot.label} — ${kindNoun(hot.spot.kind)}${hot.instant > 0 ? ` · scores ${hot.instant} pt${hot.instant === 1 ? '' : 's'} now` : ''}`;
       const tw = ctx.measureText(text).width + 18;
       const bx = Math.min(cw - tw - 4, Math.max(4, hot.sx - tw / 2)), by = hot.sy - hot.size * 0.7 - 30;
       roundRect(ctx, bx, by, tw, 24, 12);
@@ -781,6 +953,8 @@ function renderGame(): HTMLElement {
     h('h2', {}, 'Settings'),
     settingsRow('🎵 Background music', isMusicOn(), (v) => setMusic(v)),
     settingsRow('🔔 Sound effects', isSfxOn(), (v) => setSfx(v)),
+    settingsRow('🚶 Meeples wander their features', animateMeeples, (v) => { animateMeeples = v; try { localStorage.setItem(PREF_ANIMATE, v ? 'on' : 'off'); } catch { /* fine */ } if (v) ensureBoardAnimation(); else if (boardCanvasEl) drawBoard(boardCanvasEl); }),
+    settingsRow('📍 Mark who placed each tile', showOwners, (v) => { showOwners = v; try { localStorage.setItem(PREF_OWNERS, v ? 'on' : 'off'); } catch { /* fine */ } if (boardCanvasEl) drawBoard(boardCanvasEl); }),
     h('label', { class: 'settings-row' },
       h('span', {}, '🎨 Look'),
       h('select', { onchange: (e: Event) => setSkin((e.target as HTMLSelectElement).value) },
@@ -883,6 +1057,7 @@ function renderGame(): HTMLElement {
   }
 
   requestAnimationFrame(() => redraw());
+  if (animateMeeples) ensureBoardAnimation();
 
   const sidebar = buildSidebar(game, myTurn);
   const container = h('div', { class: 'game' }, wrap, sidebar);
@@ -939,22 +1114,8 @@ function buildSidebar(game: NonNullable<RoomDoc['game']>, myTurn: boolean): HTML
     h('div', { class: 'log-panel' }, ...game.log.slice(0, 40).map((l) => h('div', { class: 'log-entry' }, l))),
   );
 
-  const chat = h('div', { class: 'panel chat-panel', style: 'padding:0.8rem' },
-    h('h2', { style: 'font-size:0.95rem' }, 'Table talk'),
-    h('div', { class: 'chat-log', id: 'chatlog' }, ...room!.chat.slice(-60).map((c) => c.system
-      ? h('div', { class: 'chat-msg', style: 'opacity:0.65;font-style:italic' }, c.text)
-      : h('div', { class: 'chat-msg' }, h('span', { class: 'who', style: `color:${c.color}` }, c.name + ': '), c.text))),
-    (() => {
-      const input = h('input', { type: 'text', placeholder: 'Say something…', maxlength: 300 }) as HTMLInputElement;
-      const go = () => { if (input.value.trim()) { send({ type: 'chat', text: input.value }); input.value = ''; } };
-      input.addEventListener('keydown', (e) => { if ((e as KeyboardEvent).key === 'Enter') go(); });
-      return h('div', { class: 'chat-form' }, input, h('button', { class: 'small', onclick: go }, 'Send'));
-    })(),
-  );
-
-  const invite = h('button', { class: 'small', onclick: () => { navigator.clipboard?.writeText(location.href); toast('Link copied!'); } }, '🔗 Copy invite link');
-  const sidebar = h('div', { class: 'sidebar' }, turnBanner, tilePreview, scoreboard, invite, log, chat);
-  queueMicrotask(() => { paintMeepleSwatches(sidebar); const cl = sidebar.querySelector('#chatlog'); if (cl) cl.scrollTop = cl.scrollHeight; });
+  const sidebar = h('div', { class: 'sidebar' }, turnBanner, tilePreview, scoreboard, log);
+  queueMicrotask(() => paintMeepleSwatches(sidebar));
   return sidebar;
 }
 
@@ -978,7 +1139,6 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement {
       ))),
       isHost ? h('button', { class: 'primary', onclick: () => { lastEndedShown = false; send({ type: 'new_game' }); } }, 'Play again')
              : h('p', { style: 'color:var(--ink-soft)' }, 'Waiting for the host to start a new game…'),
-      h('button', { class: 'ghost small', onclick: () => { navigator.clipboard?.writeText(location.href); toast('Link copied!'); } }, 'Copy invite link'),
     ),
   );
 }

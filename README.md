@@ -13,7 +13,9 @@ MCP server.
   below. First-time sign-in asks for a display name once; it's remembered
   across devices.
 - No friends around, or hit an agent usage limit? Add an NPC opponent
-  (easy/normal/hard) from the lobby — it plays its own turns automatically via
+  (easy: random; normal: one-ply search over a position evaluation that values
+  meeples in hand; hard: the same plus short Monte Carlo rollouts under a time
+  cap) from the lobby — it plays its own turns automatically via
   a Durable Object alarm, using the same rules engine as everyone else.
 - Game modes follow the 3.0 rulebook: cloisters are always in play, coats of
   arms are always worth 2 points, everyone has 7 meeples. The lobby offers the
@@ -140,6 +142,8 @@ Two heavier checks are available on demand:
 
 ```sh
 npx tsx scripts/simulate.ts 40        # 40 full NPC-vs-NPC games with invariants checked every move
+npx tsx scripts/tourney.ts --games 60 # easy/normal/hard (and the pre-rewrite bots) at 2-5 player tables:
+                                      # win rate, margin, meeples kept in hand, time per move
 node scripts/play-in-browser.mjs      # two humans + an NPC clicking through a real game in headless
                                       # Chromium against `npm run dev` (needs playwright-core; see the file)
 ```
@@ -204,6 +208,7 @@ scripts/
   build-client.mjs         esbuild bundler for the client
   test-engine.ts           engine correctness tests
   simulate.ts              plays whole NPC games against the engine, checking invariants
+  tourney.ts               measures the NPC brains against each other (legacy-npc.ts is the old one)
   play-in-browser.mjs      drives a real game through the UI in headless Chromium
   bot.ts                   dev-only: a second "player" over a raw WebSocket (logs in via dev mode first)
   generate-base-tile-svgs.ts  regenerates the locked tile-geometry skeletons (see docs/tile-geometry-contract.md)

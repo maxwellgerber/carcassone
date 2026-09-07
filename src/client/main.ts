@@ -1192,7 +1192,8 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     const tile = board[`${m.x},${m.y}`];
     if (!tile) continue;
     const pose = meeplePose(m, tile.tileKey, tile.rot, now);
-    let [sx, sy] = worldToScreen(pose.x, pose.y, cw, ch);
+    const [sx, sy0] = worldToScreen(pose.x, pose.y, cw, ch);
+    let sy = sy0;
     const size = camera.scale * 0.34;
     const player = game.players[m.playerIdx]!;
     const img = getMeepleCanvas(player.color, size, m.kind as MeepleLook);

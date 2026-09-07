@@ -22,7 +22,9 @@ export type NpcMove =
 
 /** Tunables for the hard bot's search. `thinkMs` caps wall-clock per decision so a
  *  Durable Object alarm never runs long; the tourney script raises it. */
-export const NPC_SEARCH = { candidates: 5, rollouts: 8, depth: 6, thinkMs: 150 };
+export const NPC_SEARCH = { candidates: 5, rollouts: 8, depth: 6, thinkMs: 150, staticWeight: 0.35 };
+/** Evaluation knobs, exposed so scripts/tourney.ts can sweep them. */
+export const NPC_TUNING = { reserveValue: 4.5, reserveDecay: 0.6 };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;
@@ -107,7 +109,7 @@ export function evaluatePositions(state: GameState, features: Features): number[
     const reserve = state.players[pi]!.meeples;
     const horizon = Math.min(1, tilesLeft / 18);
     let bonus = 0;
-    for (let i = 0; i < reserve; i++) bonus += 4.5 * Math.pow(0.6, i);
+    for (let i = 0; i < reserve; i++) bonus += NPC_TUNING.reserveValue * Math.pow(NPC_TUNING.reserveDecay, i);
     pot[pi]! += bonus * horizon;
   }
   return pot;
@@ -251,7 +253,8 @@ export function chooseNpcTilePlacement(state: GameState, difficulty: NpcDifficul
   for (const c of top) {
     const remaining = NPC_SEARCH.thinkMs - (Date.now() - started);
     if (remaining <= 0 && bestV > -Infinity) break;
-    const v = 0.35 * c.value + 0.65 * searchValue(c.after, me, rng, NPC_SEARCH.rollouts, depth);
+    const w = NPC_SEARCH.staticWeight;
+    const v = w * c.value + (1 - w) * searchValue(c.after, me, rng, NPC_SEARCH.rollouts, depth);
     if (v > bestV) { bestV = v; best = c.p; }
   }
   return best;
@@ -280,7 +283,8 @@ export function chooseNpcMeepleMove(state: GameState, difficulty: NpcDifficulty,
     if (remaining > 0 || bestV === -Infinity) {
       let sum = 0;
       for (let i = 0; i < NPC_SEARCH.rollouts; i++) sum += rollout(from, me, depth, rng);
-      v = 0.35 * stat + 0.65 * (sum / NPC_SEARCH.rollouts);
+      const w = NPC_SEARCH.staticWeight;
+      v = w * stat + (1 - w) * (sum / NPC_SEARCH.rollouts);
     }
     if (v > bestV) { bestV = v; best = mv; }
   }

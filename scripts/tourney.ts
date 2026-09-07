@@ -7,7 +7,7 @@
 // Bots: easy / normal / hard are the live brains; old-normal / old-hard are the
 // pre-rewrite heuristics (scripts/legacy-npc.ts) kept as a baseline.
 import * as E from '../src/shared/engine.js';
-import { chooseNpcMeepleMove, chooseNpcTilePlacement, NPC_SEARCH } from '../src/server/npc.js';
+import { chooseNpcMeepleMove, chooseNpcTilePlacement, NPC_SEARCH, NPC_TUNING } from '../src/server/npc.js';
 import { chooseNpcMeepleMove as oldMeeple, chooseNpcTilePlacement as oldTile } from './legacy-npc.js';
 import type { GameState, NpcDifficulty, Placement } from '../src/shared/types.js';
 import { writeFileSync } from 'node:fs';
@@ -29,6 +29,12 @@ const gamesPer = Number(arg('games', '40'));
 const seed = Number(arg('seed', '1'));
 const outPath = arg('out', '');
 NPC_SEARCH.thinkMs = Number(arg('think', '400'));
+// --tune '{"reserveValue":6,"staticWeight":0.6,"rollouts":12}' overrides any knob for a sweep.
+for (const [k, v] of Object.entries(JSON.parse(arg('tune', '{}')) as Record<string, number>)) {
+  if (k in NPC_SEARCH) (NPC_SEARCH as Record<string, number>)[k] = v; else if (k in NPC_TUNING) (NPC_TUNING as Record<string, number>)[k] = v; else throw new Error(`unknown knob ${k}`);
+}
+const onlyBots = arg('bots', '');
+const POOL: BotName[] = onlyBots ? (onlyBots.split(',') as BotName[]) : BOTS;
 
 function tileMove(bot: BotName, g: GameState, rng: () => number): Placement {
   if (bot === 'old-normal') return oldTile(g, 'normal', rng);
@@ -54,7 +60,7 @@ for (const n of playerCounts) {
     const rng = mkRng(seed * 1000003 + n * 7919 + gi * 104729);
     // Random lineup, but never a table of clones — that measures nothing.
     let lineup: BotName[];
-    do lineup = Array.from({ length: n }, () => BOTS[Math.floor(rng() * BOTS.length)]!); while (new Set(lineup).size < 2);
+    do lineup = Array.from({ length: n }, () => POOL[Math.floor(rng() * POOL.length)]!); while (new Set(lineup).size < 2);
     const g = E.createGame(lineup.map((b, i) => ({ id: `p${i}`, name: `${b}#${i}`, isNpc: true })), rng, {});
     const total = g.deck.length + 1;
     const idle = lineup.map(() => 0), turnsBy = lineup.map(() => 0), think = lineup.map(() => 0), moves = lineup.map(() => 0);

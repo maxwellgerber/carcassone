@@ -117,11 +117,35 @@ on the Worker (see **Deploy checklist**) — it's inert by default. Tools:
 `create_room`, `join_room`, `list_rooms`, `get_state`, `get_legal_moves`,
 `start_game`, `add_npc`, `place_tile`, `place_meeple`, `skip_meeple`, `chat`.
 
+## Rummy solver (a side quest)
+
+`/rummy` is a standalone page, unrelated to Carcassonne, that solves the
+hand-partitioning problem in rummy: given your hand and the melds already on
+the table, what can you do this turn? It lists every legal meld and lay-off,
+finds the arrangement that leaves the least deadwood, ranks your discards, says
+whether you can go out, and evaluates taking the top of the discard pile. The
+situation is encoded in the URL hash so it can be shared.
+
+The solver (`src/rummy/solver.ts`) is an integer program, after Den Hertog &
+Hulshof's Rummikub formulation: one binary variable per candidate meld and per
+lay-off card, one "used at most once" constraint per hand card, chain
+constraints so a run can only be extended outward one card at a time, and an
+objective that maximises melded points. It runs in the browser on
+[YALPS](https://github.com/Ivordir/YALPS), a pure-JS MILP solver — a 13-card
+hand is a few dozen variables and solves in well under a millisecond, so the
+page re-solves on every click. Rules toggles: ace low, ace high, and whether
+going out requires a discard. Single deck, no jokers, no rearranging table
+melds.
+
+`npm run test:rummy` checks hand-picked situations and compares the integer
+program against an independent brute-force search on 400 random hands.
+
 ## Run the test suite / lint / typecheck
 
 ```sh
-npm run test        # typecheck + lint + engine tests
+npm run test        # typecheck + lint + engine tests + rummy solver tests
 npm run test:engine  # just the engine correctness tests
+npm run test:rummy   # just the rummy solver tests
 npm run lint
 npm run typecheck
 ```
@@ -195,10 +219,12 @@ src/client/
   tiles/*.svg              the 24 hand-illustrated tile types (the default skin)
   dom.ts                   tiny DOM builder helper
 src/mcp/server.ts        MCP server exposing the game to agents (see above)
-static/                  index.html shell + styles.css, copied as-is into the build
+src/rummy/               the rummy solver page (/rummy): cards.ts, melds.ts, solver.ts (the ILP), main.ts (UI)
+static/                  index.html shell + styles.css (and rummy.html + rummy.css), copied as-is into the build
 scripts/
-  build-client.mjs         esbuild bundler for the client
+  build-client.mjs         esbuild bundler for the client (app.js) and the rummy page (rummy.js)
   test-engine.ts           engine correctness tests
+  test-rummy.ts            rummy solver tests (hand-picked cases + brute-force cross-check)
   simulate.ts              plays whole NPC games against the engine, checking invariants
   play-in-browser.mjs      drives a real game through the UI in headless Chromium
   bot.ts                   dev-only: a second "player" over a raw WebSocket (logs in via dev mode first)

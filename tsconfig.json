@@ -15,5 +15,5 @@
     "noEmit": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src", "scripts/test-engine.ts"]
+  "include": ["src", "scripts/test-engine.ts", "scripts/test-rummy.ts"]
 }

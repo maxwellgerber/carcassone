@@ -1,0 +1,71 @@
+/* Rummy solver page. Palette, buttons and .panel come from styles.css. */
+html, body { height: auto; min-height: 100%; }
+#rummy { max-width: 1280px; margin: 0 auto; padding: 1.4rem 1.2rem 3rem; display: flex; flex-direction: column; gap: 1.2rem; }
+
+.rm-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem 1.2rem; }
+.rm-head h1 { font-size: 1.6rem; }
+.rm-head p { margin: 0; color: var(--ink-soft); font-size: 0.92rem; max-width: 60ch; }
+.rm-head a { margin-left: auto; font-size: 0.85rem; }
+
+.rm-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 1.2rem; align-items: start; }
+@media (max-width: 900px) { .rm-grid { grid-template-columns: 1fr; } }
+
+.panel { padding: 1rem 1.1rem 1.1rem; display: flex; flex-direction: column; gap: 0.7rem; }
+.panel h2 { font-size: 1.05rem; display: flex; align-items: baseline; gap: 0.6rem; }
+.panel h2 small { font-weight: 500; color: var(--ink-soft); font-size: 0.8rem; font-family: 'IBM Plex Sans', sans-serif; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.row.between { justify-content: space-between; }
+.hint { color: var(--ink-soft); font-size: 0.82rem; }
+.error { color: var(--danger); font-size: 0.85rem; }
+label.check { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.88rem; cursor: pointer; }
+input[type=text].wide { flex: 1; min-width: 12rem; }
+
+/* 52-card picker */
+.deck { display: grid; grid-template-columns: auto repeat(13, minmax(0, 1fr)); gap: 3px; }
+.deck .suit-label { display: flex; align-items: center; justify-content: center; font-size: 1.1rem; width: 1.4rem; }
+.deck button.pick {
+  padding: 0; height: 2.1rem; font-size: 0.8rem; font-family: 'IBM Plex Mono', monospace; font-weight: 500;
+  border-radius: 4px; border-width: 1px; box-shadow: none; transform: none; min-width: 0;
+}
+.deck button.pick.in-hand { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.deck button.pick.on-table { opacity: 0.35; text-decoration: line-through; cursor: not-allowed; }
+.deck button.pick.is-discard { outline: 2px dashed var(--accent-2); outline-offset: -2px; }
+.red { color: var(--danger); }
+.deck button.pick.in-hand.red { color: var(--bg); }
+
+/* Card chips in results */
+.cards { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: middle; }
+.card {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 2.2rem; height: 1.85rem; padding: 0 0.35rem;
+  border: 1px solid var(--panel-border); border-radius: 4px; background: var(--panel);
+  font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 500;
+}
+.card.red { color: var(--danger); }
+.card.dead { border-style: dashed; opacity: 0.75; }
+.card.ghost { opacity: 0.45; }
+.card.new { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+.melds { display: flex; flex-direction: column; gap: 0.4rem; }
+.meld { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.meld .tag { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--ink-soft); min-width: 2.2rem; }
+.meld .kind { font-size: 0.78rem; color: var(--ink-soft); }
+.meld button.x { padding: 0.1em 0.5em; font-size: 0.75rem; border-width: 1px; box-shadow: none; }
+
+.verdict { padding: 0.8rem 1rem; border: 1.5px solid var(--panel-border); border-left-width: 6px; }
+.verdict.yes { border-left-color: var(--accent); }
+.verdict.no { border-left-color: var(--accent-2); }
+.verdict h3 { font-size: 1.05rem; margin-bottom: 0.3rem; }
+.verdict .steps { margin: 0.4rem 0 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.9rem; }
+.verdict .steps li { line-height: 1.9rem; }
+
+table.discards { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+table.discards th, table.discards td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid color-mix(in srgb, var(--ink) 15%, transparent); vertical-align: middle; }
+table.discards th { color: var(--ink-soft); font-weight: 500; font-size: 0.78rem; }
+table.discards tr.best td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+table.discards td.num { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+
+details > summary { cursor: pointer; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 0.95rem; }
+details > summary small { font-weight: 500; color: var(--ink-soft); font-size: 0.8rem; font-family: 'IBM Plex Sans', sans-serif; }
+details .melds { margin-top: 0.5rem; }
+.stat { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: var(--ink-soft); }
+.empty { color: var(--ink-soft); font-style: italic; font-size: 0.88rem; }

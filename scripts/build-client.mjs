@@ -16,11 +16,15 @@ for (const f of readdirSync(staticDir)) {
 }
 
 const ctx = await esbuild.context({
-  entryPoints: [path.join(root, 'src/client/main.ts')],
+  // app.js is the Carcassonne client; rummy.js is the standalone rummy solver page (/rummy).
+  entryPoints: {
+    app: path.join(root, 'src/client/main.ts'),
+    rummy: path.join(root, 'src/rummy/main.ts'),
+  },
   bundle: true,
   format: 'esm',
   target: 'es2022',
-  outfile: path.join(outdir, 'app.js'),
+  outdir,
   sourcemap: true,
   minify: !watch,
   logLevel: 'info',
@@ -29,7 +33,7 @@ const ctx = await esbuild.context({
 
 if (watch) {
   await ctx.watch();
-  console.log('esbuild watching src/client -> dist/client/app.js');
+  console.log('esbuild watching src/client -> dist/client/app.js, src/rummy -> dist/client/rummy.js');
 } else {
   await ctx.rebuild();
   await ctx.dispose();

@@ -220,3 +220,7 @@ input[type=text]:focus-visible { outline: 2px solid var(--accent); outline-offse
   .lobby-side { width: 100%; max-width: 420px; }
   .modes-grid { grid-template-columns: 1fr; }
 }
+
+/* Chronicle scoring lines light up the scored feature on the board. */
+.log-entry-score { cursor: pointer; border-left: 3px solid transparent; margin-left: -0.4rem; padding-left: 0.4rem; border-radius: 3px; transition: background 0.12s; }
+.log-entry-score:hover, .log-entry-score.pinned { background: color-mix(in srgb, var(--accent, #D4B85A) 18%, transparent); border-left-color: var(--accent, #D4B85A); }

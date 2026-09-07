@@ -5,7 +5,7 @@
 import { TILE_TYPES, SIDES, OPPOSITE, DIRS, NEIGHBOR_SLOT_PAIRS, buildDeck, rotateEdges, rotateSlot } from './tiles.js';
 import type { EdgeType } from './types.js';
 import type {
-  GameConfig, GameState, Meeple, MeepleKind, MeepleOption, Placement, PlayerInfo, PlayerState,
+  GameConfig, GameState, Meeple, MeepleKind, MeepleOption, Placement, PlayerInfo, PlayerState, ScoreEvent,
 } from './types.js';
 import { DEFAULT_CONFIG } from './types.js';
 
@@ -42,6 +42,7 @@ export function createGame(playerInfos: PlayerInfo[], rng: () => number, config:
     meeples: [],
     phase: 'placeTile',
     log: [],
+    scoreEvents: [],
     turnNumber: 0,
     lastPlaced: null,
     winnerIds: null,
@@ -202,7 +203,7 @@ class DSU {
 export interface CityFeature { id: string; tileCount: number; shieldCount: number; complete: boolean; tiles: string[]; }
 export interface RoadFeature { id: string; tileCount: number; complete: boolean; tiles: string[]; }
 export interface MonasteryFeature { id: string; x: number; y: number; filled: number; complete: boolean; }
-export interface FieldFeature { id: string; cityIds: string[]; }
+export interface FieldFeature { id: string; cityIds: string[]; tiles: string[]; }
 export interface Features {
   cityFeatures: CityFeature[];
   roadFeatures: RoadFeature[];
@@ -346,7 +347,9 @@ export function deriveFeatures(state: GameState): Features {
       }
     });
   }
-  const fieldFeatures: FieldFeature[] = [...fieldRoots.entries()].map(([root, rec]) => ({ id: root, cityIds: [...rec.cityIds] }));
+  const fieldFeatures: FieldFeature[] = [...fieldRoots.entries()].map(([root, rec]) => ({
+    id: root, cityIds: [...rec.cityIds], tiles: [...new Set([...rec.cells].map((c) => c.split('|')[0]!))],
+  }));
 
   return {
     cityFeatures, roadFeatures, monasteryFeatures, fieldFeatures,
@@ -416,11 +419,21 @@ export function skipMeeple(state: GameState): void {
   advanceTurn(state);
 }
 
-function scoreForPlayers(state: GameState, playerIdxs: number[], points: number, reason: string): void {
+function scoreForPlayers(
+  state: GameState, playerIdxs: number[], points: number, reason: string,
+  where: { kind: ScoreEvent['kind']; tiles: string[]; fedTiles?: string[] },
+): void {
   if (playerIdxs.length === 0) return;
   for (const pi of playerIdxs) state.players[pi]!.score += points;
   const names = playerIdxs.map((pi) => state.players[pi]!.name).join(' & ');
+  (state.scoreEvents ??= []).unshift({ seq: state.log.length, players: playerIdxs, points, ...where });
   state.log.unshift(`${names} scored ${points} pt${points === 1 ? '' : 's'} — ${reason}`);
+}
+
+function monasteryTiles(state: GameState, x: number, y: number): string[] {
+  const out: string[] = [];
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (state.board[key(x + dx, y + dy)]) out.push(key(x + dx, y + dy));
+  return out;
 }
 
 function majorityOwners(_state: GameState, meeplesOnFeature: Meeple[]): number[] {
@@ -440,14 +453,14 @@ function resolveCompletedFeatures(state: GameState): void {
     if (onIt.length === 0) continue;
     const shieldPts = state.config.shieldBonus ? cf.shieldCount * 2 : 0;
     const points = cf.tileCount * 2 + shieldPts;
-    scoreForPlayers(state, majorityOwners(state, onIt), points, `a city (${cf.tileCount} tiles${cf.shieldCount && state.config.shieldBonus ? `, ${cf.shieldCount} shields` : ''})`);
+    scoreForPlayers(state, majorityOwners(state, onIt), points, `a city (${cf.tileCount} tiles${cf.shieldCount && state.config.shieldBonus ? `, ${cf.shieldCount} shields` : ''})`, { kind: 'city', tiles: cf.tiles });
     returnMeeples(state, onIt);
   }
   for (const rf of features.roadFeatures) {
     if (!rf.complete) continue;
     const onIt = state.meeples.filter((m) => m.kind === 'road' && features.lookups.roadGroupRoot(m.x, m.y, m.idx) === rf.id);
     if (onIt.length === 0) continue;
-    scoreForPlayers(state, majorityOwners(state, onIt), rf.tileCount, `a road (${rf.tileCount} tiles)`);
+    scoreForPlayers(state, majorityOwners(state, onIt), rf.tileCount, `a road (${rf.tileCount} tiles)`, { kind: 'road', tiles: rf.tiles });
     returnMeeples(state, onIt);
   }
   if (state.config.monasteryScoring) {
@@ -455,7 +468,7 @@ function resolveCompletedFeatures(state: GameState): void {
       if (!mf.complete) continue;
       const onIt = state.meeples.filter((m) => m.kind === 'monastery' && m.x === mf.x && m.y === mf.y);
       if (onIt.length === 0) continue;
-      scoreForPlayers(state, majorityOwners(state, onIt), 9, 'a completed cloister');
+      scoreForPlayers(state, majorityOwners(state, onIt), 9, 'a completed cloister', { kind: 'monastery', tiles: monasteryTiles(state, mf.x, mf.y) });
       returnMeeples(state, onIt);
     }
   }
@@ -481,18 +494,18 @@ function finishGame(state: GameState): void {
     if (onIt.length === 0) continue;
     const shields = state.config.shieldBonus ? cf.shieldCount : 0;
     const points = cf.complete ? cf.tileCount * 2 + shields * 2 : cf.tileCount + shields;
-    scoreForPlayers(state, majorityOwners(state, onIt), points, `final scoring: a ${cf.complete ? 'completed' : 'unfinished'} city`);
+    scoreForPlayers(state, majorityOwners(state, onIt), points, `final scoring: ${cf.complete ? 'a completed' : 'an unfinished'} city`, { kind: 'city', tiles: cf.tiles });
   }
   for (const rf of features.roadFeatures) {
     const onIt = state.meeples.filter((m) => m.kind === 'road' && features.lookups.roadGroupRoot(m.x, m.y, m.idx) === rf.id);
     if (onIt.length === 0) continue;
-    scoreForPlayers(state, majorityOwners(state, onIt), rf.tileCount, `final scoring: a ${rf.complete ? 'completed' : 'unfinished'} road`);
+    scoreForPlayers(state, majorityOwners(state, onIt), rf.tileCount, `final scoring: ${rf.complete ? 'a completed' : 'an unfinished'} road`, { kind: 'road', tiles: rf.tiles });
   }
   if (state.config.monasteryScoring) {
     for (const mf of features.monasteryFeatures) {
       const onIt = state.meeples.filter((m) => m.kind === 'monastery' && m.x === mf.x && m.y === mf.y);
       if (onIt.length === 0) continue;
-      scoreForPlayers(state, majorityOwners(state, onIt), mf.filled, `final scoring: a ${mf.complete ? 'completed' : 'unfinished'} cloister`);
+      scoreForPlayers(state, majorityOwners(state, onIt), mf.filled, `final scoring: ${mf.complete ? 'a completed' : 'an unfinished'} cloister`, { kind: 'monastery', tiles: monasteryTiles(state, mf.x, mf.y) });
     }
   }
   if (state.config.farmScoring) {
@@ -500,9 +513,11 @@ function finishGame(state: GameState): void {
       for (const ff of features.fieldFeatures) {
         const onIt = state.meeples.filter((m) => m.kind === 'farm' && features.lookups.fieldRegionRoot(m.x, m.y, m.idx) === ff.id);
         if (onIt.length === 0) continue;
-        const completeCityCount = ff.cityIds.filter((cid) => features.cityFeatures.find((c) => c.id === cid)?.complete).length;
+        const fed = ff.cityIds.map((cid) => features.cityFeatures.find((c) => c.id === cid)).filter((c): c is CityFeature => !!c?.complete);
+        const completeCityCount = fed.length;
         if (completeCityCount === 0) continue;
-        scoreForPlayers(state, majorityOwners(state, onIt), completeCityCount * 3, `final scoring: a farm feeding ${completeCityCount} completed cit${completeCityCount === 1 ? 'y' : 'ies'}`);
+        scoreForPlayers(state, majorityOwners(state, onIt), completeCityCount * 3, `final scoring: a farm feeding ${completeCityCount} completed cit${completeCityCount === 1 ? 'y' : 'ies'}`,
+          { kind: 'farm', tiles: ff.tiles, fedTiles: fed.flatMap((c) => c.tiles) });
       }
     } catch {
       state.log.unshift('Farm scoring hit a snag and was skipped for safety — other scores are final.');

@@ -105,6 +105,21 @@ export interface GameState {
   /** River: the turn the last river tile made (1 = right, 3 = left, 0 = straight/none), so
    *  the next curve can be forbidden from doubling back. Absent in games without the river. */
   riverLastTurn?: number;
+  /** One entry per scoring line in `log`, so the client can show *where* points came
+   *  from. `seq` is the log entry's position counted from the oldest entry (log grows
+   *  by unshift, so `log.length - 1 - index` finds it). Absent on rooms from before this. */
+  scoreEvents?: ScoreEvent[];
+}
+
+export interface ScoreEvent {
+  seq: number;
+  players: number[];
+  points: number;
+  kind: 'city' | 'road' | 'monastery' | 'farm';
+  /** Tiles of the scored feature (for a farm: the field's tiles). */
+  tiles: string[];
+  /** Farm only: tiles of the completed cities that fed it. */
+  fedTiles?: string[];
 }
 
 export interface PlayerInfo {

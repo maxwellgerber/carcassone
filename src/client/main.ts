@@ -1,7 +1,7 @@
 import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
 import { getLegalPlacements, getMeepleOptions, placeMeeple, placeTile, skipMeeple, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
 import type { RoomDoc } from '../shared/room-types.js';
-import type { GameConfig, MeepleKind, NpcDifficulty } from '../shared/types.js';
+import type { GameConfig, MeepleKind, NpcDifficulty, ScoreEvent } from '../shared/types.js';
 import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, preloadTileArt, type MeepleLook } from './art.js';
 import { h, toast } from './dom.js';
 import { SKINS, currentSkin, setSkin, onSkinChange, applySkinToDocument } from './skins/index.js';
@@ -809,6 +809,31 @@ function tablePattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
   return pattern;
 }
 
+/** Chronicle hover/tap: the tiles a scoring line came from, lit on the board. */
+let scoreSpotlight: { tiles: Set<string>; fed: Set<string>; color: string; pinned: boolean } | null = null;
+function setScoreSpotlight(ev: ScoreEvent | null, pinned = false): void {
+  if (!ev) { scoreSpotlight = null; }
+  else {
+    const color = room?.game?.players[ev.players[0] ?? -1]?.color ?? '#D4B85A';
+    scoreSpotlight = { tiles: new Set(ev.tiles), fed: new Set(ev.fedTiles ?? []), color, pinned };
+  }
+  if (boardCanvasEl) drawBoard(boardCanvasEl);
+}
+/** Outline the outer boundary of a set of cells (edges with no lit neighbour). */
+function strokeCellGroup(ctx: CanvasRenderingContext2D, cells: Set<string>, cw: number, ch: number): void {
+  const s = camera.scale;
+  ctx.beginPath();
+  for (const k of cells) {
+    const [x, y] = k.split(',').map(Number) as [number, number];
+    const [sx, sy] = worldToScreen(x, y, cw, ch);
+    if (!cells.has(`${x},${y - 1}`)) { ctx.moveTo(sx, sy); ctx.lineTo(sx + s, sy); }
+    if (!cells.has(`${x + 1},${y}`)) { ctx.moveTo(sx + s, sy); ctx.lineTo(sx + s, sy + s); }
+    if (!cells.has(`${x},${y + 1}`)) { ctx.moveTo(sx, sy + s); ctx.lineTo(sx + s, sy + s); }
+    if (!cells.has(`${x - 1},${y}`)) { ctx.moveTo(sx, sy); ctx.lineTo(sx, sy + s); }
+  }
+  ctx.stroke();
+}
+
 function drawBoard(canvas: HTMLCanvasElement): void {
   if (!room?.game) return;
   const ctx = canvas.getContext('2d')!;
@@ -895,6 +920,29 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     ctx.strokeStyle = 'rgba(212,184,90,0.95)'; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
     roundRect(ctx, sx + 2, sy + 2, s - 4, s - 4, 6);
     ctx.stroke();
+    ctx.restore();
+  }
+  if (scoreSpotlight) {
+    // Dim everything that didn't score, then trace the scored feature in the scorer's colour.
+    const s = camera.scale;
+    const lit = new Set([...scoreSpotlight.tiles, ...scoreSpotlight.fed]);
+    ctx.save();
+    ctx.fillStyle = 'rgba(20, 30, 28, 0.5)';
+    for (const k of Object.keys(board)) {
+      if (lit.has(k)) continue;
+      const [x, y] = k.split(',').map(Number) as [number, number];
+      const [sx, sy] = worldToScreen(x, y, cw, ch);
+      ctx.fillRect(sx, sy, s, s);
+    }
+    if (scoreSpotlight.fed.size) {
+      ctx.strokeStyle = 'rgba(245,248,246,0.9)'; ctx.lineWidth = 2.5; ctx.setLineDash([7, 5]);
+      strokeCellGroup(ctx, scoreSpotlight.fed, cw, ch);
+      ctx.setLineDash([]);
+    }
+    ctx.strokeStyle = scoreSpotlight.color; ctx.lineWidth = 4;
+    ctx.shadowColor = scoreSpotlight.color; ctx.shadowBlur = 12;
+    ctx.lineJoin = 'round';
+    strokeCellGroup(ctx, scoreSpotlight.tiles, cw, ch);
     ctx.restore();
   }
 
@@ -1270,7 +1318,24 @@ function buildSidebar(game: NonNullable<RoomDoc['game']>, myTurn: boolean): HTML
 
   const log = h('div', { class: 'panel', style: 'padding:0.8rem;display:flex;flex-direction:column;min-height:0;flex:1' },
     h('h2', { style: 'font-size:0.95rem' }, 'Chronicle'),
-    h('div', { class: 'log-panel' }, ...game.log.slice(0, 40).map((l) => h('div', { class: 'log-entry' }, l))),
+    h('div', { class: 'log-panel' }, ...game.log.slice(0, 40).map((l, i) => {
+      const seq = game.log.length - 1 - i;
+      const ev = game.scoreEvents?.find((e) => e.seq === seq);
+      if (!ev) return h('div', { class: 'log-entry' }, l);
+      return h('div', {
+        class: 'log-entry log-entry-score',
+        title: coarsePointer ? 'Tap to show where on the board' : 'Hover to show where on the board',
+        onmouseenter: () => { if (!scoreSpotlight?.pinned) setScoreSpotlight(ev); },
+        onmouseleave: () => { if (!scoreSpotlight?.pinned) setScoreSpotlight(null); },
+        onclick: (e: Event) => {
+          const el = e.currentTarget as HTMLElement;
+          const already = el.classList.contains('pinned');
+          el.parentElement?.querySelectorAll('.pinned').forEach((n) => n.classList.remove('pinned'));
+          if (already) setScoreSpotlight(null);
+          else { el.classList.add('pinned'); setScoreSpotlight(ev, true); }
+        },
+      }, l);
+    })),
   );
 
   const sidebar = h('div', { class: 'sidebar' }, turnBanner, tilePreview, scoreboard, log);

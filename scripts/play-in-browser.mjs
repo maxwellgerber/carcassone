@@ -177,6 +177,21 @@ void camBefore;
 await A.page.mouse.move(400, 400); await A.page.mouse.down(); await A.page.mouse.move(520, 470, { steps: 6 }); await A.page.mouse.up();
 await A.page.waitForTimeout(150);
 await snap(A.page, '08-post-game-board');
+// Chronicle hover lights up the scored feature on the board.
+const scoreLine = await A.page.$('.log-entry-score');
+if (!scoreLine) errors.push('no hoverable scoring lines in the chronicle');
+else {
+  await scoreLine.hover();
+  await A.page.waitForTimeout(150);
+  await snap(A.page, '09-chronicle-hover');
+  await scoreLine.click();
+  if (!(await A.page.$('.log-entry-score.pinned'))) errors.push('clicking a chronicle line did not pin it');
+  await A.page.mouse.move(400, 400);
+  await A.page.waitForTimeout(100);
+  await snap(A.page, '10-chronicle-pinned');
+  await scoreLine.click();
+  if (await A.page.$('.log-entry-score.pinned')) errors.push('second click did not unpin');
+}
 await A.page.click('button:has-text("Final scores")');
 if (!(await A.page.$('.modal-backdrop'))) errors.push('end modal did not reopen');
 console.log('\nfinal:', finalA);

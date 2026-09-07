@@ -146,8 +146,17 @@ export async function storeName(env: Env, sub: string, name: string): Promise<vo
 // Dev-mode login: no network round trip to a real IDP, but the exact same
 // session-cookie contract as production, so nothing downstream branches on env.
 // ---------------------------------------------------------------------------
+/** Only ever bounce to a path on this site — never to an absolute URL an attacker
+ *  could smuggle into ?next=. */
+function safeNext(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) return null;
+  return raw.length > 200 ? null : raw;
+}
+
 export async function handleDevLogin(request: Request, env: Env): Promise<Response> {
   const cookies = parseCookies(request);
+  const next = safeNext(new URL(request.url).searchParams.get('next'));
   let devId = cookies[DEV_ID_COOKIE];
   const headers = new Headers();
   if (!devId) {
@@ -160,7 +169,7 @@ export async function handleDevLogin(request: Request, env: Env): Promise<Respon
     if (name) {
       await storeName(env, devId, name);
       await writeSessionCookie(headers, { sub: devId, name }, env);
-      headers.set('Location', '/');
+      headers.set('Location', next ?? '/');
       return new Response(null, { status: 302, headers });
     }
   }
@@ -169,7 +178,7 @@ export async function handleDevLogin(request: Request, env: Env): Promise<Respon
   // bounces a brand-new dev user back to /auth/login in a redirect loop.
   const existingName = await getStoredName(env, devId);
   await writeSessionCookie(headers, { sub: devId, name: existingName }, env);
-  headers.set('Location', existingName ? '/' : '/welcome');
+  headers.set('Location', existingName ? (next ?? '/') : `/welcome${next ? `?next=${encodeURIComponent(next)}` : ''}`);
   return new Response(null, { status: 302, headers });
 }
 
@@ -217,8 +226,11 @@ export async function handleLogin(request: Request, env: Env): Promise<Response>
   url.searchParams.set('code_challenge', challenge);
   url.searchParams.set('code_challenge_method', 'S256');
 
+  const next = safeNext(new URL(request.url).searchParams.get('next'));
   const headers = new Headers({ Location: url.toString() });
-  setCookie(headers, STATE_COOKIE, JSON.stringify({ state, verifier, redirectUri }), { maxAge: 600 });
+  // `next` rides along in the state cookie so the callback can land the player on
+  // the room they were invited to, not the home page.
+  setCookie(headers, STATE_COOKIE, JSON.stringify({ state, verifier, redirectUri, next }), { maxAge: 600 });
   return new Response(null, { status: 302, headers });
 }
 
@@ -285,7 +297,8 @@ export async function handleCallback(request: Request, env: Env): Promise<Respon
   const storedName = await getStoredName(env, claims.sub);
   const name = storedName ?? null;
   await writeSessionCookie(headers, { sub: claims.sub, name }, env);
-  headers.set('Location', name ? '/' : '/welcome');
+  const next = safeNext(stateCookie.next);
+  headers.set('Location', name ? (next ?? '/') : `/welcome${next ? `?next=${encodeURIComponent(next)}` : ''}`);
   return new Response(null, { status: 302, headers });
 }
 
@@ -296,7 +309,7 @@ export async function handleSetName(request: Request, env: Env): Promise<Respons
   const name = String(form.get('name') ?? '').trim().slice(0, 24);
   if (!name) return new Response('Name required', { status: 400 });
   await storeName(env, session.sub, name);
-  const headers = new Headers({ Location: '/' });
+  const headers = new Headers({ Location: safeNext(String(form.get('next') ?? '')) ?? '/' });
   await writeSessionCookie(headers, { sub: session.sub, name }, env);
   return new Response(null, { status: 302, headers });
 }

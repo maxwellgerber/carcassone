@@ -360,6 +360,7 @@ let windowListenersAttached = false;
 let dragState: { x: number; y: number; cx: number; cy: number } | null = null;
 let dragMovedFar = false;
 let hoveredGhost: MeepleSpot | null = null;
+let skipHovered = false;
 /** Touch flow: the zone tapped once (shown as a full meeple); a second tap places. */
 let selectedGhost: MeepleSpot | null = null;
 let ghostAnimFrame: number | null = null;
@@ -484,6 +485,23 @@ function ensureGhostAnimation(): void {
     ghostAnimFrame = requestAnimationFrame(step);
   };
   ghostAnimFrame = requestAnimationFrame(step);
+}
+
+/** The on-tile "Skip" pill during a meeple decision: sits just under the glowing tile. */
+function skipPillRect(cw: number, ch: number): { x: number; y: number; w: number; h: number } | null {
+  const game = room?.game;
+  if (!game || !isMyTurn() || game.phase !== 'placeMeeple' || !game.lastPlaced) return null;
+  const [tx, ty] = worldToScreen(game.lastPlaced.x, game.lastPlaced.y, cw, ch);
+  const s = camera.scale;
+  const w = Math.max(64, s * 0.62), hgt = Math.max(24, s * 0.24);
+  return { x: tx + s / 2 - w / 2, y: ty + s + 6, w, h: hgt };
+}
+function skipPillAt(clientX: number, clientY: number, canvasEl: HTMLCanvasElement): boolean {
+  const rect = canvasEl.getBoundingClientRect();
+  const r = skipPillRect(rect.width, rect.height);
+  if (!r) return false;
+  const px = clientX - rect.left, py = clientY - rect.top;
+  return px >= r.x - 4 && px <= r.x + r.w + 4 && py >= r.y - 4 && py <= r.y + r.h + 4;
 }
 
 function ghostAt(clientX: number, clientY: number, canvasEl: HTMLCanvasElement): MeepleSpot | null {
@@ -976,6 +994,20 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     roundRect(ctx, tx + 2, ty + 2, s - 4, s - 4, 6);
     ctx.stroke();
     ctx.restore();
+    const pill = skipPillRect(cw, ch);
+    if (pill) {
+      // "Skip" lives right under the tile so the whole decision happens in one place.
+      const hover = skipHovered;
+      ctx.save();
+      roundRect(ctx, pill.x, pill.y, pill.w, pill.h, pill.h / 2);
+      ctx.fillStyle = hover ? 'rgba(245,248,246,0.98)' : 'rgba(245,248,246,0.86)';
+      ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 6; ctx.fill(); ctx.shadowBlur = 0;
+      ctx.strokeStyle = hover ? 'rgba(31,46,43,0.9)' : 'rgba(31,46,43,0.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#1F2E2B'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `700 ${Math.max(12, Math.min(16, pill.h * 0.5))}px "Space Grotesk", sans-serif`;
+      ctx.fillText('✕ Skip', pill.x + pill.w / 2, pill.y + pill.h / 2 + 0.5);
+      ctx.restore();
+    }
     for (const g of ghosts) {
       const hot = hoveredGhost === g.spot || selectedGhost === g.spot;
       if (hot) {
@@ -1128,7 +1160,7 @@ function renderGame(): HTMLElement {
     renderMeepleBar();
     ensureGhostAnimation();
   } else {
-    hoveredGhost = null; selectedGhost = null; meepleBarEl = null;
+    hoveredGhost = null; selectedGhost = null; skipHovered = false; meepleBarEl = null;
   }
   // Upper right: view + settings. The settings popover holds the audio toggles.
   const settingsRow = (label: string, on: boolean, onChange: (v: boolean) => void) => h('label', { class: 'settings-row' },
@@ -1203,7 +1235,8 @@ function renderGame(): HTMLElement {
       const [wx, wy] = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
       hovered = { x: Math.floor(wx), y: Math.floor(wy) };
       const g = ghostAt(e.clientX, e.clientY, boardCanvasEl);
-      boardCanvasEl.style.cursor = g ? 'pointer' : dragState ? 'grabbing' : '';
+      skipHovered = !g && skipPillAt(e.clientX, e.clientY, boardCanvasEl);
+      boardCanvasEl.style.cursor = g || skipHovered ? 'pointer' : dragState ? 'grabbing' : '';
       hoveredGhost = g;
       if (!dragState) drawBoard(boardCanvasEl);
     });
@@ -1236,6 +1269,7 @@ function renderGame(): HTMLElement {
     if (!room?.game || !isMyTurn()) return;
     if (room.game.phase === 'placeMeeple') {
       const g = ghostAt(e.clientX, e.clientY, canvasEl);
+      if (!g && skipPillAt(e.clientX, e.clientY, canvasEl)) { send({ type: 'skip_meeple' }); selectedGhost = null; return; }
       if (!g) { if (selectedGhost) { selectedGhost = null; renderMeepleBar(); drawBoard(canvasEl); } return; }
       if (e.pointerType === 'touch' || coarsePointer) {
         if (selectedGhost === g) { send({ type: 'place_meeple', kind: g.kind, idx: g.idx }); selectedGhost = null; }
@@ -1390,6 +1424,12 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement | null 
     if (!boardCanvasEl) return [];
     const r = boardCanvasEl.getBoundingClientRect();
     return ghostTargets(r.width, r.height).map((g) => ({ kind: g.spot.kind, idx: g.spot.idx, label: g.label, sx: g.sx + r.left, sy: g.sy + r.top }));
+  },
+  skipPill: () => {
+    if (!boardCanvasEl) return null;
+    const r = boardCanvasEl.getBoundingClientRect();
+    const p = skipPillRect(r.width, r.height);
+    return p ? { sx: r.left + p.x + p.w / 2, sy: r.top + p.y + p.h / 2 } : null;
   },
   previewRot: () => ((previewRot % 4) + 4) % 4,
   pending: () => pending,

@@ -66,7 +66,7 @@ await A.page.click('text=Start game (3 players)');
 await A.page.waitForSelector('.board-wrap canvas');
 await B.page.waitForSelector('.board-wrap canvas');
 
-let placedByHumans = 0, meeplesPlaced = 0, skips = 0, escSkips = 0, autoSkipToasts = 0, shot = { hover: false, ghosts: false, tooltip: false, mid: false };
+let placedByHumans = 0, meeplesPlaced = 0, skips = 0, pillSkips = 0, escSkips = 0, autoSkipToasts = 0, shot = { hover: false, ghosts: false, tooltip: false, mid: false };
 const rnd = (n) => Math.floor(Math.random() * n);
 // Screen positions are only trustworthy after the board has had a frame to refit
 // its camera around the newest tile, exactly as a person waits for the redraw.
@@ -125,7 +125,17 @@ for (let step = 0; step < 4000; step++) {
         action = `ghost ${JSON.stringify(g)} under=` + await P.page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [g.sx, g.sy]);
         await P.page.mouse.click(g.sx, g.sy);
         meeplesPlaced++;
-      } else if (r < 0.85) {
+      } else if (r < 0.75) {
+        // The on-tile "✕ Skip" pill under the glowing tile.
+        const pill = await P.page.evaluate(() => window.__carcassonne.skipPill());
+        if (!pill) { errors.push(`${P.name}: no on-tile skip pill during meeple decision`); continue; }
+        action = `skip pill at ${pill.sx},${pill.sy}`;
+        await P.page.mouse.move(pill.sx, pill.sy);
+        await P.page.waitForTimeout(60);
+        if (!shot.pill) { shot.pill = true; await snap(P.page, '04b-skip-pill-hover'); }
+        await P.page.mouse.click(pill.sx, pill.sy);
+        pillSkips++;
+      } else if (r < 0.88) {
         try {
           action = 'skip button';
           await P.page.click('.meeple-bar button:has-text("Skip")', { timeout: 4000 });
@@ -195,7 +205,7 @@ else {
 await A.page.click('button:has-text("Final scores")');
 if (!(await A.page.$('.modal-backdrop'))) errors.push('end modal did not reopen');
 console.log('\nfinal:', finalA);
-console.log(`humans placed ${placedByHumans} tiles, ${meeplesPlaced} meeples via ghosts, ${skips} button skips, ${escSkips} Esc skips, ${autoSkipToasts} auto-skip toasts`);
+console.log(`humans placed ${placedByHumans} tiles, ${meeplesPlaced} meeples via ghosts, ${skips} button skips, ${pillSkips} on-tile skips, ${escSkips} Esc skips, ${autoSkipToasts} auto-skip toasts`);
 await browser.close();
 if (errors.length) { console.error('\nERRORS:'); for (const e of errors) console.error(' -', e); process.exit(1); }
 if (finalA?.phase !== 'ended') { console.error('game did not finish'); process.exit(1); }

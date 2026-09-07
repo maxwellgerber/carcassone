@@ -210,9 +210,10 @@ export function getMeepleCanvas(color: string, size: number, look: MeepleLook | 
   if (kind === 'city') {
     // Helmet with a nose guard and a plume, and a small kite shield on the arm.
     ctx.fillStyle = '#d7dbe0'; ctx.strokeStyle = ink; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(38, 20); ctx.quadraticCurveTo(50, 2, 62, 20); ctx.lineTo(62, 24); ctx.lineTo(38, 24); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(50, 24); ctx.lineTo(50, 31); ctx.stroke();
-    ctx.fillStyle = '#c8433a'; ctx.beginPath(); ctx.moveTo(50, 6); ctx.quadraticCurveTo(62, -2, 68, 8); ctx.quadraticCurveTo(60, 6, 54, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // The dome has to clear the top of the head (y=8), so it peaks around y=4.
+    ctx.beginPath(); ctx.moveTo(34, 18); ctx.quadraticCurveTo(50, -10, 66, 18); ctx.lineTo(66, 22); ctx.lineTo(34, 22); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(50, 22); ctx.lineTo(50, 30); ctx.stroke();
+    ctx.fillStyle = '#c8433a'; ctx.beginPath(); ctx.moveTo(50, 4); ctx.quadraticCurveTo(62, -8, 70, 2); ctx.quadraticCurveTo(60, 1, 54, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#e8c766';
     ctx.beginPath(); ctx.moveTo(18, 48); ctx.lineTo(34, 48); ctx.lineTo(34, 62); ctx.quadraticCurveTo(26, 72, 18, 62); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.strokeStyle = '#8a3a2a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(26, 50); ctx.lineTo(26, 64); ctx.moveTo(20, 56); ctx.lineTo(32, 56); ctx.stroke();

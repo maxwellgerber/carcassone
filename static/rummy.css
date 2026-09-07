@@ -69,3 +69,10 @@ details > summary small { font-weight: 500; color: var(--ink-soft); font-size: 0
 details .melds { margin-top: 0.5rem; }
 .stat { font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; color: var(--ink-soft); }
 .empty { color: var(--ink-soft); font-style: italic; font-size: 0.88rem; }
+
+/* table picker states */
+.deck button.pick.on-table-meld { background: var(--brass, var(--accent-2)); color: var(--bg); border-color: var(--brass, var(--accent-2)); }
+.deck button.pick.in-hand-dim { opacity: 0.45; }
+.deck button.pick.pending { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
+.pending-row { min-height: 2.2rem; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }

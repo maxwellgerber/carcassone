@@ -32,10 +32,12 @@ interface State {
   table: TableMeld[];
   /** Top of the discard pile, if the user wants to evaluate taking it. */
   discardTop: Card | null;
+  /** Cards picked in the table grid but not yet added as a meld. */
+  pending: Card[];
   rules: Rules;
 }
 
-const state: State = { hand: [], table: [], discardTop: null, rules: { ...DEFAULT_RULES } };
+const state: State = { hand: [], table: [], discardTop: null, pending: [], rules: { ...DEFAULT_RULES } };
 const root = document.getElementById('rummy')!;
 
 // --- URL hash <-> state (so a situation can be shared) ------------------------------
@@ -82,6 +84,7 @@ function addTableMeld(cards: Card[]): void {
     if (onTable(c)) throw new Error(`${cardToString(c)} is already on the table`);
   }
   state.hand = state.hand.filter((c) => !cards.some((x) => sameCard(x, c)));
+  state.pending = state.pending.filter((c) => !cards.some((x) => sameCard(x, c)));
   if (state.discardTop && cards.some((x) => sameCard(x, state.discardTop!))) state.discardTop = null;
   state.table.push({ id: nextTableId(), meld });
 }
@@ -100,6 +103,7 @@ function toggleHand(c: Card): void {
   else {
     if (state.hand.length >= MAX_HAND) return;
     if (state.discardTop && sameCard(state.discardTop, c)) state.discardTop = null;
+    state.pending = state.pending.filter((x) => !sameCard(x, c));
     state.hand.push(c);
   }
   render();
@@ -122,6 +126,7 @@ function dealRandom(n: number): void {
 function loadExample(): void {
   state.hand = [];
   state.table = [];
+  state.pending = [];
   state.rules = { ...DEFAULT_RULES };
   addTableMeld(parseCards('5H 6H 7H'));
   addTableMeld(parseCards('KS KD KC'));
@@ -167,23 +172,54 @@ function moveRow(mv: Move): HTMLElement {
   );
 }
 
-function deckPicker(): HTMLElement {
+interface CellSpec {
+  cls: string;
+  title: string;
+  onclick: () => void;
+}
+
+/** The 52-card grid, one row per suit. `cell` decides how each card looks and what clicking it does. */
+function deckGrid(cell: (c: Card) => CellSpec): HTMLElement {
   const grid = h('div', { class: 'deck' });
   for (const suit of SUITS) {
     grid.appendChild(h('div', { class: `suit-label ${suit === 'H' || suit === 'D' ? 'red' : ''}`, title: SUIT_NAMES[suit] }, SUIT_SYMBOLS[suit]));
     for (const rank of RANKS) {
       const c: Card = { rank, suit: suit as Suit };
-      const table = onTable(c);
-      const cls = ['pick', inHand(c) && 'in-hand', table && 'on-table', state.discardTop && sameCard(c, state.discardTop) && 'is-discard', isRed(c) && 'red'].filter(Boolean).join(' ');
-      grid.appendChild(h('button', {
-        class: cls,
-        type: 'button',
-        title: table ? `${cardToString(c)} is on the table (${table.id})` : inHand(c) ? 'Remove from hand' : 'Add to hand',
-        onclick: () => toggleHand(c),
-      }, rankLabel(rank)));
+      const spec = cell(c);
+      grid.appendChild(h('button', { class: `pick ${isRed(c) ? 'red' : ''} ${spec.cls}`.trim(), type: 'button', title: spec.title, onclick: spec.onclick }, rankLabel(rank)));
     }
   }
   return grid;
+}
+
+function handPicker(): HTMLElement {
+  return deckGrid((c) => {
+    const table = onTable(c);
+    if (table) return { cls: 'on-table', title: `${cardToString(c)} is on the table (${table.id})`, onclick: () => undefined };
+    const isDiscard = !!state.discardTop && sameCard(c, state.discardTop);
+    return {
+      cls: [inHand(c) && 'in-hand', isDiscard && 'is-discard'].filter(Boolean).join(' '),
+      title: inHand(c) ? 'Remove from hand' : isDiscard ? 'Top of the discard pile — click to take it into hand' : 'Add to hand',
+      onclick: () => toggleHand(c),
+    };
+  });
+}
+
+function inPending(c: Card): boolean {
+  return state.pending.some((x) => sameCard(x, c));
+}
+
+function tablePicker(): HTMLElement {
+  return deckGrid((c) => {
+    const table = onTable(c);
+    if (table) return { cls: 'on-table-meld', title: `${table.id} — click to remove this meld from the table`, onclick: () => { state.table = state.table.filter((t) => t !== table); render(); } };
+    if (inHand(c)) return { cls: 'in-hand-dim', title: `${cardToString(c)} is in your hand — click to move it to the table`, onclick: () => { state.hand = state.hand.filter((x) => !sameCard(x, c)); state.pending.push(c); render(); } };
+    return {
+      cls: inPending(c) ? 'pending' : '',
+      title: inPending(c) ? 'Remove from the meld being built' : 'Add to the meld being built',
+      onclick: () => { state.pending = inPending(c) ? state.pending.filter((x) => !sameCard(x, c)) : [...state.pending, c]; render(); },
+    };
+  });
 }
 
 function handPanel(): HTMLElement {
@@ -215,7 +251,7 @@ function handPanel(): HTMLElement {
         h('button', { class: 'small ghost', type: 'button', onclick: () => { state.hand = []; render(); } }, 'Clear'),
       ),
     ),
-    deckPicker(),
+    handPicker(),
     state.hand.length ? cardRow(state.hand) : h('div', { class: 'empty' }, 'No cards in hand yet.'),
     h('div', { class: 'row' }, typed, h('button', { class: 'small', type: 'button', onclick: apply }, 'Set hand')),
     err,
@@ -223,7 +259,7 @@ function handPanel(): HTMLElement {
 }
 
 function tablePanel(): HTMLElement {
-  const input = h('input', { type: 'text', class: 'wide', placeholder: 'Add a meld on the table: 5H 6H 7H  or  KS KD KC', 'aria-label': 'Meld to add' }) as HTMLInputElement;
+  const input = h('input', { type: 'text', class: 'wide', placeholder: 'or type a meld: 5H 6H 7H', 'aria-label': 'Meld to add' }) as HTMLInputElement;
   const err = h('div', { class: 'error' });
   const add = () => {
     try {
@@ -239,7 +275,25 @@ function tablePanel(): HTMLElement {
   const list = state.table.length
     ? h('div', { class: 'melds' }, ...state.table.map((t) => meldRow(t.meld, t.id,
       h('button', { class: 'x', type: 'button', title: 'Remove from table', onclick: () => { state.table = state.table.filter((x) => x !== t); render(); } }, '×'))))
-    : h('div', { class: 'empty' }, 'Nothing on the table. Melds here can be laid off onto.');
+    : h('div', { class: 'empty' }, 'Nothing on the table yet. Melds here can be laid off onto.');
+
+  const pendingMeld = state.pending.length >= 3 ? asMeld(state.pending, state.rules) : null;
+  const addPending = () => {
+    try {
+      addTableMeld([...state.pending]);
+      state.pending = [];
+      render();
+    } catch (e) {
+      err.textContent = (e as Error).message;
+    }
+  };
+  const pendingRow = h('div', { class: 'row pending-row' },
+    h('span', { class: 'hint' }, 'Building:'),
+    state.pending.length ? cardRow(state.pending, 'new') : h('span', { class: 'empty' }, 'click cards above to build a meld'),
+    state.pending.length ? h('span', { class: pendingMeld ? 'hint' : 'error' }, pendingMeld ? `valid ${pendingMeld.kind}` : state.pending.length < 3 ? `${3 - state.pending.length} more` : 'not a set or run') : null,
+    h('button', { class: 'small', type: 'button', disabled: !pendingMeld, onclick: addPending }, 'Add to table'),
+    state.pending.length ? h('button', { class: 'small ghost', type: 'button', onclick: () => { state.pending = []; render(); } }, 'Clear') : null,
+  );
 
   const discard = h('input', { type: 'text', placeholder: 'e.g. JD', 'aria-label': 'Top of discard pile', value: state.discardTop ? cardToString(state.discardTop) : '' }) as HTMLInputElement;
   discard.style.width = '6rem';
@@ -262,6 +316,9 @@ function tablePanel(): HTMLElement {
 
   return h('section', { class: 'panel' },
     h('h2', {}, 'On the table ', h('small', {}, `${state.table.length} melds`)),
+    h('span', { class: 'hint' }, 'Click cards to build a meld, then add it. Filled cards are already on the table; click one to remove its meld.'),
+    tablePicker(),
+    pendingRow,
     list,
     h('div', { class: 'row' }, input, h('button', { class: 'small', type: 'button', onclick: add }, 'Add meld')),
     h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Top of discard pile:'), discard, h('span', { class: 'hint' }, 'optional — shows what taking it would do')),

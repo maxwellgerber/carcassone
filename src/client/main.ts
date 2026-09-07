@@ -1,5 +1,5 @@
 import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
-import { getLegalPlacements, getMeepleOptions, placeMeeple, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
+import { getLegalPlacements, getMeepleOptions, placeMeeple, placeTile, skipMeeple, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
 import type { RoomDoc } from '../shared/room-types.js';
 import type { GameConfig, MeepleKind, NpcDifficulty } from '../shared/types.js';
 import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, preloadTileArt, type MeepleLook } from './art.js';
@@ -417,7 +417,8 @@ function renderPlacementBar(): void {
   const rots = legalRotsAt(pending.x, pending.y);
   placementBarEl.className = 'board-hint place-bar';
   const rotateBtn = h('button', { class: 'small', disabled: rots.length <= 1, title: rots.length <= 1 ? 'Only one orientation fits here' : 'Rotate (R)', onclick: rotatePending }, '↻ Rotate');
-  const placeBtn = h('button', { class: 'small primary', title: 'Place (Enter)', onclick: confirmPending }, '✓ Place');
+  const pts = pendingPoints();
+  const placeBtn = h('button', { class: 'small primary', title: 'Place (Enter)', onclick: confirmPending }, pts > 0 ? `✓ Place (+${pts})` : '✓ Place');
   const cancelBtn = h('button', { class: 'small ghost', title: 'Cancel (Esc)', onclick: cancelPending }, '✕');
   placementBarEl.appendChild(rotateBtn); placementBarEl.appendChild(placeBtn); placementBarEl.appendChild(cancelBtn);
 }
@@ -718,12 +719,34 @@ function instantPoints(kind: MeepleKind, idx: number): number {
   if (hit !== undefined) return hit;
   let gained = 0;
   try {
-    const trial = structuredClone(game);
-    const me = trial.currentPlayer;
-    placeMeeple(trial, kind, idx);
-    gained = trial.players[me]!.score - game.players[me]!.score;
+    // Only the points this meeple adds: the tile itself may already be completing
+    // features you own, and those come in whether you place a meeple or not.
+    const me = game.currentPlayer;
+    const withMeeple = structuredClone(game); placeMeeple(withMeeple, kind, idx);
+    const without = structuredClone(game); skipMeeple(without);
+    gained = withMeeple.players[me]!.score - without.players[me]!.score;
   } catch { gained = 0; }
   instantCache.values.set(k, gained);
+  return gained;
+}
+
+/** Points the current player banks the moment the pending tile is confirmed —
+ *  features it completes that already carry their meeples. */
+let pendingPointsCache: { key: string; value: number } | null = null;
+function pendingPoints(): number {
+  const game = room?.game;
+  if (!game || !pending || !game.currentTile) return 0;
+  const key = `${game.turnNumber}:${pending.x},${pending.y},${pending.rot}`;
+  if (pendingPointsCache?.key === key) return pendingPointsCache.value;
+  let gained = 0;
+  try {
+    const me = game.currentPlayer;
+    const trial = structuredClone(game);
+    placeTile(trial, pending.x, pending.y, pending.rot);
+    if (trial.phase === 'placeMeeple') skipMeeple(trial);
+    gained = trial.players[me]!.score - game.players[me]!.score;
+  } catch { gained = 0; }
+  pendingPointsCache = { key, value: gained };
   return gained;
 }
 
@@ -948,6 +971,20 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     roundRect(ctx, sx + 2, sy + 2, s - 4, s - 4, 6);
     ctx.stroke();
     ctx.restore();
+    const pts = pendingPoints();
+    if (pts > 0) {
+      // This placement completes something you already hold: say what it's worth.
+      ctx.save();
+      ctx.font = '700 13px "Space Grotesk", sans-serif';
+      const text = `+${pts} on placing`;
+      const w = ctx.measureText(text).width + 14;
+      const bx = sx + s / 2 - w / 2, by = sy - 24;
+      roundRect(ctx, bx, by, w, 20, 10);
+      ctx.fillStyle = '#D4B85A'; ctx.fill();
+      ctx.strokeStyle = 'rgba(31,46,43,0.8)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#1F2E2B'; ctx.textBaseline = 'middle'; ctx.fillText(text, bx + 7, by + 10.5);
+      ctx.restore();
+    }
   } else if (myTurn && game.phase === 'placeTile' && hovered && game.currentTile && !coarsePointer) {
     const k = `${hovered.x},${hovered.y}`;
     const rots = legalByCell.get(k);

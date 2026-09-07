@@ -626,7 +626,11 @@ function meepleSpots(tileKey: string, rot: number): MeepleSpot[] {
 // ---------------------------------------------------------------------------
 const PREF_ANIMATE = 'carcassonne.animate';
 let animateMeeples = (() => { try { return localStorage.getItem(PREF_ANIMATE) !== 'off'; } catch { return true; } })();
-interface WalkPath { pts: [number, number][]; cum: number[]; length: number; loop: boolean; speed: number; phase: number }
+interface WalkPath {
+  pts: [number, number][]; cum: number[]; length: number; loop: boolean; speed: number; phase: number;
+  /** Gait: walk for `walkSec`, rest for `restSec`, repeat — seeded per meeple so the crowd never marches in step. */
+  walkSec: number; restSec: number; bobRate: number;
+}
 const walkCache = new Map<string, WalkPath>();
 
 function rotatePt([x, y]: [number, number], rot: number): [number, number] {
@@ -669,8 +673,14 @@ function walkPathFor(m: { x: number; y: number; kind: MeepleKind; idx: number; p
   const hit = walkCache.get(key);
   if (hit) return hit;
   const [ax, ay] = meepleAnchor(tileKey, rot, m.kind, m.idx);
-  const seed = ((m.x * 73856093) ^ (m.y * 19349663) ^ (m.idx * 83492791)) >>> 0;
+  const seed = ((m.x * 73856093) ^ (m.y * 19349663) ^ (m.idx * 83492791) ^ (m.playerIdx * 2654435761)) >>> 0;
   const phase = (seed % 1000) / 1000;
+  // A few more seeded dice so each meeple has its own pace, stride and habit of dawdling.
+  const dice = (n: number) => (((seed >>> (n * 5)) ^ (seed * (n + 3))) >>> 0) % 1000 / 1000;
+  const pace = 0.7 + dice(1) * 0.7;          // 0.7x .. 1.4x speed
+  const walkSec = 3 + dice(2) * 7;           // walk 3 .. 10 s
+  const restSec = 1 + dice(3) * 3.5;         // then stand 1 .. 4.5 s
+  const bobRate = 120 + dice(4) * 60;        // stride period
   let pts: [number, number][] = [];
   let loop = true, speed = 0.05; // tile units per second
   if (m.kind === 'road') { pts = roadPolyline(tileKey, rot, m.idx); loop = false; speed = 0.07; }
@@ -679,7 +689,7 @@ function walkPathFor(m: { x: number; y: number; kind: MeepleKind; idx: number; p
   else { pts = [[ax, ay]]; speed = 0; }
   const cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1]! + Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]));
-  const wp: WalkPath = { pts, cum, length: cum[cum.length - 1]!, loop, speed, phase };
+  const wp: WalkPath = { pts, cum, length: cum[cum.length - 1]!, loop, speed: speed * pace, phase, walkSec, restSec, bobRate };
   walkCache.set(key, wp);
   return wp;
 }
@@ -692,7 +702,14 @@ function meeplePose(m: { x: number; y: number; kind: MeepleKind; idx: number; pl
     const rock = animateMeeples && m.kind === 'farm' ? Math.sin(now / 900 + wp.phase * 6) * 0.004 : 0;
     return { x: p[0], y: p[1] + rock, flip: false, bob: 0 };
   }
-  const t = (now / 1000) * wp.speed + wp.phase * wp.length * 2;
+  // Time actually spent walking: the gait cycle drops the rests, so the meeple
+  // stops on the path for a moment and then carries on from where it stood.
+  const cycle = wp.walkSec + wp.restSec;
+  const elapsed = now / 1000 + wp.phase * cycle * 3;
+  const full = Math.floor(elapsed / cycle), rem = elapsed - full * cycle;
+  const walking = rem < wp.walkSec;
+  const walked = full * wp.walkSec + Math.min(rem, wp.walkSec);
+  const t = walked * wp.speed + wp.phase * wp.length * 2;
   let d: number, forward = true;
   if (wp.loop) d = t % wp.length;
   else { const cycle = t % (wp.length * 2); if (cycle <= wp.length) d = cycle; else { d = wp.length * 2 - cycle; forward = false; } }
@@ -701,7 +718,7 @@ function meeplePose(m: { x: number; y: number; kind: MeepleKind; idx: number; pl
   const k = seg1 > seg0 ? (d - seg0) / (seg1 - seg0) : 0;
   const p = wp.pts[i - 1]!, q = wp.pts[i]!;
   const dx = (q[0] - p[0]) * (forward ? 1 : -1);
-  const bob = Math.abs(Math.sin(now / 140 + wp.phase * 10)) * 0.012;
+  const bob = walking ? Math.abs(Math.sin(now / wp.bobRate + wp.phase * 10)) * 0.012 : 0;
   return { x: p[0] + (q[0] - p[0]) * k, y: p[1] + (q[1] - p[1]) * k - bob, flip: dx < -0.0005, bob };
 }
 

@@ -360,6 +360,8 @@ let windowListenersAttached = false;
 let dragState: { x: number; y: number; cx: number; cy: number } | null = null;
 let dragMovedFar = false;
 let hoveredGhost: MeepleSpot | null = null;
+/** Touch flow: the zone tapped once (shown as a full meeple); a second tap places. */
+let selectedGhost: MeepleSpot | null = null;
 let ghostAnimFrame: number | null = null;
 /** A tile set down but not yet confirmed: the player can still rotate or move it. */
 let pending: { x: number; y: number; rot: number } | null = null;
@@ -423,6 +425,22 @@ function renderPlacementBar(): void {
   placementBarEl.appendChild(rotateBtn); placementBarEl.appendChild(placeBtn); placementBarEl.appendChild(cancelBtn);
 }
 
+let meepleBarEl: HTMLElement | null = null;
+function renderMeepleBar(): void {
+  if (!meepleBarEl || !room?.game) return;
+  const meP = room.game.players[room.game.currentPlayer];
+  meepleBarEl.innerHTML = '';
+  const sel = selectedGhost;
+  const label = sel ? getMeepleOptions(room.game).find((o) => o.kind === sel.kind && o.idx === sel.idx)?.label : null;
+  const bar = meepleBarEl;
+  bar.appendChild(h('canvas', { class: 'meeple-swatch', width: 22, height: 22, 'data-color': meP?.color ?? '#888' }));
+  if (sel && label) bar.appendChild(h('span', {}, h('strong', {}, label), ` — ${kindNoun(sel.kind)}`));
+  else bar.appendChild(h('span', {}, h('strong', {}, 'Place a meeple?'), coarsePointer ? ' Tap a marker on the glowing tile' : ' Hover a marker on the glowing tile'));
+  if (sel) bar.appendChild(h('button', { class: 'small primary', onclick: () => { send({ type: 'place_meeple', kind: sel.kind, idx: sel.idx }); selectedGhost = null; } }, '✓ Place'));
+  bar.appendChild(h('button', { class: sel ? 'small' : 'small primary', onclick: () => send({ type: 'skip_meeple' }) }, 'Skip (Esc)'));
+  paintMeepleSwatches(meepleBarEl);
+}
+
 function zoomBy(factor: number): void {
   if (!boardCanvasEl) return;
   userAdjustedCamera = true;
@@ -474,7 +492,7 @@ function ghostAt(clientX: number, clientY: number, canvasEl: HTMLCanvasElement):
   let best: { spot: MeepleSpot; d: number } | null = null;
   for (const g of ghostTargets(rect.width, rect.height)) {
     const d = Math.hypot(g.sx - px, g.sy - py);
-    if (d <= Math.max(18, g.size * 0.65) && (!best || d < best.d)) best = { spot: g.spot, d };
+    if (d <= Math.max(20, g.size * 0.6) && (!best || d < best.d)) best = { spot: g.spot, d };
   }
   return best?.spot ?? null;
 }
@@ -911,29 +929,34 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     ctx.stroke();
     ctx.restore();
     for (const g of ghosts) {
-      const hot = hoveredGhost === g.spot;
-      const size = g.size * (hot ? 1.18 : 1);
-      ctx.save();
-      // A soft disc behind the ghost so it stands out on busy art at any zoom level.
-      ctx.beginPath();
-      ctx.arc(g.sx, g.sy, size * 0.58, 0, Math.PI * 2);
-      ctx.fillStyle = hot ? 'rgba(255,255,255,0.55)' : `rgba(255,255,255,${0.18 + 0.12 * pulse})`;
-      ctx.fill();
-      ctx.strokeStyle = hot ? '#ffffff' : `rgba(255,255,255,${0.45 + 0.35 * pulse})`;
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash(hot ? [] : [4, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.globalAlpha = hot ? 1 : 0.55 + 0.2 * pulse;
-      ctx.drawImage(getMeepleCanvas(meColor, size, g.spot.kind as MeepleLook), g.sx - size / 2, g.sy - size / 2, size, size);
-      ctx.restore();
+      const hot = hoveredGhost === g.spot || selectedGhost === g.spot;
+      if (hot) {
+        const size = g.size * 1.15;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(g.sx, g.sy, size * 0.58, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.drawImage(getMeepleCanvas(meColor, size, g.spot.kind as MeepleLook), g.sx - size / 2, g.sy - size / 2, size, size);
+        ctx.restore();
+      } else {
+        // A quiet zone marker: a dot in your colour, so the tile art stays readable.
+        const r = Math.max(6, g.size * 0.2) * (1 + 0.12 * pulse);
+        ctx.save();
+        ctx.beginPath(); ctx.arc(g.sx, g.sy, r + 3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${0.55 + 0.25 * pulse})`; ctx.fill();
+        ctx.beginPath(); ctx.arc(g.sx, g.sy, r, 0, Math.PI * 2);
+        ctx.fillStyle = meColor; ctx.fill();
+        ctx.strokeStyle = 'rgba(31,46,43,0.7)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.restore();
+      }
       if (g.instant > 0) {
-        // This claim banks points immediately: say so on the ghost itself.
+        // This claim banks points immediately: say so next to the marker.
         ctx.save();
         ctx.font = '700 11px "Space Grotesk", sans-serif';
         const text = `+${g.instant}`;
         const w = ctx.measureText(text).width + 10;
-        const bx = g.sx + size * 0.32, by = g.sy - size * 0.62;
+        const off = hot ? g.size * 0.5 : Math.max(6, g.size * 0.2) + 4;
+        const bx = g.sx + off, by = g.sy - off - 6;
         roundRect(ctx, bx, by, w, 16, 8);
         ctx.fillStyle = '#D4B85A'; ctx.fill();
         ctx.strokeStyle = 'rgba(31,46,43,0.8)'; ctx.lineWidth = 1; ctx.stroke();
@@ -941,7 +964,7 @@ function drawBoard(canvas: HTMLCanvasElement): void {
         ctx.restore();
       }
     }
-    const hot = ghosts.find((g) => hoveredGhost === g.spot);
+    const hot = ghosts.find((g) => hoveredGhost === g.spot || selectedGhost === g.spot);
     if (hot) {
       ctx.save();
       ctx.font = '600 13px "Space Grotesk", sans-serif';
@@ -1049,16 +1072,15 @@ function renderGame(): HTMLElement {
     pending = null;
   }
   if (myTurn && game.phase === 'placeMeeple' && meP) {
-    // The meeple decision happens on the board itself: ghosts on the glowing tile are
-    // the choices, and this bar is the "no thanks".
-    wrap.appendChild(h('div', { class: 'board-hint meeple-bar' },
-      h('canvas', { class: 'meeple-swatch', width: 22, height: 22, 'data-color': meP.color }),
-      h('span', {}, h('strong', {}, 'Place a meeple?'), ' Click a ghost on the glowing tile'),
-      h('button', { class: 'small primary', onclick: () => send({ type: 'skip_meeple' }) }, 'Skip (Esc)'),
-    ));
+    // The meeple decision happens on the board itself: the markers on the glowing
+    // tile are the choices, and this bar is the "no thanks" (and, on touch, the
+    // "yes" for the zone you tapped).
+    meepleBarEl = h('div', { class: 'board-hint meeple-bar' });
+    wrap.appendChild(meepleBarEl);
+    renderMeepleBar();
     ensureGhostAnimation();
   } else {
-    hoveredGhost = null;
+    hoveredGhost = null; selectedGhost = null; meepleBarEl = null;
   }
   // Upper right: view + settings. The settings popover holds the audio toggles.
   const settingsRow = (label: string, on: boolean, onChange: (v: boolean) => void) => h('label', { class: 'settings-row' },
@@ -1166,7 +1188,13 @@ function renderGame(): HTMLElement {
     if (!room?.game || !isMyTurn()) return;
     if (room.game.phase === 'placeMeeple') {
       const g = ghostAt(e.clientX, e.clientY, canvasEl);
-      if (g) send({ type: 'place_meeple', kind: g.kind, idx: g.idx });
+      if (!g) { if (selectedGhost) { selectedGhost = null; renderMeepleBar(); drawBoard(canvasEl); } return; }
+      if (e.pointerType === 'touch' || coarsePointer) {
+        if (selectedGhost === g) { send({ type: 'place_meeple', kind: g.kind, idx: g.idx }); selectedGhost = null; }
+        else { selectedGhost = g; renderMeepleBar(); drawBoard(canvasEl); }
+        return;
+      }
+      send({ type: 'place_meeple', kind: g.kind, idx: g.idx });
       return;
     }
     if (room.game.phase !== 'placeTile') return;

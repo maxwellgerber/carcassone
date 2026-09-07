@@ -38,7 +38,7 @@ function blankGame(players: { id: string; name: string }[], seed: number, config
   assert(g.players[1]!.score === 4, `player B should score 4 for closed 2-tile city, got ${g.players[1]!.score}`);
   assert(g.players[1]!.meeples === 7, 'meeple returned after scoring');
   const ev = g.scoreEvents?.[0];
-  assert(!!ev && ev.kind === 'city' && ev.points === 4 && ev.tiles.length === 2, `score event should record the 2 city tiles, got ${JSON.stringify(ev)}`);
+  assert(!!ev && ev.kind === 'city' && ev.points === 4 && ev.tiles.length === 2 && !ev.final, `score event should record the 2 city tiles, got ${JSON.stringify(ev)}`);
   assert(!!ev && g.log[g.log.length - 1 - ev.seq]!.includes('scored 4 pts'), 'score event seq should map back to its chronicle line');
 }
 
@@ -109,7 +109,7 @@ function blankGame(players: { id: string; name: string }[], seed: number, config
   assert(g.phase === 'gameover', 'game should be over once deck is empty');
   assert(g.players[0]!.score === 3, `Alice's farm should score 3 (1 completed city x 3), got ${g.players[0]!.score}`);
   const farmEv = g.scoreEvents?.find((e) => e.kind === 'farm');
-  assert(!!farmEv && farmEv.tiles.length >= 1 && (farmEv.fedTiles?.length ?? 0) === 2, `farm score event should list field tiles and the 2 tiles of the fed city, got ${JSON.stringify(farmEv)}`);
+  assert(!!farmEv && farmEv.final === true && farmEv.tiles.length >= 1 && (farmEv.fedTiles?.length ?? 0) === 2, `farm score event should list field tiles and the 2 tiles of the fed city, got ${JSON.stringify(farmEv)}`);
 }
 
 // --- Test 7: deck totals exactly 72 tiles, start tile not double-counted ---

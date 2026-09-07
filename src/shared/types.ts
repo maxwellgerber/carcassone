@@ -120,6 +120,8 @@ export interface ScoreEvent {
   tiles: string[];
   /** Farm only: tiles of the completed cities that fed it. */
   fedTiles?: string[];
+  /** True for end-of-game scoring, false for points banked mid-game by completing a feature. */
+  final?: boolean;
 }
 
 export interface PlayerInfo {

@@ -780,7 +780,12 @@ function pendingPoints(): number {
     const trial = structuredClone(game);
     placeTile(trial, pending.x, pending.y, pending.rot);
     if (trial.phase === 'placeMeeple') skipMeeple(trial);
-    gained = trial.players[me]!.score - game.players[me]!.score;
+    // Count only what this tile completes. If it is the last tile the engine also
+    // runs end-of-game scoring, and that pile of points isn't "for placing this tile".
+    const before = game.scoreEvents?.length ?? 0;
+    gained = (trial.scoreEvents ?? []).slice(0, (trial.scoreEvents?.length ?? 0) - before)
+      .filter((ev) => !ev.final && ev.players.includes(me))
+      .reduce((sum, ev) => sum + ev.points, 0);
   } catch { gained = 0; }
   pendingPointsCache = { key, value: gained };
   return gained;

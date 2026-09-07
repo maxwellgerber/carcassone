@@ -421,7 +421,7 @@ export function skipMeeple(state: GameState): void {
 
 function scoreForPlayers(
   state: GameState, playerIdxs: number[], points: number, reason: string,
-  where: { kind: ScoreEvent['kind']; tiles: string[]; fedTiles?: string[] },
+  where: { kind: ScoreEvent['kind']; tiles: string[]; fedTiles?: string[]; final?: boolean },
 ): void {
   if (playerIdxs.length === 0) return;
   for (const pi of playerIdxs) state.players[pi]!.score += points;
@@ -494,18 +494,18 @@ function finishGame(state: GameState): void {
     if (onIt.length === 0) continue;
     const shields = state.config.shieldBonus ? cf.shieldCount : 0;
     const points = cf.complete ? cf.tileCount * 2 + shields * 2 : cf.tileCount + shields;
-    scoreForPlayers(state, majorityOwners(state, onIt), points, `final scoring: ${cf.complete ? 'a completed' : 'an unfinished'} city`, { kind: 'city', tiles: cf.tiles });
+    scoreForPlayers(state, majorityOwners(state, onIt), points, `final scoring: ${cf.complete ? 'a completed' : 'an unfinished'} city`, { kind: 'city', tiles: cf.tiles , final: true });
   }
   for (const rf of features.roadFeatures) {
     const onIt = state.meeples.filter((m) => m.kind === 'road' && features.lookups.roadGroupRoot(m.x, m.y, m.idx) === rf.id);
     if (onIt.length === 0) continue;
-    scoreForPlayers(state, majorityOwners(state, onIt), rf.tileCount, `final scoring: ${rf.complete ? 'a completed' : 'an unfinished'} road`, { kind: 'road', tiles: rf.tiles });
+    scoreForPlayers(state, majorityOwners(state, onIt), rf.tileCount, `final scoring: ${rf.complete ? 'a completed' : 'an unfinished'} road`, { kind: 'road', tiles: rf.tiles , final: true });
   }
   if (state.config.monasteryScoring) {
     for (const mf of features.monasteryFeatures) {
       const onIt = state.meeples.filter((m) => m.kind === 'monastery' && m.x === mf.x && m.y === mf.y);
       if (onIt.length === 0) continue;
-      scoreForPlayers(state, majorityOwners(state, onIt), mf.filled, `final scoring: ${mf.complete ? 'a completed' : 'an unfinished'} cloister`, { kind: 'monastery', tiles: monasteryTiles(state, mf.x, mf.y) });
+      scoreForPlayers(state, majorityOwners(state, onIt), mf.filled, `final scoring: ${mf.complete ? 'a completed' : 'an unfinished'} cloister`, { kind: 'monastery', tiles: monasteryTiles(state, mf.x, mf.y) , final: true });
     }
   }
   if (state.config.farmScoring) {
@@ -517,7 +517,7 @@ function finishGame(state: GameState): void {
         const completeCityCount = fed.length;
         if (completeCityCount === 0) continue;
         scoreForPlayers(state, majorityOwners(state, onIt), completeCityCount * 3, `final scoring: a farm feeding ${completeCityCount} completed cit${completeCityCount === 1 ? 'y' : 'ies'}`,
-          { kind: 'farm', tiles: ff.tiles, fedTiles: fed.flatMap((c) => c.tiles) });
+          { kind: 'farm', tiles: ff.tiles, fedTiles: fed.flatMap((c) => c.tiles), final: true });
       }
     } catch {
       state.log.unshift('Farm scoring hit a snag and was skipped for safety — other scores are final.');

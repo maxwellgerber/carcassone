@@ -118,7 +118,8 @@ for (let step = 0; step < 4000; step++) {
       const ghosts = await P.page.evaluate(() => window.__carcassonne.ghosts());
       if (ghosts.length === 0) { errors.push(`${P.name}: asked for a meeple with no ghosts to click (state ${JSON.stringify(st)})`); continue; }
       if (!shot.ghosts) { shot.ghosts = true; await P.page.mouse.move(10, 400); await P.page.waitForTimeout(80); await snap(P.page, '03-ghost-meeples'); }
-      const r = Math.random();
+      // FORCE_DECISION=ghost|pill|button|esc pins the choice, for targeted checks.
+      const r = { ghost: 0.1, pill: 0.7, button: 0.8, esc: 0.95 }[process.env.FORCE_DECISION] ?? Math.random();
       let action = '';
       if (r < 0.6) {
         const g = ghosts[rnd(ghosts.length)];

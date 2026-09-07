@@ -191,12 +191,22 @@ src/shared/            pure game engine + types — imported by server, client, 
 src/server/
   worker.ts               routes requests; the sole trust boundary for identity (human or agent)
   room-do.ts               Durable Object: hibernatable WebSockets, RPC surface, NPC alarm, idle cleanup
-  room.ts                  room document shape + the decoupled action layer
-  npc.ts                   NPC move selection (easy/normal/hard)
+  room.ts                  room document shape + the decoupled action layer; the event fold (applyEvent)
+  npc.ts                   NPC move selection (easy/normal/hard): evaluation, one-ply search, rollouts
+  features.ts, net.ts      the learned evaluator: feature-graph encoding and a tiny MLP (weights.ts is generated)
   auth.ts                  OIDC (discovery + PKCE + JWKS verification) + dev-mode mock login
   registry.ts              KV-backed room registry (Durable Objects can't be enumerated)
 src/client/
-  main.ts                  routing, WebSocket sync, canvas board, all UI
+  main.ts                  entry point: skin + router wiring, first render
+  router.ts, session.ts    URL routing; who is signed in
+  home.ts, lobby.ts        landing page (+ game history), the pre-game lobby
+  room.ts, replay.ts       WebSocket sync + reactions to state changes; replay scrubbing
+  game-view.ts             the in-game layout: board wrap, input handling, sidebar, end modal
+  board.ts, camera.ts      canvas board renderer (tiles, highlights, spotlight, particles); pan/zoom maths
+  placement.ts, spots.ts   two-tap tile placement, meeple markers and their points; where meeples stand on a tile
+  wander.ts, life.ts       meeples walking their features; pokes and small talk
+  ambient.ts               the living board: light, weather, birds, smoke, fireflies
+  prefs.ts, ui.ts, hooks.ts  saved preferences; small shared widgets; window.__carcassonne for the playthrough script
   art.ts                   loads the SVG tile art + procedural meeples/tile-back
   audio.ts                 Web Audio soundtrack (the tune + all sound effects)
   skins/                   the selectable looks: geometry.ts (shared edge-contract drawing), one painter per skin
@@ -209,6 +219,8 @@ scripts/
   test-engine.ts           engine correctness tests
   simulate.ts              plays whole NPC games against the engine, checking invariants
   tourney.ts               measures the NPC brains against each other (legacy-npc.ts is the old one)
+  test-room.ts             the event log rebuilds the room; a replay reproduces the final board
+  selfplay.ts, train.ts    generate self-play data and train the learned evaluator
   play-in-browser.mjs      drives a real game through the UI in headless Chromium
   bot.ts                   dev-only: a second "player" over a raw WebSocket (logs in via dev mode first)
   generate-base-tile-svgs.ts  regenerates the locked tile-geometry skeletons (see docs/tile-geometry-contract.md)

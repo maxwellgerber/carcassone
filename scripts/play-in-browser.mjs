@@ -157,7 +157,41 @@ for (let step = 0; step < 4000; step++) {
     if (st.tiles >= 18 && !shot.mid) {
       shot.mid = true;
       await snap(P.page, '05-midgame');
-      // Settings popover: open it, flip music off and on, make sure the choice sticks.
+      // Wandering: road/city meeples get one continuous route across their whole feature.
+      const poses0 = await P.page.evaluate(() => window.__carcassonne.poses());
+      let longest = 0, multi = 0;
+      for (const p of poses0) {
+        if (p.route.length === 0 || p.route.some((q) => Number.isNaN(q[0]) || Number.isNaN(q[1]))) { errors.push(`${p.key}: empty/NaN walk route`); continue; }
+        if (Number.isNaN(p.x) || Number.isNaN(p.y)) errors.push(`${p.key}: NaN pose`);
+        const tiles = new Set(p.route.map((q) => `${Math.floor(q[0] + 1e-6)},${Math.floor(q[1] + 1e-6)}`));
+        if (tiles.size > 1) multi++;
+        longest = Math.max(longest, tiles.size);
+        for (let i = 1; i < p.route.length; i++) {
+          const d = Math.hypot(p.route[i][0] - p.route[i - 1][0], p.route[i][1] - p.route[i - 1][1]);
+          // A straight road crosses a tile in one 1.0 hop; anything longer means two segments didn't join up.
+          if (d > 1.01) errors.push(`${p.key}: walk route jumps ${d.toFixed(2)} tiles between points ${i - 1} and ${i}`);
+        }
+        // Whatever the route, the meeple must be standing on it right now (within a bob).
+        const segDist = (a, b) => { const vx = b[0] - a[0], vy = b[1] - a[1]; const L = vx * vx + vy * vy; const t = L ? Math.max(0, Math.min(1, ((p.x - a[0]) * vx + (p.y - a[1]) * vy) / L)) : 0; return Math.hypot(p.x - (a[0] + vx * t), p.y - (a[1] + vy * t)); };
+        const near = p.route.length === 1 ? segDist(p.route[0], p.route[0]) < 0.2 : p.route.some((q, i) => i > 0 && segDist(p.route[i - 1], q) < 0.06);
+        if (!near) errors.push(`${p.key}: pose (${p.x.toFixed(2)},${p.y.toFixed(2)}) is off its route`);
+      }
+      console.log(`  🚶 ${poses0.length} meeples, ${multi} with routes spanning several tiles (longest ${longest} tiles)`);
+      // Trace every route on an overlay above the board (the board itself repaints at 30fps).
+      await P.page.evaluate(() => {
+        const wrap = document.querySelector('.board-wrap'); const c = document.createElement('canvas');
+        const r = wrap.getBoundingClientRect(); c.width = r.width; c.height = r.height;
+        c.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;z-index:50'; c.id = 'route-debug';
+        wrap.appendChild(c); const ctx = c.getContext('2d');
+        for (const p of window.__carcassonne.poses()) {
+          ctx.strokeStyle = p.kind === 'city' ? '#ff2d95' : '#ffe100'; ctx.lineWidth = 3; ctx.beginPath();
+          p.route.forEach((q, i) => { const [sx, sy] = window.__carcassonne.toScreen(q[0], q[1]); if (i === 0) ctx.moveTo(sx - r.left, sy - r.top); else ctx.lineTo(sx - r.left, sy - r.top); });
+          ctx.stroke();
+        }
+      });
+      await snap(P.page, '05d-walk-routes');
+      await P.page.evaluate(() => document.getElementById('route-debug')?.remove());
+    // Settings popover: open it, flip music off and on, make sure the choice sticks.
       await P.page.click('button[title="Settings"]');
       await snap(P.page, '05b-settings-open');
       await P.page.click('.settings-row:has-text("music") input');

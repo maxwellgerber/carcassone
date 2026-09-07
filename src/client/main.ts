@@ -175,7 +175,9 @@ function connectSocket(roomId: string): void {
       const prev = room;
       room = msg.room as RoomDoc;
       if (room.game && (room.game.currentTile !== prev?.game?.currentTile || room.game.turnNumber !== prev?.game?.turnNumber)) { previewRot = 0; pending = null; }
-      if (room.phase === 'lobby' || (prev?.phase !== 'playing' && room.phase === 'playing')) { walkCache.clear(); endModalDismissed = false; }
+      if (room.phase === 'lobby' || (prev?.phase !== 'playing' && room.phase === 'playing')) { endModalDismissed = false; }
+      // Walk routes span whole features, so any new tile can extend them.
+      if (Object.keys(room.game?.board ?? {}).length !== Object.keys(prev?.game?.board ?? {}).length) walkCache.clear();
       reactToSync(prev, room);
       renderRoom();
     } else if (msg.type === 'error') {
@@ -639,7 +641,9 @@ function rotatePt([x, y]: [number, number], rot: number): [number, number] {
   return [px, py];
 }
 
-function roadPolyline(tileKey: string, rot: number, idx: number): [number, number][] {
+/** Untrimmed road centreline for one road group, tile-local and rotated: runs from
+ *  the group's first absolute side to its second side (or the tile centre). */
+function roadPolylineRaw(tileKey: string, rot: number, idx: number): [number, number][] {
   const grp = TILE_TYPES[tileKey]!.roadGroups[idx]!;
   const MID: [number, number][] = [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]];
   const pts: [number, number][] = [];
@@ -659,13 +663,110 @@ function roadPolyline(tileKey: string, rot: number, idx: number): [number, numbe
   } else {
     pts.push(MID[a]!, [0.5, 0.5]);
   }
-  // Trim the ends so the walker turns around a little inside the tile edge / junction.
-  const trimmed = pts.map((p) => p);
-  const shrink = (p: [number, number], q: [number, number], k: number): [number, number] => [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k];
-  trimmed[0] = shrink(trimmed[0]!, trimmed[1]!, 0.18);
-  const n = trimmed.length - 1;
-  trimmed[n] = shrink(trimmed[n]!, trimmed[n - 1]!, grp.length === 2 ? 0.18 : 0.35);
-  return trimmed.map((p) => rotatePt(p, rot));
+  return pts.map((p) => rotatePt(p, rot));
+}
+
+const shrinkPt = (p: [number, number], q: [number, number], k: number): [number, number] => [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k];
+type ClientBoard = NonNullable<RoomDoc['game']>['board'];
+const SIDE_MID: [number, number][] = [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]];
+const SIDE_OPP = [2, 3, 0, 1];
+const SIDE_D = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+function roadGroupAt(board: ClientBoard, x: number, y: number, absSide: number): number {
+  const t = board[`${x},${y}`]; if (!t) return -1;
+  return TILE_TYPES[t.tileKey]!.roadGroups.findIndex((grp) => grp.some((sd) => (sd + t.rot) % 4 === absSide));
+}
+function roadSidesAbs(board: ClientBoard, x: number, y: number, g: number): number[] {
+  const t = board[`${x},${y}`]!;
+  return TILE_TYPES[t.tileKey]!.roadGroups[g]!.map((sd) => (sd + t.rot) % 4);
+}
+interface RoadStep { x: number; y: number; g: number; entry: number | null; exit: number | null }
+/** Follow a road from one tile's group out through `exit`, tile by tile, until it ends
+ *  (open edge or a junction/village centre) or loops back to where it began. */
+function roadChain(board: ClientBoard, x: number, y: number, g: number, exit: number): { steps: RoadStep[]; loop: boolean } {
+  const sides0 = roadSidesAbs(board, x, y, g);
+  const steps: RoadStep[] = [{ x, y, g, entry: sides0.find((sd) => sd !== exit) ?? null, exit }];
+  let cx = x, cy = y, cexit = exit;
+  for (let guard = 0; guard < 200; guard++) {
+    const nx = cx + SIDE_D[cexit]![0]!, ny = cy + SIDE_D[cexit]![1]!;
+    const ng = roadGroupAt(board, nx, ny, SIDE_OPP[cexit]!);
+    if (ng < 0) return { steps, loop: false };
+    if (nx === x && ny === y && ng === g) return { steps, loop: true };
+    const entry = SIDE_OPP[cexit]!;
+    const nsides = roadSidesAbs(board, nx, ny, ng);
+    const other = nsides.find((sd) => sd !== entry);
+    steps.push({ x: nx, y: ny, g: ng, entry, exit: other ?? null });
+    if (other === undefined) return { steps, loop: false };
+    cx = nx; cy = ny; cexit = other;
+  }
+  return { steps, loop: false };
+}
+/** The whole road this meeple stands on, as one world-space polyline. */
+function roadRoute(board: ClientBoard, x: number, y: number, g: number): { pts: [number, number][]; loop: boolean } {
+  const sides = roadSidesAbs(board, x, y, g);
+  const back = roadChain(board, x, y, g, sides[0]!);
+  let steps: RoadStep[]; let loop = false;
+  if (back.loop) { steps = back.steps; loop = true; }
+  else {
+    const far = back.steps[back.steps.length - 1]!;
+    // Turn around at the far end and walk the road forward through the start tile.
+    const fwdExit = far.entry;
+    if (fwdExit === null) steps = [far]; // a one-tile road stub ending in its own centre
+    else steps = roadChain(board, far.x, far.y, far.g, fwdExit).steps;
+  }
+  const pts: [number, number][] = [];
+  for (const st of steps) {
+    const t = board[`${st.x},${st.y}`]!;
+    let seg = roadPolylineRaw(t.tileKey, t.rot, st.g);
+    const absFirst = roadSidesAbs(board, st.x, st.y, st.g)[0]!;
+    // Raw runs first-side -> second-side/centre; flip it so we enter through `entry`.
+    const enterAtFirst = st.entry === absFirst || (st.entry === null && absFirst !== st.exit);
+    if (!enterAtFirst) seg = [...seg].reverse();
+    for (const p of seg) {
+      const w: [number, number] = [st.x + p[0], st.y + p[1]];
+      const last = pts[pts.length - 1];
+      if (!last || Math.hypot(last[0] - w[0], last[1] - w[1]) > 1e-4) pts.push(w);
+    }
+  }
+  if (!loop && pts.length >= 2) {
+    const first = steps[0]!, last = steps[steps.length - 1]!;
+    pts[0] = shrinkPt(pts[0]!, pts[1]!, first.entry === null ? 0.35 : 0.18);
+    const n = pts.length - 1;
+    pts[n] = shrinkPt(pts[n]!, pts[n - 1]!, last.exit === null ? 0.35 : 0.18);
+  }
+  return { pts, loop };
+}
+
+function cityGroupAt(board: ClientBoard, x: number, y: number, absSide: number): number {
+  const t = board[`${x},${y}`]; if (!t) return -1;
+  return TILE_TYPES[t.tileKey]!.cityGroups.findIndex((grp) => grp.some((sd) => (sd + t.rot) % 4 === absSide));
+}
+/** A stroll through every tile of the city: a depth-first tour that crosses walls at
+ *  the shared edges and comes back the way it went, so it closes into a loop. */
+function cityTour(board: ClientBoard, x: number, y: number, g: number): [number, number][] {
+  const anchor = (tx: number, ty: number, tg: number): [number, number] => {
+    const t = board[`${tx},${ty}`]!;
+    const [ax, ay] = meepleAnchor(t.tileKey, t.rot, 'city', tg);
+    return [tx + ax, ty + ay];
+  };
+  const seen = new Set<string>();
+  const pts: [number, number][] = [anchor(x, y, g)];
+  const visit = (tx: number, ty: number, tg: number): void => {
+    seen.add(`${tx},${ty}|${tg}`);
+    const t = board[`${tx},${ty}`]!;
+    for (const sd of TILE_TYPES[t.tileKey]!.cityGroups[tg]!) {
+      const abs = (sd + t.rot) % 4;
+      const nx = tx + SIDE_D[abs]![0]!, ny = ty + SIDE_D[abs]![1]!;
+      const ng = cityGroupAt(board, nx, ny, SIDE_OPP[abs]!);
+      if (ng < 0 || seen.has(`${nx},${ny}|${ng}`)) continue;
+      const gate: [number, number] = [tx + SIDE_MID[abs]![0]!, ty + SIDE_MID[abs]![1]!];
+      pts.push(gate, anchor(nx, ny, ng));
+      visit(nx, ny, ng);
+      pts.push(gate, anchor(tx, ty, tg));
+    }
+  };
+  visit(x, y, g);
+  return pts;
 }
 
 function walkPathFor(m: { x: number; y: number; kind: MeepleKind; idx: number; playerIdx: number }, tileKey: string, rot: number): WalkPath {
@@ -681,12 +782,17 @@ function walkPathFor(m: { x: number; y: number; kind: MeepleKind; idx: number; p
   const walkSec = 3 + dice(2) * 7;           // walk 3 .. 10 s
   const restSec = 1 + dice(3) * 3.5;         // then stand 1 .. 4.5 s
   const bobRate = 120 + dice(4) * 60;        // stride period
+  const board = room?.game?.board ?? {};
   let pts: [number, number][] = [];
   let loop = true, speed = 0.05; // tile units per second
-  if (m.kind === 'road') { pts = roadPolyline(tileKey, rot, m.idx); loop = false; speed = 0.07; }
-  else if (m.kind === 'city') { for (let i = 0; i <= 16; i++) { const t = (i / 16) * Math.PI * 2; pts.push([ax + Math.cos(t) * 0.075, ay + Math.sin(t) * 0.045]); } speed = 0.045; }
-  else if (m.kind === 'monastery') { const r = TILE_TYPES[tileKey]!.river ? 0.13 : 0.2; for (let i = 0; i <= 20; i++) { const t = (i / 20) * Math.PI * 2; pts.push([ax + Math.cos(t) * r, ay + 0.03 + Math.sin(t) * r * 0.8]); } speed = 0.06; }
-  else { pts = [[ax, ay]]; speed = 0; }
+  if (m.kind === 'road') { const r = roadRoute(board, m.x, m.y, m.idx); pts = r.pts; loop = r.loop; speed = 0.07; }
+  else if (m.kind === 'city') {
+    const tour = cityTour(board, m.x, m.y, m.idx);
+    if (tour.length > 1) { pts = tour; speed = 0.065; }
+    else { for (let i = 0; i <= 16; i++) { const t = (i / 16) * Math.PI * 2; pts.push([m.x + ax + Math.cos(t) * 0.075, m.y + ay + Math.sin(t) * 0.045]); } speed = 0.045; }
+  }
+  else if (m.kind === 'monastery') { const r = TILE_TYPES[tileKey]!.river ? 0.13 : 0.2; for (let i = 0; i <= 20; i++) { const t = (i / 20) * Math.PI * 2; pts.push([m.x + ax + Math.cos(t) * r, m.y + ay + 0.03 + Math.sin(t) * r * 0.8]); } speed = 0.06; }
+  else { pts = [[m.x + ax, m.y + ay]]; speed = 0; }
   const cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1]! + Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]));
   const wp: WalkPath = { pts, cum, length: cum[cum.length - 1]!, loop, speed: speed * pace, phase, walkSec, restSec, bobRate };
@@ -694,7 +800,7 @@ function walkPathFor(m: { x: number; y: number; kind: MeepleKind; idx: number; p
   return wp;
 }
 
-/** Where a meeple is right now, in tile-local units, plus which way it faces. */
+/** Where a meeple is right now, in world (tile-grid) units, plus which way it faces. */
 function meeplePose(m: { x: number; y: number; kind: MeepleKind; idx: number; playerIdx: number }, tileKey: string, rot: number, now: number): { x: number; y: number; flip: boolean; bob: number } {
   const wp = walkPathFor(m, tileKey, rot);
   if (!animateMeeples || wp.length === 0 || wp.speed === 0) {
@@ -849,6 +955,8 @@ function tablePattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
   return pattern;
 }
 
+const meepleKey = (m: { x: number; y: number; kind: string; idx: number; playerIdx: number }) => `${m.x},${m.y}|${m.kind}|${m.idx}|${m.playerIdx}`;
+
 /** Chronicle hover/tap: the tiles a scoring line came from, lit on the board. */
 let scoreSpotlight: { tiles: Set<string>; fed: Set<string>; color: string; pinned: boolean } | null = null;
 function setScoreSpotlight(ev: ScoreEvent | null, pinned = false): void {
@@ -991,7 +1099,7 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     const tile = board[`${m.x},${m.y}`];
     if (!tile) continue;
     const pose = meeplePose(m, tile.tileKey, tile.rot, now);
-    const [sx, sy] = worldToScreen(m.x + pose.x, m.y + pose.y, cw, ch);
+    const [sx, sy] = worldToScreen(pose.x, pose.y, cw, ch);
     const size = camera.scale * 0.34;
     const player = game.players[m.playerIdx]!;
     const img = getMeepleCanvas(player.color, size, m.kind as MeepleLook);
@@ -1446,6 +1554,24 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement | null 
     if (!boardCanvasEl) return [];
     const r = boardCanvasEl.getBoundingClientRect();
     return ghostTargets(r.width, r.height).map((g) => ({ kind: g.spot.kind, idx: g.spot.idx, label: g.label, sx: g.sx + r.left, sy: g.sy + r.top }));
+  },
+  poses: () => {
+    const game = room?.game; if (!game || !boardCanvasEl) return [];
+    const r = boardCanvasEl.getBoundingClientRect();
+    const now = performance.now();
+    return game.meeples.map((m) => {
+      const tile = game.board[`${m.x},${m.y}`]; if (!tile) return null;
+      const p = meeplePose(m, tile.tileKey, tile.rot, now);
+      const [sx, sy] = worldToScreen(p.x, p.y, r.width, r.height);
+      const wp = walkPathFor(m, tile.tileKey, tile.rot);
+      return { key: meepleKey(m), kind: m.kind, x: p.x, y: p.y, sx: sx + r.left, sy: sy + r.top, route: wp.pts, loop: wp.loop };
+    }).filter((p) => p !== null);
+  },
+  toScreen: (wx: number, wy: number) => {
+    if (!boardCanvasEl) return [0, 0];
+    const r = boardCanvasEl.getBoundingClientRect();
+    const [sx, sy] = worldToScreen(wx, wy, r.width, r.height);
+    return [sx + r.left, sy + r.top];
   },
   skipPill: () => {
     if (!boardCanvasEl) return null;

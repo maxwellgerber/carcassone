@@ -405,3 +405,17 @@ export function sfxGameOver(): void {
   pipe(sfxBus!, 86, t + 0.9, 1.1, 0.07);
 }
 
+
+/** Poking a meeple: a little rubbery squeak, pitched per meeple so they don't all sound alike. */
+export function sfxPoke(variant: number): void {
+  const c = sfxReady(); if (!c) return;
+  const t = c.currentTime;
+  const base = 520 + (variant % 7) * 55;
+  const osc = c.createOscillator(); osc.type = 'triangle';
+  osc.frequency.setValueAtTime(base, t);
+  osc.frequency.exponentialRampToValueAtTime(base * 1.9, t + 0.06);
+  osc.frequency.exponentialRampToValueAtTime(base * 1.2, t + 0.16);
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.28, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+  osc.connect(g); g.connect(sfxBus!); osc.start(t); osc.stop(t + 0.2);
+}

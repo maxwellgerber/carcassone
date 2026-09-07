@@ -191,6 +191,14 @@ for (let step = 0; step < 4000; step++) {
       });
       await snap(P.page, '05d-walk-routes');
       await P.page.evaluate(() => document.getElementById('route-debug')?.remove());
+      // Poke one: it should hop and squeak without touching the game.
+      const target = poses0.find((p) => p.sy > 90);
+      if (target) {
+        await P.page.mouse.click(target.sx, target.sy);
+        await P.page.waitForTimeout(120);
+        await snap(P.page, '05c-poked-meeple');
+        if ((await P.page.evaluate(() => window.__carcassonne.pokes())) < 1) errors.push('clicking a meeple did not register as a poke');
+      }
     // Settings popover: open it, flip music off and on, make sure the choice sticks.
       await P.page.click('button[title="Settings"]');
       await snap(P.page, '05b-settings-open');

@@ -8,7 +8,7 @@ import { SKINS, currentSkin, setSkin, onSkinChange, applySkinToDocument } from '
 import { monasteryCenter } from './skins/geometry.js';
 import {
   unlockAudio, isMusicOn, isSfxOn, setMusic, setSfx,
-  sfxTilePlaced, sfxMeeplePlaced, sfxScore, sfxYourTurn, sfxGameOver,
+  sfxTilePlaced, sfxMeeplePlaced, sfxScore, sfxYourTurn, sfxGameOver, sfxPoke,
 } from './audio.js';
 
 // ---------------------------------------------------------------------------
@@ -955,7 +955,99 @@ function tablePattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
   return pattern;
 }
 
+// ---------------------------------------------------------------------------
+// Meeple life: pokes and small talk
+// ---------------------------------------------------------------------------
 const meepleKey = (m: { x: number; y: number; kind: string; idx: number; playerIdx: number }) => `${m.x},${m.y}|${m.kind}|${m.idx}|${m.playerIdx}`;
+/** When each meeple was last poked (ms), for the little hop it does. */
+const pokes = new Map<string, number>();
+const POKE_MS = 480;
+const POKE_LINES = ['Oi!', 'Hey!', 'Ow!', 'Mind it!', 'Careful!', 'Hmph.', 'Do you mind?', 'Not now.', '?!', 'Ahem.'];
+interface Chat { a: string; b: string; textA: string; textB: string; start: number; end: number }
+let chats: Chat[] = [];
+const chatCooldown = new Map<string, number>();
+const SMALL_TALK: Record<string, [string, string][]> = {
+  any: [['Hail!', 'Well met.'], ['Fine day.', 'Bit windy.'], ['Any news?', 'None good.'], ['Nice hat.', 'Thanks!'], ['Lost?', 'Always.'], ['Long way?', 'Aye.'], ['Seen the count?', 'Never.'], ['Good morrow.', 'And you.'], ['Rain later.', 'Says who?'], ['Mind the mud.', 'Too late.']],
+  road: [['Your purse!', 'Try it.'], ['Toll, please.', 'Nope.'], ['Which way?', 'Follow me.'], ['Long road.', 'Endless.'], ['Bandits about.', 'Just you.']],
+  city: [['Halt!', 'Whoa.'], ['Fine walls.', 'Took years.'], ['Who goes?', 'Me.'], ['Shield up.', 'Always.'], ['Any dragons?', 'Not yet.']],
+  monastery: [['Bless you.', 'Cheers.'], ['Quiet, please.', 'Sorry.'], ['Pray with me?', 'Later.']],
+  farm: [['Nice crop.', 'Needs rain.'], ['Cows loose?', 'Not mine.'], ['Harvest soon.', 'Aye.']],
+};
+let lifeAnimFrame: number | null = null;
+/** Keep redrawing briefly while a poke hop or a chat bubble is on screen, even with
+ *  the wander animation off. */
+function ensureLifeAnimation(): void {
+  if (lifeAnimFrame !== null || animateMeeples) return;
+  const step = () => {
+    lifeAnimFrame = null;
+    if (!boardCanvasEl || !room?.game) return;
+    const now = performance.now();
+    const busy = chats.some((c) => c.end > now) || [...pokes.values()].some((t) => now - t < POKE_MS);
+    if (!dragState) drawBoard(boardCanvasEl);
+    if (busy) lifeAnimFrame = requestAnimationFrame(step);
+  };
+  lifeAnimFrame = requestAnimationFrame(step);
+}
+function pokeMeeple(m: { x: number; y: number; kind: MeepleKind; idx: number; playerIdx: number }): void {
+  const k = meepleKey(m);
+  const now = performance.now();
+  pokes.set(k, now);
+  const seed = (m.x * 31 + m.y * 17 + m.idx * 7 + m.playerIdx * 3) >>> 0;
+  sfxPoke(seed);
+  // Every third poke or so they say something about it.
+  if (Math.random() < 0.4 && !chats.some((c) => c.a === k || c.b === k)) {
+    chats.push({ a: k, b: '', textA: POKE_LINES[(seed + Math.floor(now / 1000)) % POKE_LINES.length]!, textB: '', start: now, end: now + 1500 });
+  }
+  ensureLifeAnimation();
+}
+/** The meeple under a screen point, if any (topmost = last drawn). */
+function meepleAt(clientX: number, clientY: number, canvasEl: HTMLCanvasElement): RoomDoc['game'] extends null ? never : NonNullable<RoomDoc['game']>['meeples'][number] | null {
+  const game = room?.game; if (!game) return null;
+  const rect = canvasEl.getBoundingClientRect();
+  const px = clientX - rect.left, py = clientY - rect.top;
+  const now = performance.now();
+  const size = camera.scale * 0.34;
+  let hit: NonNullable<RoomDoc['game']>['meeples'][number] | null = null;
+  for (const m of game.meeples) {
+    const tile = game.board[`${m.x},${m.y}`]; if (!tile) continue;
+    const pose = meeplePose(m, tile.tileKey, tile.rot, now);
+    const [sx, sy] = worldToScreen(pose.x, pose.y, rect.width, rect.height);
+    if (Math.abs(px - sx) <= size * 0.5 && Math.abs(py - sy) <= size * 0.55) hit = m;
+  }
+  return hit;
+}
+/** Once per frame: meeples that have wandered within arm's reach may strike up a chat. */
+function maybeStartChats(poses: { key: string; kind: string; x: number; y: number }[], now: number): void {
+  chats = chats.filter((c) => c.end > now);
+  for (let i = 0; i < poses.length; i++) for (let j = i + 1; j < poses.length; j++) {
+    const a = poses[i]!, b = poses[j]!;
+    if (Math.hypot(a.x - b.x, a.y - b.y) > 0.28) continue;
+    const pair = a.key < b.key ? `${a.key}~${b.key}` : `${b.key}~${a.key}`;
+    if ((chatCooldown.get(pair) ?? 0) > now) continue;
+    if (chats.some((c) => c.a === a.key || c.b === a.key || c.a === b.key || c.b === b.key)) continue;
+    if (Math.random() > 1 / 45) continue; // ~1.5 s of standing together, on average
+    const pool = [...SMALL_TALK.any!, ...(a.kind === b.kind ? SMALL_TALK[a.kind] ?? [] : [])];
+    const [textA, textB] = pool[Math.floor(Math.random() * pool.length)]!;
+    chats.push({ a: a.key, b: b.key, textA, textB, start: now, end: now + 3200 });
+    chatCooldown.set(pair, now + 25000 + Math.random() * 20000);
+    ensureLifeAnimation();
+  }
+}
+function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number): void {
+  ctx.save();
+  ctx.font = `600 ${Math.max(10, Math.min(13, size * 0.36))}px "Space Grotesk", sans-serif`;
+  const w = ctx.measureText(text).width + 12, hgt = Math.max(16, size * 0.5);
+  const bx = x - w / 2, by = y - size * 0.62 - hgt - 6;
+  roundRect(ctx, bx, by, w, hgt, hgt / 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(31,46,43,0.75)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 4, by + hgt - 0.5); ctx.lineTo(x, by + hgt + 5); ctx.lineTo(x + 4, by + hgt - 0.5); ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - 4, by + hgt); ctx.lineTo(x, by + hgt + 5); ctx.lineTo(x + 4, by + hgt); ctx.stroke();
+  ctx.fillStyle = '#1F2E2B'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, by + hgt / 2 + 0.5);
+  ctx.restore();
+}
 
 /** Chronicle hover/tap: the tiles a scoring line came from, lit on the board. */
 let scoreSpotlight: { tiles: Set<string>; fed: Set<string>; color: string; pinned: boolean } | null = null;
@@ -1095,16 +1187,36 @@ function drawBoard(canvas: HTMLCanvasElement): void {
   }
 
   const now = performance.now();
+  const drawn: { key: string; kind: string; x: number; y: number; sx: number; sy: number }[] = [];
   for (const m of game.meeples) {
     const tile = board[`${m.x},${m.y}`];
     if (!tile) continue;
     const pose = meeplePose(m, tile.tileKey, tile.rot, now);
-    const [sx, sy] = worldToScreen(pose.x, pose.y, cw, ch);
+    let [sx, sy] = worldToScreen(pose.x, pose.y, cw, ch);
     const size = camera.scale * 0.34;
     const player = game.players[m.playerIdx]!;
     const img = getMeepleCanvas(player.color, size, m.kind as MeepleLook);
-    if (pose.flip) { ctx.save(); ctx.translate(sx, sy); ctx.scale(-1, 1); ctx.drawImage(img, -size / 2, -size / 2, size, size); ctx.restore(); }
-    else ctx.drawImage(img, sx - size / 2, sy - size / 2, size, size);
+    const mk = meepleKey(m);
+    const poked = pokes.get(mk);
+    let sq = 1;
+    if (poked !== undefined && now - poked < POKE_MS) {
+      // A startled hop: up and down on a sine, with a little squash on landing.
+      const u = (now - poked) / POKE_MS;
+      sy -= Math.sin(u * Math.PI) * size * 0.45;
+      sq = u > 0.85 ? 1 - (1 - (u - 0.85) / 0.15) * 0.15 : 1;
+    }
+    drawn.push({ key: mk, kind: m.kind, x: pose.x, y: pose.y, sx, sy });
+    ctx.save(); ctx.translate(sx, sy); ctx.scale(pose.flip ? -1 : 1, sq);
+    ctx.drawImage(img, -size / 2, -size / 2, size, size);
+    ctx.restore();
+  }
+  if (animateMeeples && drawn.length > 1) maybeStartChats(drawn, now);
+  for (const c of chats) {
+    if (c.end <= now) continue;
+    const size = camera.scale * 0.34;
+    const A = drawn.find((d) => d.key === c.a), B = drawn.find((d) => d.key === c.b);
+    if (A && now - c.start < (c.b ? 1800 : c.end - c.start)) drawBubble(ctx, c.textA, A.sx, A.sy, size);
+    if (B && now - c.start >= 1100) drawBubble(ctx, c.textB, B.sx, B.sy, size);
   }
 
   // Meeple decision: the freshly placed tile glows and every feature you could claim
@@ -1366,7 +1478,8 @@ function renderGame(): HTMLElement {
       hovered = { x: Math.floor(wx), y: Math.floor(wy) };
       const g = ghostAt(e.clientX, e.clientY, boardCanvasEl);
       skipHovered = !g && skipPillAt(e.clientX, e.clientY, boardCanvasEl);
-      boardCanvasEl.style.cursor = g || skipHovered ? 'pointer' : dragState ? 'grabbing' : '';
+      const overMeeple = !g && !skipHovered && !dragState && !!meepleAt(e.clientX, e.clientY, boardCanvasEl);
+      boardCanvasEl.style.cursor = g || skipHovered || overMeeple ? 'pointer' : dragState ? 'grabbing' : '';
       hoveredGhost = g;
       if (!dragState) drawBoard(boardCanvasEl);
     });
@@ -1396,7 +1509,15 @@ function renderGame(): HTMLElement {
   }
 
   function handleBoardClick(e: PointerEvent, canvasEl: HTMLCanvasElement): void {
-    if (!room?.game || !isMyTurn()) return;
+    if (!room?.game) return;
+    // Poking a meeple works for anyone, any time — it's just for fun. Markers and the
+    // skip pill on your own meeple decision take priority.
+    const deciding = isMyTurn() && room.game.phase === 'placeMeeple';
+    if (!deciding || (!ghostAt(e.clientX, e.clientY, canvasEl) && !skipPillAt(e.clientX, e.clientY, canvasEl))) {
+      const pm = meepleAt(e.clientX, e.clientY, canvasEl);
+      if (pm) { pokeMeeple(pm); return; }
+    }
+    if (!isMyTurn()) return;
     if (room.game.phase === 'placeMeeple') {
       const g = ghostAt(e.clientX, e.clientY, canvasEl);
       if (!g && skipPillAt(e.clientX, e.clientY, canvasEl)) { send({ type: 'skip_meeple' }); selectedGhost = null; return; }
@@ -1573,6 +1694,8 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement | null 
     const [sx, sy] = worldToScreen(wx, wy, r.width, r.height);
     return [sx + r.left, sy + r.top];
   },
+  chats: () => chats.length,
+  pokes: () => pokes.size,
   skipPill: () => {
     if (!boardCanvasEl) return null;
     const r = boardCanvasEl.getBoundingClientRect();

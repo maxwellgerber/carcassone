@@ -2,7 +2,7 @@ import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
 import { getLegalPlacements, getMeepleOptions, placeMeeple, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
 import type { RoomDoc } from '../shared/room-types.js';
 import type { GameConfig, MeepleKind, NpcDifficulty } from '../shared/types.js';
-import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, preloadTileArt } from './art.js';
+import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, preloadTileArt, type MeepleLook } from './art.js';
 import { h, toast } from './dom.js';
 import { SKINS, currentSkin, setSkin, onSkinChange, applySkinToDocument } from './skins/index.js';
 import {
@@ -870,7 +870,7 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     const [sx, sy] = worldToScreen(m.x + pose.x, m.y + pose.y, cw, ch);
     const size = camera.scale * 0.34;
     const player = game.players[m.playerIdx]!;
-    const img = getMeepleCanvas(player.color, size, m.kind === 'farm');
+    const img = getMeepleCanvas(player.color, size, m.kind as MeepleLook);
     if (pose.flip) { ctx.save(); ctx.translate(sx, sy); ctx.scale(-1, 1); ctx.drawImage(img, -size / 2, -size / 2, size, size); ctx.restore(); }
     else ctx.drawImage(img, sx - size / 2, sy - size / 2, size, size);
   }
@@ -907,7 +907,7 @@ function drawBoard(canvas: HTMLCanvasElement): void {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = hot ? 1 : 0.55 + 0.2 * pulse;
-      ctx.drawImage(getMeepleCanvas(meColor, size, g.spot.kind === 'farm'), g.sx - size / 2, g.sy - size / 2, size, size);
+      ctx.drawImage(getMeepleCanvas(meColor, size, g.spot.kind as MeepleLook), g.sx - size / 2, g.sy - size / 2, size, size);
       ctx.restore();
       if (g.instant > 0) {
         // This claim banks points immediately: say so on the ghost itself.
@@ -1268,6 +1268,7 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement | null 
   },
   previewRot: () => ((previewRot % 4) + 4) % 4,
   pending: () => pending,
+  meeple: (color: string, size: number, look: MeepleLook) => getMeepleCanvas(color, size, look),
   tileTypes: () => TILE_TYPES,
   tileCanvas: (key: string, rot: number, size: number) => getTileCanvas(key, rot, size),
 };

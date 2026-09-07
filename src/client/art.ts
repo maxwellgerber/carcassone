@@ -166,45 +166,80 @@ export function getTileBackCanvas(size: number): HTMLCanvasElement {
 
 const meepleCache = new Map<string, HTMLCanvasElement>();
 
-export function getMeepleCanvas(color: string, size: number, lying: boolean): HTMLCanvasElement {
-  const k = `${color}:${size}:${lying ? 1 : 0}`;
+export type MeepleLook = 'plain' | 'city' | 'road' | 'monastery' | 'farm';
+
+/** A meeple in a player's colour. `look` dresses it for its job: the knight gets a
+ *  helmet and shield, the highwayman a bandanna and a sack of loot, the monk a
+ *  hood and a rope belt, the farmer lies down in the field with a straw hat and a
+ *  rake. `plain` is the bare token used for reserves and swatches. */
+export function getMeepleCanvas(color: string, size: number, look: MeepleLook | boolean = 'plain'): HTMLCanvasElement {
+  const kind: MeepleLook = look === true ? 'farm' : look === false ? 'plain' : look;
+  const k = `${color}:${size}:${kind}`;
   const cached = meepleCache.get(k);
   if (cached) return cached;
   const canvas = document.createElement('canvas');
   canvas.width = size; canvas.height = size;
   const ctx = canvas.getContext('2d')!;
+  const u = size / 100; // draw in a 100-unit space
   ctx.save();
   ctx.translate(size / 2, size / 2);
-  if (lying) ctx.rotate(-Math.PI / 2);
+  if (kind === 'farm') ctx.rotate(-Math.PI / 2);
   ctx.translate(-size / 2, -size / 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
-  ctx.beginPath(); ctx.ellipse(size * 0.5, size * 0.86, size * 0.28, size * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.scale(u, u);
+  ctx.lineJoin = 'round';
 
-  ctx.fillStyle = color;
-  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-  ctx.lineWidth = Math.max(1, size * 0.03);
-  const path = new Path2D(`
-    M ${size * 0.5} ${size * 0.08}
-    C ${size * 0.62} ${size * 0.08} ${size * 0.66} ${size * 0.22} ${size * 0.58} ${size * 0.30}
-    L ${size * 0.74} ${size * 0.46}
-    C ${size * 0.82} ${size * 0.5} ${size * 0.8} ${size * 0.6} ${size * 0.7} ${size * 0.6}
-    L ${size * 0.62} ${size * 0.56}
-    L ${size * 0.7} ${size * 0.86}
-    C ${size * 0.72} ${size * 0.92} ${size * 0.66} ${size * 0.94} ${size * 0.6} ${size * 0.9}
-    L ${size * 0.52} ${size * 0.68}
-    L ${size * 0.48} ${size * 0.68}
-    L ${size * 0.4} ${size * 0.9}
-    C ${size * 0.34} ${size * 0.94} ${size * 0.28} ${size * 0.92} ${size * 0.3} ${size * 0.86}
-    L ${size * 0.38} ${size * 0.56}
-    L ${size * 0.3} ${size * 0.6}
-    C ${size * 0.2} ${size * 0.6} ${size * 0.18} ${size * 0.5} ${size * 0.26} ${size * 0.46}
-    L ${size * 0.42} ${size * 0.30}
-    C ${size * 0.34} ${size * 0.22} ${size * 0.38} ${size * 0.08} ${size * 0.5} ${size * 0.08}
-    Z
-  `);
-  ctx.fill(path);
-  ctx.lineWidth = Math.max(1, size * 0.02);
-  ctx.stroke(path);
+  // Ground shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath(); ctx.ellipse(50, 86, 28, 8, 0, 0, Math.PI * 2); ctx.fill();
+
+  // The classic silhouette
+  const body = new Path2D(`M50,8 C62,8 66,22 58,30 L74,46 C82,50 80,60 70,60 L62,56 L70,86 C72,92 66,94 60,90 L52,68 L48,68 L40,90 C34,94 28,92 30,86 L38,56 L30,60 C20,60 18,50 26,46 L42,30 C34,22 38,8 50,8 Z`);
+  ctx.fillStyle = color; ctx.fill(body);
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2; ctx.stroke(body);
+  // A soft highlight so the token reads as a solid little figure.
+  ctx.save(); ctx.clip(body);
+  const hl = ctx.createLinearGradient(30, 10, 70, 90);
+  hl.addColorStop(0, 'rgba(255,255,255,0.28)'); hl.addColorStop(0.5, 'rgba(255,255,255,0)'); hl.addColorStop(1, 'rgba(0,0,0,0.18)');
+  ctx.fillStyle = hl; ctx.fillRect(0, 0, 100, 100);
+  ctx.restore();
+
+  const ink = 'rgba(30,25,20,0.85)';
+  if (kind === 'city') {
+    // Helmet with a nose guard and a plume, and a small kite shield on the arm.
+    ctx.fillStyle = '#d7dbe0'; ctx.strokeStyle = ink; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(38, 20); ctx.quadraticCurveTo(50, 2, 62, 20); ctx.lineTo(62, 24); ctx.lineTo(38, 24); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(50, 24); ctx.lineTo(50, 31); ctx.stroke();
+    ctx.fillStyle = '#c8433a'; ctx.beginPath(); ctx.moveTo(50, 6); ctx.quadraticCurveTo(62, -2, 68, 8); ctx.quadraticCurveTo(60, 6, 54, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#e8c766';
+    ctx.beginPath(); ctx.moveTo(18, 48); ctx.lineTo(34, 48); ctx.lineTo(34, 62); ctx.quadraticCurveTo(26, 72, 18, 62); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#8a3a2a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(26, 50); ctx.lineTo(26, 64); ctx.moveTo(20, 56); ctx.lineTo(32, 56); ctx.stroke();
+  } else if (kind === 'road') {
+    // Bandanna over the face, a headscarf knot, and a sack of loot over the shoulder.
+    ctx.fillStyle = '#b8342c'; ctx.strokeStyle = ink; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(37, 22); ctx.lineTo(63, 22); ctx.quadraticCurveTo(58, 34, 50, 34); ctx.quadraticCurveTo(42, 34, 37, 22); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(63, 22); ctx.lineTo(70, 16); ctx.lineTo(68, 24); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#a8845a';
+    ctx.beginPath(); ctx.ellipse(74, 40, 10, 12, 0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#5a3d20'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(66, 30); ctx.lineTo(56, 22); ctx.stroke();
+    ctx.strokeStyle = ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(69, 31); ctx.lineTo(75, 33); ctx.stroke();
+  } else if (kind === 'monastery') {
+    // A hood drawn up, a rope belt, and a small cross.
+    ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.strokeStyle = ink; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(34, 30); ctx.quadraticCurveTo(38, 4, 50, 4); ctx.quadraticCurveTo(62, 4, 66, 30); ctx.quadraticCurveTo(58, 24, 50, 24); ctx.quadraticCurveTo(42, 24, 34, 30); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#d9c48a'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(38, 60); ctx.quadraticCurveTo(50, 66, 62, 60); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(52, 62); ctx.lineTo(54, 74); ctx.stroke();
+    ctx.strokeStyle = '#f2e6c4'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(50, 40); ctx.lineTo(50, 54); ctx.moveTo(45, 45); ctx.lineTo(55, 45); ctx.stroke();
+  } else if (kind === 'farm') {
+    // Straw hat and a rake held along the body (the figure lies down in the field).
+    ctx.fillStyle = '#e2c46a'; ctx.strokeStyle = ink; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(50, 14, 22, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(38, 14); ctx.quadraticCurveTo(50, -6, 62, 14); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(78, 30); ctx.lineTo(78, 92); ctx.stroke();
+    ctx.strokeStyle = '#8a8a8a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(70, 30); ctx.lineTo(86, 30); ctx.stroke();
+    for (let x = 70; x <= 86; x += 4) { ctx.beginPath(); ctx.moveTo(x, 30); ctx.lineTo(x, 22); ctx.stroke(); }
+    ctx.strokeStyle = ink; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(69, 21); ctx.lineTo(87, 21); ctx.lineTo(87, 31); ctx.lineTo(69, 31); ctx.closePath(); ctx.stroke();
+  }
   ctx.restore();
   meepleCache.set(k, canvas);
   return canvas;

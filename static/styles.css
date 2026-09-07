@@ -155,6 +155,7 @@ input[type=text]:focus-visible { outline: 2px solid var(--accent); outline-offse
 .turn-banner { padding: 0.8rem 1rem; border: 1.5px solid var(--panel-border); text-align: center; background: var(--bg); }
 .turn-banner.mine { background: color-mix(in srgb, var(--accent) 16%, var(--panel)); border-color: var(--accent); }
 .turn-banner strong { color: var(--accent); }
+.game-over-banner { display: flex; flex-direction: column; align-items: center; }
 .tile-preview-row { display: flex; align-items: center; gap: 0.8rem; }
 .tile-preview-row canvas { box-shadow: var(--shadow); }
 .score-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.5rem; }
@@ -189,7 +190,7 @@ input[type=text]:focus-visible { outline: 2px solid var(--accent); outline-offse
 .copy-toast.show { opacity: 0.95; }
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(10,15,14,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
-.modal { max-width: 480px; width: 100%; padding: 1.8rem; text-align: center; }
+.modal { max-width: 480px; width: 100%; padding: 1.8rem; text-align: center; background: var(--panel); border: 1.5px solid var(--panel-border); box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
 .modal h2 { font-size: 1.5rem; margin-bottom: 0.6rem; }
 .final-scores { display: flex; flex-direction: column; gap: 0.4rem; margin: 1rem 0; text-align: left; }
 .final-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.7rem; background: var(--bg); }

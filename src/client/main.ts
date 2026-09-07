@@ -174,7 +174,7 @@ function connectSocket(roomId: string): void {
       const prev = room;
       room = msg.room as RoomDoc;
       if (room.game && room.game.currentTile !== prev?.game?.currentTile) previewRot = 0;
-      if (room.phase === 'lobby' || (prev?.phase !== 'playing' && room.phase === 'playing')) walkCache.clear();
+      if (room.phase === 'lobby' || (prev?.phase !== 'playing' && room.phase === 'playing')) { walkCache.clear(); endModalDismissed = false; }
       reactToSync(prev, room);
       renderRoom();
     } else if (msg.type === 'error') {
@@ -1061,14 +1061,22 @@ function renderGame(): HTMLElement {
 
   const sidebar = buildSidebar(game, myTurn);
   const container = h('div', { class: 'game' }, wrap, sidebar);
-  if (room!.phase === 'ended') container.appendChild(renderEndModal(game));
+  if (room!.phase === 'ended') { const modal = renderEndModal(game); if (modal) container.appendChild(modal); }
   return container;
 }
 
 function buildSidebar(game: NonNullable<RoomDoc['game']>, myTurn: boolean): HTMLElement {
+  const isHost = room!.hostId === me.sub;
+  const winners = game.winnerIds ? game.players.filter((p) => game.winnerIds!.includes(p.id)).map((p) => p.name).join(' & ') : '';
   const turnBanner = h('div', { class: `turn-banner${myTurn ? ' mine' : ''}` },
     game.phase === 'gameover'
-      ? h('span', {}, 'The game has ended.')
+      ? h('div', { class: 'game-over-banner' },
+          h('span', {}, '👑 ', h('strong', {}, winners || 'Game over')),
+          h('div', { style: 'display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin-top:0.5rem' },
+            h('button', { class: 'small', onclick: () => { endModalDismissed = false; renderRoom(); } }, '🏆 Final scores'),
+            isHost ? h('button', { class: 'small primary', onclick: () => { lastEndedShown = false; send({ type: 'new_game' }); } }, 'Play again') : null,
+          ),
+        )
       : myTurn
         ? h('span', {}, game.phase === 'placeTile' ? h('strong', {}, 'Your turn — place a tile') : h('strong', {}, 'Your turn — place a meeple on the board, or skip'))
         : h('span', {}, `Waiting for `, h('strong', {}, game.players[game.currentPlayer]?.name ?? '…')),
@@ -1120,13 +1128,15 @@ function buildSidebar(game: NonNullable<RoomDoc['game']>, myTurn: boolean): HTML
 }
 
 let lastEndedShown = false;
-function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement {
+let endModalDismissed = false;
+function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement | null {
   const sorted = [...game.players].sort((a, b) => b.score - a.score);
   const top = sorted[0]!.score;
   if (!lastEndedShown) {
     lastEndedShown = true;
     if (boardCanvasEl) { const r = boardCanvasEl.getBoundingClientRect(); spawnConfetti(r.width, r.height); drawBoard(boardCanvasEl); }
   }
+  if (endModalDismissed) return null;
   const isHost = room!.hostId === me.sub;
   return h('div', { class: 'modal-backdrop' },
     h('div', { class: 'modal' },
@@ -1137,8 +1147,11 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement {
         h('span', { style: 'flex:1' }, p.name),
         h('span', { style: 'font-family:"Space Grotesk",sans-serif;font-weight:700' }, String(p.score)),
       ))),
-      isHost ? h('button', { class: 'primary', onclick: () => { lastEndedShown = false; send({ type: 'new_game' }); } }, 'Play again')
-             : h('p', { style: 'color:var(--ink-soft)' }, 'Waiting for the host to start a new game…'),
+      h('div', { style: 'display:flex;gap:0.6rem;justify-content:center;flex-wrap:wrap' },
+        h('button', { class: 'small', onclick: () => { endModalDismissed = true; renderRoom(); } }, '🔍 Look at the board'),
+        isHost ? h('button', { class: 'primary', onclick: () => { lastEndedShown = false; send({ type: 'new_game' }); } }, 'Play again') : null,
+      ),
+      isHost ? null : h('p', { style: 'color:var(--ink-soft);margin:0.8rem 0 0' }, 'Waiting for the host to start a new game…'),
     ),
   );
 }

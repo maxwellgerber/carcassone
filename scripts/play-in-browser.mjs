@@ -162,6 +162,16 @@ await A.page.waitForTimeout(600);
 const finalA = await state(A.page);
 await snap(A.page, '06-game-over');
 await snap(B.page, '07-game-over-other-player');
+// After the game: dismiss the scores, pan the board, reopen the scores.
+await A.page.click('button:has-text("Look at the board")');
+if (await A.page.$('.modal-backdrop')) errors.push('end modal did not dismiss');
+const camBefore = await A.page.evaluate(() => window.__carcassonne.legalCells().length); // just exercises the hook
+void camBefore;
+await A.page.mouse.move(400, 400); await A.page.mouse.down(); await A.page.mouse.move(520, 470, { steps: 6 }); await A.page.mouse.up();
+await A.page.waitForTimeout(150);
+await snap(A.page, '08-post-game-board');
+await A.page.click('button:has-text("Final scores")');
+if (!(await A.page.$('.modal-backdrop'))) errors.push('end modal did not reopen');
 console.log('\nfinal:', finalA);
 console.log(`humans placed ${placedByHumans} tiles, ${meeplesPlaced} meeples via ghosts, ${skips} button skips, ${escSkips} Esc skips, ${autoSkipToasts} auto-skip toasts`);
 await browser.close();

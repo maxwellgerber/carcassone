@@ -21,13 +21,28 @@ export function seeded(seed: string): () => number {
   return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 0x100000000; };
 }
 
-export function petalPoints(side: number): Pt[] {
-  const m = 32, d = 92, inset = 20;
-  const byN: Pt[] = [[m, 0], [SIZE - m, 0], [SIZE - m - inset, d], [m + inset, d]];
+/** A city petal on one side. `insetLeft`/`insetRight` control how far each inner
+ *  corner is pulled toward the middle: petals on adjacent sides touch at the tile
+ *  corner with the default taper, so a petal facing a *rival* city on the next side
+ *  is tapered harder there, leaving a clear strip of field between the two. */
+export function petalPoints(side: number, insetLeft = 20, insetRight = 20): Pt[] {
+  const m = 32, d = 92;
+  const byN: Pt[] = [[m, 0], [SIZE - m, 0], [SIZE - m - insetRight, d], [m + insetLeft, d]];
   if (side === 0) return byN;
   if (side === 2) return byN.map(([x, y]) => [SIZE - x, SIZE - y]);
   if (side === 1) return byN.map(([x, y]) => [SIZE - y, x]);
   return byN.map(([x, y]) => [y, SIZE - x]);
+}
+
+const RIVAL_INSET = 62;
+/** Petal for `side` within its city group, tapered away from any rival city group
+ *  on a neighbouring side. Neighbour (side+1) is on the petal's "right" end. */
+function groupPetal(t: TileType, gi: number, side: number): Pt[] {
+  const groupOf = (s: number) => t.cityGroups.findIndex((g) => g.includes(s));
+  const right = (side + 1) % 4, left = (side + 3) % 4;
+  const rivalRight = groupOf(right) !== -1 && groupOf(right) !== gi;
+  const rivalLeft = groupOf(left) !== -1 && groupOf(left) !== gi;
+  return petalPoints(side, rivalLeft ? RIVAL_INSET : 20, rivalRight ? RIVAL_INSET : 20);
 }
 
 const MID: Pt[] = [[100, 0], [200, 100], [100, 200], [0, 100]];
@@ -39,25 +54,53 @@ export function cityPath(t: TileType, gi: number): Path2D {
   const p = new Path2D();
   const grp = t.cityGroups[gi]!;
   for (const side of grp) {
-    const pts = petalPoints(side);
+    const pts = groupPetal(t, gi, side);
     p.moveTo(pts[0]![0], pts[0]![1]);
     for (let i = 1; i < pts.length; i++) p.lineTo(pts[i]![0], pts[i]![1]);
     p.closePath();
   }
-  if (grp.length > 1) { p.moveTo(160, 100); p.arc(100, 100, HUB_R, 0, Math.PI * 2); }
+  const corner = cornerKeep(grp);
+  if (corner) {
+    // Two petals meeting at a corner: join them with a keep tucked into that corner
+    // rather than a hub at the tile centre, so a road bending around the other
+    // corners visibly goes *past* the city instead of vanishing underneath it.
+    const { cx, cy, r, wedge } = corner;
+    p.moveTo(wedge[0]![0], wedge[0]![1]);
+    for (let i = 1; i < wedge.length; i++) p.lineTo(wedge[i]![0], wedge[i]![1]);
+    p.closePath();
+    p.moveTo(cx + r, cy); p.arc(cx, cy, r, 0, Math.PI * 2);
+  } else if (grp.length > 1) {
+    p.moveTo(160, 100); p.arc(100, 100, HUB_R, 0, Math.PI * 2);
+  }
   return p;
+}
+
+/** For a connected pair of adjacent petals, the keep that joins them: a round
+ *  tower centred 55% of the way from the shared corner toward the tile centre,
+ *  plus a wedge filling the corner between the two petal edges. */
+function cornerKeep(grp: number[]): { cx: number; cy: number; r: number; wedge: Pt[] } | null {
+  if (grp.length !== 2) return null;
+  const [a, b] = [...grp].sort((x, y) => x - y) as [number, number];
+  const key = `${a},${b}`;
+  const corner = CORNERS[key];
+  if (!corner) return null; // opposite sides: no shared corner
+  const [kx, ky] = corner;
+  const cx = kx + (100 - kx) * 0.55, cy = ky + (100 - ky) * 0.55;
+  const nearest = (side: number): Pt => petalPoints(side).reduce((best, pt) => (Math.hypot(pt[0] - kx, pt[1] - ky) < Math.hypot(best[0] - kx, best[1] - ky) ? pt : best));
+  // Same (clockwise) winding as the petals, so the union fills without holes.
+  return { cx, cy, r: 38, wedge: [corner, nearest(b), [cx, cy], nearest(a)] };
+}
+
+/** Where a shield (or any "centre of the city" ornament) belongs on this tile. */
+export function shieldAnchor(t: TileType): Pt {
+  for (const grp of t.cityGroups) { const k = cornerKeep(grp); if (k) return [k.cx, k.cy]; }
+  return [100, 100];
 }
 
 export function allCitiesPath(t: TileType): Path2D {
   const p = new Path2D();
   t.cityGroups.forEach((_, gi) => p.addPath(cityPath(t, gi)));
   return p;
-}
-
-/** The inner wall line of a city (the petal edges that are not the tile edge). */
-export function cityWallSegments(t: TileType, gi: number): Pt[][] {
-  const grp = t.cityGroups[gi]!;
-  return grp.map((side) => { const [a, b, c, d] = petalPoints(side); return [a!, d!, c!, b!]; });
 }
 
 /** Centre line of one road segment. */

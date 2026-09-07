@@ -1,7 +1,7 @@
 // "Storybook Meadow": a picture-book countryside — bright pastel grass dotted with
 // flowers, pink castle walls with round blue-roofed towers, caramel roads with
 // white cobbles, and a gingerbread chapel with an icing roof.
-import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, roundRect, shieldPath } from './geometry.js';
+import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, roundRect, shieldPath, shieldAnchor } from './geometry.js';
 import type { Skin } from './types.js';
 
 const GRASS = '#a9dd7a';
@@ -116,11 +116,14 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   }
 
   if (t.shield) {
+    const [ax, ay] = shieldAnchor(t);
+    ctx.save(); ctx.translate(ax - 100, ay - 100);
     const p = shieldPath(100, 100, 0.95);
     ctx.fillStyle = '#ffd35e'; ctx.fill(p);
     ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.6; ctx.stroke(p);
     ctx.fillStyle = '#ff6f91';
     ctx.beginPath(); ctx.moveTo(100, 111); ctx.bezierCurveTo(88, 100, 92, 88, 100, 95); ctx.bezierCurveTo(108, 88, 112, 100, 100, 111); ctx.fill(); ctx.stroke();
+    ctx.restore();
   }
 
   ctx.strokeStyle = 'rgba(90,61,74,0.35)'; ctx.lineWidth = 1.2; ctx.strokeRect(0.6, 0.6, SIZE - 1.2, SIZE - 1.2);

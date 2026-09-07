@@ -1,6 +1,6 @@
 // "Parchment Atlas": an old cartographer's survey — foxed cream paper, sepia ink
 // linework, cross-hatched city blocks, dotted roads, a compass rose on the cloister.
-import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, roundRect, shieldPath } from './geometry.js';
+import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, roundRect, shieldPath, shieldAnchor } from './geometry.js';
 import type { Skin } from './types.js';
 
 const INK = '#4a3524';
@@ -120,11 +120,14 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   }
 
   if (t.shield) {
+    const [ax, ay] = shieldAnchor(t);
+    ctx.save(); ctx.translate(ax - 100, ay - 100);
     const p = shieldPath(100, 100, 0.9);
     ctx.fillStyle = '#b0412e'; ctx.fill(p);
     ctx.strokeStyle = INK; ctx.lineWidth = 1.6; ctx.stroke(p);
     ctx.strokeStyle = '#efe4c6'; ctx.lineWidth = 2.2;
     ctx.beginPath(); ctx.moveTo(100, 89); ctx.lineTo(100, 113); ctx.moveTo(90, 98); ctx.lineTo(110, 98); ctx.stroke();
+    ctx.restore();
   }
 
   // Cartouche-style corner marks and a thin ink border.

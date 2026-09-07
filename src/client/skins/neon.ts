@@ -1,7 +1,7 @@
 // "Neon Grid": a rain-slick night city — asphalt fields with a faint cyan survey
 // grid, cities as dense blocks of lit windows behind glowing walls, roads as dark
 // lanes with a hot yellow centre line, and the cloister a floodlit shrine.
-import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, shieldPath } from './geometry.js';
+import { SIZE, ROAD_W, JUNCTION_R, layoutFor, seeded, scatterOpen, cityInteriorSpots, cityPath, strokeRoad, strokeWalls, hasJunction, shieldPath, shieldAnchor } from './geometry.js';
 import type { Skin } from './types.js';
 
 const ASPHALT = '#161a2b';
@@ -108,10 +108,13 @@ function paint(ctx: CanvasRenderingContext2D, key: string): void {
   }
 
   if (t.shield) {
+    const [ax, ay] = shieldAnchor(t);
+    ctx.save(); ctx.translate(ax - 100, ay - 100);
     const p = shieldPath(100, 100, 0.95);
     ctx.fillStyle = 'rgba(10,8,20,0.85)'; ctx.fill(p);
     glow(ctx, MAGENTA, 12, () => { ctx.strokeStyle = MAGENTA; ctx.lineWidth = 1.8; ctx.stroke(p); });
     glow(ctx, CYAN, 8, () => { ctx.strokeStyle = CYAN; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(100, 90); ctx.lineTo(108, 100); ctx.lineTo(100, 112); ctx.lineTo(92, 100); ctx.closePath(); ctx.stroke(); });
+    ctx.restore();
   }
 
   ctx.strokeStyle = 'rgba(63,240,255,0.18)'; ctx.lineWidth = 1; ctx.strokeRect(0.5, 0.5, SIZE - 1, SIZE - 1);

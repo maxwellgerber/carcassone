@@ -88,14 +88,20 @@ for (let step = 0; step < 4000; step++) {
     if (!st.my) continue;
     if (st.gphase === 'placeTile') {
       await afterFrame(P.page);
-      const cells = await P.page.evaluate(() => window.__carcassonne.legalCells());
-      if (!cells.length) continue;
+      // Cells under the placement bar at the top can't be tapped without panning first.
+      const cells = (await P.page.evaluate(() => window.__carcassonne.legalCells())).filter((c) => c.sy > 80);
+      if (!cells.length) { await P.page.click('button:has-text("Recenter")'); continue; }
       const c = cells[rnd(cells.length)];
       await P.page.mouse.move(c.sx, c.sy);
       await P.page.waitForTimeout(60);
       if (!shot.hover) { shot.hover = true; await snap(P.page, '02-hover-preview'); }
-      if (Math.random() < 0.5) await P.page.keyboard.press('r');
-      await P.page.mouse.click(c.sx, c.sy);
+      await P.page.mouse.click(c.sx, c.sy); // set it down
+      await P.page.waitForTimeout(80);
+      if (!(await P.page.evaluate(() => !!window.__carcassonne.pending()))) errors.push(`${P.name}: first tap did not set the tile down at ${JSON.stringify(c)}`);
+      const how = Math.random();
+      if (how < 0.3) { await P.page.click('.place-bar button:has-text("Rotate")', { timeout: 2000 }).catch(() => {}); await P.page.click('.place-bar button:has-text("Place")'); }
+      else if (how < 0.5) { await P.page.keyboard.press('r'); await P.page.keyboard.press('Enter'); }
+      else { await P.page.mouse.click(c.sx, c.sy); } // second tap confirms
       placedByHumans++;
       acted = true;
       if (!(await settle(P.page, st))) {

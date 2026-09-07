@@ -173,7 +173,7 @@ function connectSocket(roomId: string): void {
     if (msg.type === 'sync') {
       const prev = room;
       room = msg.room as RoomDoc;
-      if (room.game && room.game.currentTile !== prev?.game?.currentTile) previewRot = 0;
+      if (room.game && (room.game.currentTile !== prev?.game?.currentTile || room.game.turnNumber !== prev?.game?.turnNumber)) { previewRot = 0; pending = null; }
       if (room.phase === 'lobby' || (prev?.phase !== 'playing' && room.phase === 'playing')) { walkCache.clear(); endModalDismissed = false; }
       reactToSync(prev, room);
       renderRoom();
@@ -323,14 +323,14 @@ function renderLobby(): HTMLElement {
     h('div', { class: 'lobby-body' },
       playerList,
       h('div', { class: 'lobby-side' },
+        isHost
+          ? h('button', { class: 'primary start-btn', disabled: r.players.length < 2, onclick: () => send({ type: 'start' }) }, r.players.length < 2 ? 'Need 2+ players' : `Start game (${r.players.length} players)`)
+          : h('p', { style: 'text-align:center;color:var(--ink-soft)' }, 'Waiting for the host to start the game…'),
         colorPicker,
         skinPanel,
         npcPanel,
         modesPanel,
         rules,
-        isHost
-          ? h('button', { class: 'primary', disabled: r.players.length < 2, onclick: () => send({ type: 'start' }) }, r.players.length < 2 ? 'Need 2+ players' : `Start game (${r.players.length} players)`)
-          : h('p', { style: 'text-align:center;color:var(--ink-soft)' }, 'Waiting for the host to start the game…'),
       ),
     ),
   );
@@ -370,6 +370,69 @@ let dragState: { x: number; y: number; cx: number; cy: number } | null = null;
 let dragMovedFar = false;
 let hoveredGhost: MeepleSpot | null = null;
 let ghostAnimFrame: number | null = null;
+/** A tile set down but not yet confirmed: the player can still rotate or move it. */
+let pending: { x: number; y: number; rot: number } | null = null;
+let activePointerId: number | null = null;
+const coarsePointer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+
+function legalRotsAt(x: number, y: number): number[] {
+  if (!room?.game) return [];
+  return getLegalPlacements(room.game).filter((p) => p.x === x && p.y === y).map((p) => p.rot);
+}
+function setPending(x: number, y: number): boolean {
+  const rots = legalRotsAt(x, y);
+  if (!rots.length) return false;
+  const pr = ((previewRot % 4) + 4) % 4;
+  pending = { x, y, rot: rots.includes(pr) ? pr : rots[0]! };
+  previewRot = pending.rot;
+  renderPlacementBar();
+  if (boardCanvasEl) drawBoard(boardCanvasEl);
+  return true;
+}
+function rotatePending(): void {
+  if (!pending) { previewRot = (previewRot + 1) % 4; if (boardCanvasEl) drawBoard(boardCanvasEl); return; }
+  const rots = legalRotsAt(pending.x, pending.y);
+  if (rots.length <= 1) { toast('Only one way this tile fits here'); return; }
+  const i = rots.indexOf(pending.rot);
+  pending.rot = rots[(i + 1) % rots.length]!;
+  previewRot = pending.rot;
+  if (boardCanvasEl) drawBoard(boardCanvasEl);
+}
+function confirmPending(): void {
+  if (!pending) return;
+  awaitingMeepleDecision = true;
+  send({ type: 'place_tile', x: pending.x, y: pending.y, rot: pending.rot });
+  pending = null;
+  renderPlacementBar();
+}
+function cancelPending(): void { pending = null; renderPlacementBar(); if (boardCanvasEl) drawBoard(boardCanvasEl); }
+
+/** The bar above the board during tile placement: a hint before the tile is set
+ *  down, and Rotate / Place / Cancel once it is. Rebuilt in place so the board
+ *  itself doesn't have to re-render. */
+let placementBarEl: HTMLElement | null = null;
+function renderPlacementBar(): void {
+  if (!placementBarEl) return;
+  placementBarEl.innerHTML = '';
+  if (!pending) {
+    placementBarEl.className = 'board-hint';
+    placementBarEl.textContent = coarsePointer ? 'Tap a glowing cell to set the tile down' : 'Click a glowing cell to set the tile down • drag to pan • R to rotate';
+    return;
+  }
+  const rots = legalRotsAt(pending.x, pending.y);
+  placementBarEl.className = 'board-hint place-bar';
+  const rotateBtn = h('button', { class: 'small', disabled: rots.length <= 1, title: rots.length <= 1 ? 'Only one orientation fits here' : 'Rotate (R)', onclick: rotatePending }, '↻ Rotate');
+  const placeBtn = h('button', { class: 'small primary', title: 'Place (Enter)', onclick: confirmPending }, '✓ Place');
+  const cancelBtn = h('button', { class: 'small ghost', title: 'Cancel (Esc)', onclick: cancelPending }, '✕');
+  placementBarEl.appendChild(rotateBtn); placementBarEl.appendChild(placeBtn); placementBarEl.appendChild(cancelBtn);
+}
+
+function zoomBy(factor: number): void {
+  if (!boardCanvasEl) return;
+  userAdjustedCamera = true;
+  camera.scale = Math.max(28, Math.min(220, camera.scale * factor));
+  drawBoard(boardCanvasEl);
+}
 let settingsOpen = false;
 const PREF_OWNERS = 'carcassonne.showOwners';
 let showOwners = (() => { try { return localStorage.getItem(PREF_OWNERS) === 'on'; } catch { return false; } })();
@@ -402,8 +465,8 @@ function ensureGhostAnimation(): void {
   if (ghostAnimFrame !== null) return;
   const step = () => {
     ghostAnimFrame = null;
-    if (!boardCanvasEl || !room?.game || !isMyTurn() || room.game.phase !== 'placeMeeple') return;
-    drawBoard(boardCanvasEl);
+    if (!boardCanvasEl || !room?.game || !isMyTurn() || !(room.game.phase === 'placeMeeple' || (room.game.phase === 'placeTile' && pending))) return;
+    if (!animateMeeples) drawBoard(boardCanvasEl); // otherwise the board loop already repaints
     ghostAnimFrame = requestAnimationFrame(step);
   };
   ghostAnimFrame = requestAnimationFrame(step);
@@ -877,21 +940,36 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     }
   }
 
-  if (myTurn && game.phase === 'placeTile' && hovered && game.currentTile) {
-    const k = `${hovered.x},${hovered.y}`;
-    const rots = legalByCell.get(k);
-    const [sx, sy] = worldToScreen(hovered.x, hovered.y, cw, ch);
+  if (myTurn && game.phase === 'placeTile' && game.currentTile && pending) {
+    // Set down but not confirmed: full-strength preview with a pulsing outline.
+    const [sx, sy] = worldToScreen(pending.x, pending.y, cw, ch);
     const s = camera.scale;
-    const rotOk = !!rots && rots.includes(((previewRot % 4) + 4) % 4);
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
     ctx.save();
-    ctx.globalAlpha = 0.75;
-    ctx.drawImage(getTileCanvas(game.currentTile, ((previewRot % 4) + 4) % 4, TILE_ART_SIZE), sx, sy, s, s);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = rotOk ? 'rgba(63,203,184,0.9)' : 'rgba(190,50,50,0.85)';
-    ctx.lineWidth = 3;
+    ctx.shadowColor = `rgba(63,203,184,${0.5 + 0.4 * pulse})`; ctx.shadowBlur = 12 + 8 * pulse;
+    ctx.drawImage(getTileCanvas(game.currentTile, pending.rot, TILE_ART_SIZE), sx, sy, s, s);
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(63,203,184,0.95)'; ctx.lineWidth = 4;
     roundRect(ctx, sx + 2, sy + 2, s - 4, s - 4, 6);
     ctx.stroke();
     ctx.restore();
+  } else if (myTurn && game.phase === 'placeTile' && hovered && game.currentTile && !coarsePointer) {
+    const k = `${hovered.x},${hovered.y}`;
+    const rots = legalByCell.get(k);
+    if (rots) {
+      const [sx, sy] = worldToScreen(hovered.x, hovered.y, cw, ch);
+      const s = camera.scale;
+      const pr = ((previewRot % 4) + 4) % 4;
+      const rot = rots.includes(pr) ? pr : rots[0]!;
+      ctx.save();
+      ctx.globalAlpha = 0.6;
+      ctx.drawImage(getTileCanvas(game.currentTile, rot, TILE_ART_SIZE), sx, sy, s, s);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(63,203,184,0.8)'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      roundRect(ctx, sx + 2, sy + 2, s - 4, s - 4, 6);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   drawParticles(ctx, cw, ch);
@@ -930,7 +1008,13 @@ function renderGame(): HTMLElement {
   boardWrapEl = wrap;
   wrap.appendChild(canvas);
   if (myTurn && game.phase === 'placeTile') {
-    wrap.appendChild(h('div', { class: 'board-hint' }, 'Click a glowing tile to place • drag to pan • scroll to zoom • R to rotate'));
+    placementBarEl = h('div', { class: 'board-hint' });
+    wrap.appendChild(placementBarEl);
+    renderPlacementBar();
+    if (pending) ensureGhostAnimation();
+  } else {
+    placementBarEl = null;
+    pending = null;
   }
   if (myTurn && game.phase === 'placeMeeple' && meP) {
     // The meeple decision happens on the board itself: ghosts on the glowing tile are
@@ -964,6 +1048,8 @@ function renderGame(): HTMLElement {
   );
   const gear = h('button', { class: 'small icon-btn', title: 'Settings', 'aria-expanded': String(settingsOpen), onclick: () => { settingsOpen = !settingsOpen; popover.hidden = !settingsOpen; gear.setAttribute('aria-expanded', String(settingsOpen)); } }, '⚙️');
   wrap.appendChild(h('div', { class: 'board-controls top' },
+    h('button', { class: 'small icon-btn zoom-btn', title: 'Zoom out', onclick: () => zoomBy(1 / 1.25) }, '−'),
+    h('button', { class: 'small icon-btn zoom-btn', title: 'Zoom in', onclick: () => zoomBy(1.25) }, '+'),
     h('button', { class: 'small icon-btn', onclick: () => { userAdjustedCamera = false; redraw(); } }, '🎯 Recenter'),
     gear,
     popover,
@@ -982,6 +1068,8 @@ function renderGame(): HTMLElement {
   // Pointer events cover mouse, touch and pen alike, so dragging to pan works on phones.
   canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+    if (activePointerId !== null && activePointerId !== e.pointerId) return; // a second finger: ignore it
+    activePointerId = e.pointerId;
     dragState = { x: e.clientX, y: e.clientY, cx: camera.x, cy: camera.y }; dragMovedFar = false;
     if (settingsOpen) { settingsOpen = false; popover.hidden = true; gear.setAttribute('aria-expanded', 'false'); }
     try { canvas.setPointerCapture(e.pointerId); } catch { /* not supported — fine */ }
@@ -1001,6 +1089,7 @@ function renderGame(): HTMLElement {
     windowListenersAttached = true;
     window.addEventListener('pointermove', (e) => {
       if (!boardCanvasEl || !room) return;
+      if (activePointerId !== null && e.pointerId !== activePointerId) return;
       const rect = boardCanvasEl.getBoundingClientRect();
       if (dragState) {
         const dx = e.clientX - dragState.x, dy = e.clientY - dragState.y;
@@ -1017,16 +1106,21 @@ function renderGame(): HTMLElement {
       if (!dragState) drawBoard(boardCanvasEl);
     });
     const endDrag = (e: PointerEvent) => {
+      if (activePointerId !== null && e.pointerId !== activePointerId) return;
       if (dragState && !dragMovedFar && boardCanvasEl) handleBoardClick(e, boardCanvasEl);
-      dragState = null;
+      dragState = null; activePointerId = null;
     };
     window.addEventListener('pointerup', endDrag);
-    window.addEventListener('pointercancel', () => { dragState = null; });
+    window.addEventListener('pointercancel', () => { dragState = null; activePointerId = null; });
     window.addEventListener('keydown', (e) => {
       if (!boardCanvasEl || !room?.game || !isMyTurn()) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (e.key.toLowerCase() === 'r' && room.game.phase === 'placeTile') { previewRot = (previewRot + 1) % 4; drawBoard(boardCanvasEl); }
+      if (room.game.phase === 'placeTile') {
+        if (e.key.toLowerCase() === 'r') rotatePending();
+        if (e.key === 'Enter' && pending) confirmPending();
+        if (e.key === 'Escape' && pending) cancelPending();
+      }
       if (e.key === 'Escape' && room.game.phase === 'placeMeeple') send({ type: 'skip_meeple' });
     });
     window.addEventListener('resize', () => redraw());
@@ -1047,13 +1141,10 @@ function renderGame(): HTMLElement {
     const rect = canvasEl.getBoundingClientRect();
     const [wx, wy] = screenToWorld(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height);
     const gx = Math.floor(wx), gy = Math.floor(wy);
-    const legal = getLegalPlacements(room.game).filter((p) => p.x === gx && p.y === gy);
-    if (legal.length === 0) return;
-    const pr = ((previewRot % 4) + 4) % 4;
-    const chosen = legal.find((p) => p.rot === pr) ?? legal[0]!;
-    previewRot = chosen.rot;
-    awaitingMeepleDecision = true;
-    send({ type: 'place_tile', x: gx, y: gy, rot: chosen.rot });
+    // Two taps: the first sets the tile down (rotate / move it freely), the second on
+    // the same cell confirms. Tapping a different legal cell moves it there.
+    if (pending && pending.x === gx && pending.y === gy) { confirmPending(); return; }
+    if (setPending(gx, gy)) ensureGhostAnimation();
   }
 
   requestAnimationFrame(() => redraw());
@@ -1092,12 +1183,12 @@ function buildSidebar(game: NonNullable<RoomDoc['game']>, myTurn: boolean): HTML
         else ctx.drawImage(getTileBackCanvas(128), 0, 0, 72, 72);
       };
       paint();
-      cv.addEventListener('click', () => { if (myTurn && game.phase === 'placeTile') { previewRot = (previewRot + 1) % 4; paint(); if (boardCanvasEl) drawBoard(boardCanvasEl); } });
+      cv.addEventListener('click', () => { if (myTurn && game.phase === 'placeTile') { rotatePending(); paint(); } });
       return cv;
     })(),
     h('div', {},
       h('div', {}, `${game.deck.length} tile${game.deck.length === 1 ? '' : 's'} left in the pile`),
-      myTurn && game.phase === 'placeTile' ? h('button', { class: 'small', onclick: () => { previewRot = (previewRot + 1) % 4; if (boardCanvasEl) drawBoard(boardCanvasEl); } }, '↻ Rotate (R)') : null,
+      myTurn && game.phase === 'placeTile' ? h('button', { class: 'small', onclick: () => rotatePending() }, '↻ Rotate (R)') : null,
     ),
   );
 
@@ -1176,6 +1267,7 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement | null 
     return ghostTargets(r.width, r.height).map((g) => ({ kind: g.spot.kind, idx: g.spot.idx, label: g.label, sx: g.sx + r.left, sy: g.sy + r.top }));
   },
   previewRot: () => ((previewRot % 4) + 4) % 4,
+  pending: () => pending,
   tileTypes: () => TILE_TYPES,
   tileCanvas: (key: string, rot: number, size: number) => getTileCanvas(key, rot, size),
 };

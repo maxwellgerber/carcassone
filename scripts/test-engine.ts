@@ -1,4 +1,5 @@
 import * as E from '../src/shared/engine.js';
+import { evaluatePositions, chooseNpcMeepleMove } from '../src/server/npc.js';
 import type { GameConfig, GameState } from '../src/shared/types.js';
 import { TILE_TYPES, TOTAL_TILE_COUNT, RIVER_TILE_COUNT, buildDeck } from '../src/shared/tiles.js';
 
@@ -286,5 +287,33 @@ function blankGame(players: { id: string; name: string }[], seed: number, config
   assert(E.isLegalPlacement(g, 'river_curve', 2, 1, 2), 'a bend the other way is allowed');
 }
 
+// ---- NPC evaluation: meeples in hand are worth something, so the bot keeps some ----
+{
+  const rng = mkRng(5);
+  const g = E.createGame([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], rng, {});
+  const pot = evaluatePositions(g, E.deriveFeatures(g));
+  assert(Math.abs(pot[0]! - pot[1]!) < 1e-9, 'a fresh game evaluates the same for both seats');
+  g.players[0]!.meeples = 1;
+  const pot2 = evaluatePositions(g, E.deriveFeatures(g));
+  assert(pot2[0]! < pot[0]!, 'fewer meeples in reserve is worth less');
+  g.players[0]!.meeples = 0;
+  const pot3 = evaluatePositions(g, E.deriveFeatures(g));
+  assert(pot3[0]! < pot2[0]!, 'the last meeple in hand is worth the most');
+  // With one meeple left and a whole game ahead, normal will not spend it on a farm
+  // touching nothing, even though placing is "free" points-wise.
+  const h = E.createGame([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], mkRng(9), {});
+  h.players[0]!.meeples = 1; h.currentPlayer = 0;
+  const legal = E.getLegalPlacements(h);
+  E.placeTile(h, legal[0]!.x, legal[0]!.y, legal[0]!.rot);
+  if (h.phase === 'placeMeeple') {
+    const farmOnly = E.getMeepleOptions(h).filter((o) => o.kind === 'farm');
+    if (farmOnly.length) {
+      const mv = chooseNpcMeepleMove(h, 'normal', mkRng(1));
+      assert(mv.type === 'skip_meeple' || mv.type === 'place_meeple' && mv.kind !== 'farm', `normal should not spend its last meeple on an early farmer, chose ${JSON.stringify(mv)}`);
+    }
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
+

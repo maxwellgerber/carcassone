@@ -200,8 +200,8 @@ class DSU {
   union(a: string, b: string): void { const ra = this.find(a), rb = this.find(b); if (ra !== rb) this.parent.set(ra, rb); }
 }
 
-export interface CityFeature { id: string; tileCount: number; shieldCount: number; complete: boolean; tiles: string[]; }
-export interface RoadFeature { id: string; tileCount: number; complete: boolean; tiles: string[]; }
+export interface CityFeature { id: string; tileCount: number; shieldCount: number; complete: boolean; tiles: string[]; /** Edges still facing an empty cell. */ openEdges: number; }
+export interface RoadFeature { id: string; tileCount: number; complete: boolean; tiles: string[]; openEdges: number; }
 export interface MonasteryFeature { id: string; x: number; y: number; filled: number; complete: boolean; }
 export interface FieldFeature { id: string; cityIds: string[]; tiles: string[]; }
 export interface Features {
@@ -216,7 +216,18 @@ export interface Features {
   };
 }
 
+/** Features depend only on the board, and boards only grow, so a state's features can
+ *  be reused until another tile lands. Clones are new objects and miss the cache. */
+const featureCache = new WeakMap<GameState, { tiles: number; features: Features }>();
 export function deriveFeatures(state: GameState): Features {
+  const hit = featureCache.get(state);
+  const tiles = Object.keys(state.board).length;
+  if (hit && hit.tiles === tiles) return hit.features;
+  const features = deriveFeaturesUncached(state);
+  featureCache.set(state, { tiles, features });
+  return features;
+}
+function deriveFeaturesUncached(state: GameState): Features {
   const board = state.board;
   const cityDSU = new DSU();
   const roadDSU = new DSU();
@@ -275,47 +286,47 @@ export function deriveFeatures(state: GameState): Features {
     }
   }
 
-  const cityRoots = new Map<string, { tiles: Set<string>; shieldTiles: Set<string>; open: boolean }>();
+  const cityRoots = new Map<string, { tiles: Set<string>; shieldTiles: Set<string>; open: boolean; openEdges: number }>();
   for (const k of Object.keys(board)) {
     const [x, y] = parseKey(k);
     const { tileKey, rot } = board[k]!;
     const t = TILE_TYPES[tileKey]!;
     t.cityGroups.forEach((grp, g) => {
       const root = cityDSU.find(cityGroupNode(x, y, g));
-      if (!cityRoots.has(root)) cityRoots.set(root, { tiles: new Set(), shieldTiles: new Set(), open: false });
+      if (!cityRoots.has(root)) cityRoots.set(root, { tiles: new Set(), shieldTiles: new Set(), open: false, openEdges: 0 });
       const rec = cityRoots.get(root)!;
       rec.tiles.add(k);
       if (t.shield) rec.shieldTiles.add(k);
       const absSides = grp.map((s) => (s + rot) % 4);
       for (const sIdx of absSides) {
         const d = DIRS[SIDES[sIdx]!];
-        if (!board[key(x + d.dx, y + d.dy)]) rec.open = true;
+        if (!board[key(x + d.dx, y + d.dy)]) { rec.open = true; rec.openEdges++; }
       }
     });
   }
   const cityFeatures: CityFeature[] = [...cityRoots.entries()].map(([root, rec]) => ({
-    id: root, tileCount: rec.tiles.size, shieldCount: rec.shieldTiles.size, complete: !rec.open, tiles: [...rec.tiles],
+    id: root, tileCount: rec.tiles.size, shieldCount: rec.shieldTiles.size, complete: !rec.open, tiles: [...rec.tiles], openEdges: rec.openEdges,
   }));
 
-  const roadRoots = new Map<string, { tiles: Set<string>; open: boolean }>();
+  const roadRoots = new Map<string, { tiles: Set<string>; open: boolean; openEdges: number }>();
   for (const k of Object.keys(board)) {
     const [x, y] = parseKey(k);
     const { tileKey, rot } = board[k]!;
     const t = TILE_TYPES[tileKey]!;
     t.roadGroups.forEach((grp, g) => {
       const root = roadDSU.find(roadGroupNode(x, y, g));
-      if (!roadRoots.has(root)) roadRoots.set(root, { tiles: new Set(), open: false });
+      if (!roadRoots.has(root)) roadRoots.set(root, { tiles: new Set(), open: false, openEdges: 0 });
       const rec = roadRoots.get(root)!;
       rec.tiles.add(k);
       const absSides = grp.map((s) => (s + rot) % 4);
       for (const sIdx of absSides) {
         const d = DIRS[SIDES[sIdx]!];
-        if (!board[key(x + d.dx, y + d.dy)]) rec.open = true;
+        if (!board[key(x + d.dx, y + d.dy)]) { rec.open = true; rec.openEdges++; }
       }
     });
   }
   const roadFeatures: RoadFeature[] = [...roadRoots.entries()].map(([root, rec]) => ({
-    id: root, tileCount: rec.tiles.size, complete: !rec.open, tiles: [...rec.tiles],
+    id: root, tileCount: rec.tiles.size, complete: !rec.open, tiles: [...rec.tiles], openEdges: rec.openEdges,
   }));
 
   const monasteryFeatures: MonasteryFeature[] = [];

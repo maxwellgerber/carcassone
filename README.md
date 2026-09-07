@@ -26,6 +26,13 @@ MCP server.
 - Meeples are placed on the board itself: after your tile lands, every feature you
   could claim shows a ghost meeple in your colour — click one, or skip. If nothing
   on the tile can take a meeple, the turn moves on without asking.
+- Four looks to choose from, each a complete tileset with its own palette: the
+  hand-illustrated **Verdigris Gearworks** default, plus three painted on the fly
+  by the client against the same edge contract (`src/client/skins/`): **Parchment
+  Atlas** (sepia ink on foxed paper), **Neon Grid** (a rain-slick night city), and
+  **Storybook Meadow** (pink castles and flower-strewn fields). Pick one in the
+  lobby or from the ⚙️ menu; it's per screen, remembered in localStorage, and any
+  skin's tiles seam with any other's.
 - Sound: a looping lute-and-pipe tune in D Dorian and effects for tiles landing,
   meeples, scoring, your turn, and game over — all synthesised in the browser with
   the Web Audio API (`src/client/audio.ts`), nothing to download. Music and effects
@@ -184,7 +191,8 @@ src/client/
   main.ts                  routing, WebSocket sync, canvas board, all UI
   art.ts                   loads the SVG tile art + procedural meeples/tile-back
   audio.ts                 Web Audio soundtrack (the tune + all sound effects)
-  tiles/*.svg              the 24 hand-illustrated tile types
+  skins/                   the selectable looks: geometry.ts (shared edge-contract drawing), one painter per skin
+  tiles/*.svg              the 24 hand-illustrated tile types (the default skin)
   dom.ts                   tiny DOM builder helper
 src/mcp/server.ts        MCP server exposing the game to agents (see above)
 static/                  index.html shell + styles.css, copied as-is into the build

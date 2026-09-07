@@ -2,8 +2,9 @@ import { TILE_TYPES, rotateGroupSides, rotateSlot } from '../shared/tiles.js';
 import { getLegalPlacements, getMeepleOptions, PLAYER_COLORS, QUICK_GAME_TILE_COUNT } from '../shared/engine.js';
 import type { RoomDoc } from '../shared/room-types.js';
 import type { GameConfig, MeepleKind, NpcDifficulty } from '../shared/types.js';
-import { getTileCanvas, getTileBackCanvas, getMeepleCanvas, preloadTileArt } from './art.js';
+import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, preloadTileArt } from './art.js';
 import { h, toast } from './dom.js';
+import { SKINS, currentSkin, setSkin, onSkinChange, applySkinToDocument } from './skins/index.js';
 import {
   unlockAudio, isMusicOn, isSfxOn, setMusic, setSfx,
   sfxTilePlaced, sfxMeeplePlaced, sfxScore, sfxYourTurn, sfxGameOver,
@@ -292,6 +293,18 @@ function renderLobby(): HTMLElement {
     ),
   );
 
+  const skinPanel = h('div', { class: 'panel', style: 'padding:1rem 1.2rem' },
+    h('h2', { style: 'font-size:1rem' }, '🎨 Pick your look'),
+    h('p', { style: 'color:var(--ink-soft);font-size:0.85rem;margin:0 0 0.6rem' }, 'Four tilesets, each with its own palette. Your choice is just for your screen — everyone at the table can pick their own.'),
+    h('div', { class: 'skin-grid' }, ...SKINS.map((sk) => {
+      const preview = h('canvas', { width: 64, height: 64 }) as HTMLCanvasElement;
+      const card = h('button', { class: `skin-card${sk.id === currentSkin().id ? ' selected' : ''}`, title: sk.blurb, onclick: () => setSkin(sk.id) },
+        preview, h('span', {}, sk.name));
+      queueMicrotask(() => { preview.getContext('2d')!.drawImage(getTileCanvasIn(sk.id, 'city_cap_road_curve_a', 64), 0, 0); });
+      return card;
+    })),
+  );
+
   const rules = h('div', { class: 'rules-card panel' },
     h('h3', {}, 'How to play'),
     h('p', {}, 'On your turn, place the drawn tile so its edges match its neighbours, then optionally place one meeple by clicking a ghost on that tile: a ', h('b', {}, 'knight'), ' in a city, a ', h('b', {}, 'highwayman'), ' on a road, a ', h('b', {}, 'monk'), ' in a cloister, or a ', h('b', {}, 'farmer'), ' in a field.'),
@@ -310,6 +323,7 @@ function renderLobby(): HTMLElement {
       playerList,
       h('div', { class: 'lobby-side' },
         colorPicker,
+        skinPanel,
         npcPanel,
         modesPanel,
         rules,
@@ -563,7 +577,8 @@ function drawBoard(canvas: HTMLCanvasElement): void {
   const cw = rect.width, ch = rect.height;
   ctx.clearRect(0, 0, cw, ch);
   const g = ctx.createLinearGradient(0, 0, 0, ch);
-  g.addColorStop(0, '#5F7A6E'); g.addColorStop(1, '#3E534A');
+  const [top, bottom] = currentSkin().board;
+  g.addColorStop(0, top); g.addColorStop(1, bottom);
   ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch);
 
   const game = room.game;
@@ -742,6 +757,11 @@ function renderGame(): HTMLElement {
     h('h2', {}, 'Settings'),
     settingsRow('🎵 Background music', isMusicOn(), (v) => setMusic(v)),
     settingsRow('🔔 Sound effects', isSfxOn(), (v) => setSfx(v)),
+    h('label', { class: 'settings-row' },
+      h('span', {}, '🎨 Look'),
+      h('select', { onchange: (e: Event) => setSkin((e.target as HTMLSelectElement).value) },
+        ...SKINS.map((sk) => h('option', { value: sk.id, selected: sk.id === currentSkin().id }, sk.name))),
+    ),
     h('p', { class: 'settings-note' }, 'Esc skips the meeple step • R rotates the tile'),
   );
   const gear = h('button', { class: 'small icon-btn', title: 'Settings', 'aria-expanded': String(settingsOpen), onclick: () => { settingsOpen = !settingsOpen; popover.hidden = !settingsOpen; gear.setAttribute('aria-expanded', String(settingsOpen)); } }, '⚙️');
@@ -959,7 +979,12 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement {
     return ghostTargets(r.width, r.height).map((g) => ({ kind: g.spot.kind, idx: g.spot.idx, label: g.label, sx: g.sx + r.left, sy: g.sy + r.top }));
   },
   previewRot: () => ((previewRot % 4) + 4) % 4,
+  tileTypes: () => TILE_TYPES,
+  tileCanvas: (key: string, rot: number, size: number) => getTileCanvas(key, rot, size),
 };
+
+onSkinChange(() => { if (room) renderRoom(); else route(); });
+applySkinToDocument();
 
 // Tile art is decoded from inline SVG data: URIs before the very first render —
 // this is well under a frame for 22 small images, and it means drawBoard() (which

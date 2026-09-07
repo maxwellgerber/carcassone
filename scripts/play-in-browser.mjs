@@ -6,6 +6,7 @@
 //   npm run dev                      # in one terminal
 //   node scripts/play-in-browser.mjs # in another (needs playwright-core on the path,
 //                                    # or PLAYWRIGHT_CORE=/path/to/node_modules/playwright-core)
+//   SKIN=neon node scripts/play-in-browser.mjs   # play under one of the procedural tilesets
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 
@@ -28,6 +29,7 @@ async function newPlayer(name) {
   page.on('console', (m) => { if (m.type() === 'error' && !/ERR_CONNECTION_RESET|ERR_NAME_NOT_RESOLVED/.test(m.text())) errors.push(`${name} console: ${m.text()}`); });
   page.on('requestfailed', (r) => { if (!/fonts\.g(oogleapis|static)\.com/.test(r.url())) errors.push(`${name} request failed: ${r.url()} ${r.failure()?.errorText}`); });
   await page.goto(`${BASE}/auth/login`);
+  if (process.env.SKIN) await page.evaluate((id) => localStorage.setItem('carcassonne.skin', id), process.env.SKIN);
   await page.waitForSelector('input[name=name]');
   await page.fill('input[name=name]', name);
   await page.click('button[type=submit]');

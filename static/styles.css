@@ -136,12 +136,16 @@ input[type=text]:focus-visible { outline: 2px solid var(--accent); outline-offse
 .color-dot.selected { outline: 3px solid var(--ink); outline-offset: 2px; }
 .color-dot.taken { opacity: 0.25; cursor: not-allowed; }
 .lobby-side { display: flex; flex-direction: column; gap: 1rem; width: 300px; }
+.skin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.skin-card { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; padding: 0.5rem 0.4rem; font-size: 0.78rem; background: var(--bg); clip-path: none; border-radius: 6px; }
+.skin-card canvas { width: 64px; height: 64px; border-radius: 4px; box-shadow: var(--shadow); }
+.skin-card.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg)); }
 .rules-card { padding: 1rem 1.2rem; font-size: 0.92rem; color: var(--ink-soft); }
 .rules-card h3 { font-size: 1rem; margin-bottom: 0.4rem; color: var(--ink); }
 
 /* ---------------- Game layout ---------------- */
 .game { flex: 1; display: flex; min-height: 100vh; }
-.board-wrap { flex: 1; position: relative; overflow: hidden; background: #3E534A; }
+.board-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
 .board-wrap canvas { display: block; touch-action: none; }
 .sidebar {
   width: 320px; flex-shrink: 0; background: var(--panel); border-left: 1.5px solid var(--panel-border);

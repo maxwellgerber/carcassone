@@ -56,6 +56,8 @@ const TILE_SVG: Record<string, string> = {
   road_straight, road_curve, road_fork, road_cross,
 };
 
+import { SKINS, currentSkin, onSkinChange } from './skins/index.js';
+
 const tileImages = new Map<string, HTMLImageElement>();
 
 /** Decode every tile SVG into an Image up front. 24 small inline data: URIs decode
@@ -74,14 +76,47 @@ export function preloadTileArt(): Promise<void> {
 
 const tileCanvasCache = new Map<string, HTMLCanvasElement>();
 
+onSkinChange(() => tileCanvasCache.clear());
+
+/** Canonical (unrotated) art for a tile in the active skin: the SVG image for the
+ *  hand-drawn set, or a freshly painted canvas for a procedural skin. */
+const canonicalCache = new Map<string, HTMLCanvasElement>();
+function canonicalArt(tileKey: string, size: number): CanvasImageSource | null {
+  const skin = currentSkin();
+  if (!skin.paint) return tileImages.get(tileKey) ?? null;
+  const k = `${skin.id}:${tileKey}:${size}`;
+  const cached = canonicalCache.get(k);
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.save(); ctx.scale(size / 200, size / 200);
+  ctx.beginPath(); ctx.rect(0, 0, 200, 200); ctx.clip();
+  skin.paint(ctx, tileKey);
+  ctx.restore();
+  canonicalCache.set(k, canvas);
+  return canvas;
+}
+
+/** A tile drawn in a specific skin (for previews in the skin picker). */
+export function getTileCanvasIn(skinId: string, tileKey: string, size: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const skin = SKINS.find((s) => s.id === skinId);
+  if (skin?.paint) { ctx.save(); ctx.scale(size / 200, size / 200); skin.paint(ctx, tileKey); ctx.restore(); }
+  else { const img = tileImages.get(tileKey); if (img) ctx.drawImage(img, 0, 0, size, size); }
+  return canvas;
+}
+
 export function getTileCanvas(tileKey: string, rot: number, size: number): HTMLCanvasElement {
-  const k = `${tileKey}:${rot}:${size}`;
+  const k = `${currentSkin().id}:${tileKey}:${rot}:${size}`;
   const cached = tileCanvasCache.get(k);
   if (cached) return cached;
   const canvas = document.createElement('canvas');
   canvas.width = size; canvas.height = size;
   const ctx = canvas.getContext('2d')!;
-  const img = tileImages.get(tileKey);
+  const img = canonicalArt(tileKey, size);
   if (img) {
     ctx.save();
     ctx.translate(size / 2, size / 2);

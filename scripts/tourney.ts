@@ -12,8 +12,10 @@ import { chooseNpcMeepleMove as oldMeeple, chooseNpcTilePlacement as oldTile } f
 import type { GameState, NpcDifficulty, Placement } from '../src/shared/types.js';
 import { writeFileSync } from 'node:fs';
 
-type BotName = 'easy' | 'normal' | 'hard' | 'old-normal' | 'old-hard';
-const BOTS: BotName[] = ['easy', 'normal', 'hard', 'old-normal', 'old-hard'];
+type BotName = 'easy' | 'normal' | 'hard' | 'old-normal' | 'old-hard' | 'net' | 'blend' | 'net-hard';
+const BOTS: BotName[] = ['easy', 'normal', 'hard', 'old-normal', 'old-hard', 'net', 'blend', 'net-hard'];
+/** Which evaluator each bot thinks with; switched per move so bots can share a table. */
+const EVALUATOR: Partial<Record<BotName, 'hand' | 'net' | 'blend'>> = { net: 'net', 'net-hard': 'net', blend: 'blend' };
 
 function mkRng(seed: number): () => number {
   let s = seed >>> 0 || 1;
@@ -34,17 +36,21 @@ for (const [k, v] of Object.entries(JSON.parse(arg('tune', '{}')) as Record<stri
   if (k in NPC_SEARCH) (NPC_SEARCH as Record<string, number>)[k] = v; else if (k in NPC_TUNING) (NPC_TUNING as Record<string, number>)[k] = v; else throw new Error(`unknown knob ${k}`);
 }
 const onlyBots = arg('bots', '');
-const POOL: BotName[] = onlyBots ? (onlyBots.split(',') as BotName[]) : BOTS;
+const POOL: BotName[] = onlyBots ? (onlyBots.split(',') as BotName[]) : BOTS.filter((b) => !EVALUATOR[b]);
 
+const baseEvaluator = NPC_TUNING.evaluator;
+function difficultyOf(bot: BotName): NpcDifficulty { return bot === 'net-hard' ? 'hard' : bot === 'net' || bot === 'blend' ? 'normal' : bot as NpcDifficulty; }
 function tileMove(bot: BotName, g: GameState, rng: () => number): Placement {
   if (bot === 'old-normal') return oldTile(g, 'normal', rng);
   if (bot === 'old-hard') return oldTile(g, 'hard', rng);
-  return chooseNpcTilePlacement(g, bot as NpcDifficulty, rng);
+  NPC_TUNING.evaluator = EVALUATOR[bot] ?? baseEvaluator;
+  return chooseNpcTilePlacement(g, difficultyOf(bot), rng);
 }
 function meepleMove(bot: BotName, g: GameState, rng: () => number) {
   if (bot === 'old-normal') return oldMeeple(g, 'normal', rng);
   if (bot === 'old-hard') return oldMeeple(g, 'hard', rng);
-  return chooseNpcMeepleMove(g, bot as NpcDifficulty, rng);
+  NPC_TUNING.evaluator = EVALUATOR[bot] ?? baseEvaluator;
+  return chooseNpcMeepleMove(g, difficultyOf(bot), rng);
 }
 
 interface Tally { games: number; wins: number; score: number; margin: number; midReserve: number; idleTurns: number; turns: number; thinkMs: number; moves: number }

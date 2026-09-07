@@ -1,7 +1,7 @@
 // NPC opponent logic. Runs entirely against the same pure engine every human move
 // does — an NPC "move" is indistinguishable from a real action once chosen, so it
 // shares the exact same apply path (see actions.ts) as WS players and MCP agents.
-import { cloneState, deriveFeatures, getLegalPlacements, getMeepleOptions, placeMeeple, placeTile } from '../shared/engine.js';
+import { cloneState, deriveFeatures, getLegalPlacements, getMeepleOptions, placeMeeple, placeTile, type Features } from '../shared/engine.js';
 import type { GameState, MeepleKind, NpcDifficulty, Placement } from '../shared/types.js';
 
 export type NpcMove =
@@ -16,10 +16,9 @@ function pick<T>(arr: T[], rng: () => number): T {
 /** Score a hypothetical placement by how many points it would immediately hand out
  *  (to anyone — an NPC playing well also avoids gifting an opponent's city closure)
  *  and how much it grows the NPC's own open features. Cheap: board is tiny. */
-function scorePlacement(state: GameState, placement: Placement, npcIdx: number): number {
+function scorePlacement(state: GameState, before: Features, placement: Placement, npcIdx: number): number {
   const trial = cloneState(state);
   placeTile(trial, placement.x, placement.y, placement.rot);
-  const before = deriveFeatures(state);
   const after = deriveFeatures(trial);
   let score = 0;
   const newlyComplete = (list: { complete: boolean; id: string }[], prevList: { complete: boolean; id: string }[]) => {
@@ -53,7 +52,8 @@ export function chooseNpcTilePlacement(state: GameState, difficulty: NpcDifficul
   if (difficulty === 'easy') return pick(legal, rng);
 
   const npcIdx = state.currentPlayer;
-  const scored = legal.map((p) => ({ p, s: scorePlacement(state, p, npcIdx) }));
+  const before = deriveFeatures(state); // the same for every candidate — compute it once
+  const scored = legal.map((p) => ({ p, s: scorePlacement(state, before, p, npcIdx) }));
   const maxScore = Math.max(...scored.map((s) => s.s));
   const best = scored.filter((s) => s.s === maxScore).map((s) => s.p);
   if (difficulty === 'hard' || maxScore > 0) return pick(best, rng);

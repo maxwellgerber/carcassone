@@ -237,11 +237,30 @@ function scheduleEighth(i: number, t: number): void {
 function tick(): void {
   if (!ctx) return;
   const lookahead = 0.3;
-  while (songStart + nextEighth * EIGHTH_SEC < ctx.currentTime + lookahead) {
+  // Background tabs throttle timers, so we can wake up seconds (or minutes) behind.
+  // Scheduling every missed note at once would freeze the page and play them all in
+  // one burst — instead, jump the song forward to now and carry on from there.
+  const behind = ctx.currentTime - (songStart + nextEighth * EIGHTH_SEC);
+  if (behind > 1) {
+    const skipped = Math.ceil(behind / EIGHTH_SEC);
+    nextEighth += skipped;
+    passCount = Math.floor(nextEighth / SONG_EIGHTHS);
+  }
+  let budget = 12; // never schedule more than a handful of eighths per tick
+  while (budget-- > 0 && songStart + nextEighth * EIGHTH_SEC < ctx.currentTime + lookahead) {
     scheduleEighth(nextEighth, songStart + nextEighth * EIGHTH_SEC);
     nextEighth++;
     if (nextEighth % SONG_EIGHTHS === 0) passCount++;
   }
+}
+
+// While the tab is hidden nothing is audible anyway; stop the scheduler so it has
+// nothing to catch up on, and resume cleanly when the tab comes back.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (musicTimer !== null) { clearInterval(musicTimer); musicTimer = null; } }
+    else if (musicOn && ctx && ctx.state === 'running' && droneNodes.length) { musicTimer = window.setInterval(tick, 90); tick(); }
+  });
 }
 
 function startMusic(): void {

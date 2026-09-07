@@ -6,9 +6,10 @@
 //   easy   — random placement, coin-flip meeples. A warm body.
 //   normal — one-ply search over a positional evaluation that knows what a meeple
 //            in reserve is worth, so it stops dumping all seven by turn ten.
-//   hard   — currently the same as normal; rollouts come next.
+//   hard   — the same evaluation, plus short Monte Carlo rollouts (random tile
+//            order, quick opponents) over the best few candidates, under a time cap.
 import {
-  cloneState, deriveFeatures, getLegalPlacements, getMeepleOptions,
+  cloneState, deriveFeatures, getLegalPlacements, getMeepleOptions, isLegalPlacement,
   placeMeeple, placeTile, skipMeeple, type Features,
 } from '../shared/engine.js';
 import { TILE_TYPES } from '../shared/tiles.js';
@@ -19,6 +20,9 @@ export type NpcMove =
   | { type: 'place_meeple'; kind: MeepleKind; idx: number }
   | { type: 'skip_meeple' };
 
+/** Tunables for the hard bot's search. `thinkMs` caps wall-clock per decision so a
+ *  Durable Object alarm never runs long; the tourney script raises it. */
+export const NPC_SEARCH = { candidates: 5, rollouts: 8, depth: 6, thinkMs: 150 };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;
@@ -157,6 +161,76 @@ function rankPlacements(state: GameState, me: number, rng: () => number, deepen 
 }
 
 // ---------------------------------------------------------------------------
+// Rollouts (hard)
+// ---------------------------------------------------------------------------
+
+function shuffleInPlace<T>(arr: T[], rng: () => number): void {
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arr[i], arr[j]] = [arr[j]!, arr[i]!]; }
+}
+
+/** A quick random-but-legal placement: sample frontier cells and rotations instead of
+ *  enumerating every legal move (that enumeration is most of a rollout's cost). */
+function quickPlacement(state: GameState, rng: () => number): Placement | null {
+  const tile = state.currentTile; if (!tile) return null;
+  const frontier: [number, number][] = [];
+  const seen = new Set<string>();
+  for (const k of Object.keys(state.board)) {
+    const [x, y] = k.split(',').map(Number) as [number, number];
+    for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
+      const nk = `${x + dx},${y + dy}`;
+      if (state.board[nk] || seen.has(nk)) continue;
+      seen.add(nk); frontier.push([x + dx, y + dy]);
+    }
+  }
+  if (frontier.length === 0) return { x: 0, y: 0, rot: 0 };
+  for (let tries = 0; tries < 16; tries++) {
+    const [x, y] = pick(frontier, rng);
+    const rot = Math.floor(rng() * 4);
+    if (isLegalPlacement(state, tile, rot, x, y)) return { x, y, rot };
+  }
+  const legal = getLegalPlacements(state);
+  return legal.length ? pick(legal, rng) : null;
+}
+
+/** Play `depth` more tiles with cheap, plausible moves, then evaluate for `me`. The
+ *  bag is reshuffled first: the remaining tiles are public, their order is not. */
+function rollout(start: GameState, me: number, depth: number, rng: () => number): number {
+  const st = cloneState(start);
+  shuffleInPlace(st.deck, rng);
+  for (let ply = 0; ply < depth && st.phase !== 'gameover'; ply++) {
+    if (st.phase === 'placeTile') {
+      const p = quickPlacement(st, rng);
+      if (!p) break;
+      placeTile(st, p.x, p.y, p.rot);
+    }
+    if (st.phase === 'placeMeeple') {
+      const opts = getMeepleOptions(st);
+      const reserve = st.players[st.currentPlayer]!.meeples;
+      // Opponents in the rollout keep a couple of meeples back and otherwise grab
+      // cities first — good enough to make the average outcome honest.
+      if (opts.length && reserve > 2 && rng() < 0.55) {
+        const city = opts.filter((o) => o.kind === 'city');
+        const o = city.length && rng() < 0.7 ? pick(city, rng) : pick(opts, rng);
+        placeMeeple(st, o.kind, o.idx);
+      } else skipMeeple(st);
+    }
+  }
+  return evaluateFor(st, me);
+}
+
+function searchValue(after: GameState, me: number, rng: () => number, rollouts: number, depth: number): number {
+  // Commit the best static meeple reply first, then roll the dice from there.
+  const reply = bestMeepleValue(after, me);
+  const from = cloneState(after);
+  if (from.phase === 'placeMeeple') {
+    if (reply.move.type === 'place_meeple') placeMeeple(from, reply.move.kind, reply.move.idx); else skipMeeple(from);
+  }
+  let sum = 0;
+  for (let i = 0; i < rollouts; i++) sum += rollout(from, me, depth, rng);
+  return sum / rollouts;
+}
+
+// ---------------------------------------------------------------------------
 // Public decisions
 // ---------------------------------------------------------------------------
 
@@ -166,7 +240,21 @@ export function chooseNpcTilePlacement(state: GameState, difficulty: NpcDifficul
   if (difficulty === 'easy') return pick(legal, rng);
 
   const me = state.currentPlayer;
-  return rankPlacements(state, me, rng)[0]!.p;
+  const ranked = rankPlacements(state, me, rng);
+  if (difficulty === 'normal' || ranked.length === 1) return ranked[0]!.p;
+
+  // hard: rollouts over the best few, blended with the static view, under a time cap.
+  const started = Date.now();
+  const top = ranked.slice(0, NPC_SEARCH.candidates);
+  let best = top[0]!.p, bestV = -Infinity;
+  const depth = Math.min(NPC_SEARCH.depth, state.deck.length + 1);
+  for (const c of top) {
+    const remaining = NPC_SEARCH.thinkMs - (Date.now() - started);
+    if (remaining <= 0 && bestV > -Infinity) break;
+    const v = 0.35 * c.value + 0.65 * searchValue(c.after, me, rng, NPC_SEARCH.rollouts, depth);
+    if (v > bestV) { bestV = v; best = c.p; }
+  }
+  return best;
 }
 
 export function chooseNpcMeepleMove(state: GameState, difficulty: NpcDifficulty, rng: () => number): NpcMove {
@@ -175,7 +263,28 @@ export function chooseNpcMeepleMove(state: GameState, difficulty: NpcDifficulty,
   if (difficulty === 'easy') {
     return rng() < 0.5 ? { type: 'skip_meeple' } : { type: 'place_meeple', ...pick(options, rng) };
   }
-  return bestMeepleValue(state, state.currentPlayer).move;
+  const me = state.currentPlayer;
+  if (difficulty === 'normal') return bestMeepleValue(state, me).move;
+
+  // hard: rollouts for each option and for skipping.
+  const started = Date.now();
+  const depth = Math.min(NPC_SEARCH.depth, state.deck.length + 1);
+  const moves: NpcMove[] = [{ type: 'skip_meeple' }, ...options.map((o): NpcMove => ({ type: 'place_meeple', kind: o.kind, idx: o.idx }))];
+  let best = moves[0]!, bestV = -Infinity;
+  for (const mv of moves) {
+    const from = cloneState(state);
+    if (mv.type === 'place_meeple') placeMeeple(from, mv.kind, mv.idx); else skipMeeple(from);
+    const stat = evaluateFor(from, me);
+    const remaining = NPC_SEARCH.thinkMs - (Date.now() - started);
+    let v = stat;
+    if (remaining > 0 || bestV === -Infinity) {
+      let sum = 0;
+      for (let i = 0; i < NPC_SEARCH.rollouts; i++) sum += rollout(from, me, depth, rng);
+      v = 0.35 * stat + 0.65 * (sum / NPC_SEARCH.rollouts);
+    }
+    if (v > bestV) { bestV = v; best = mv; }
+  }
+  return best;
 }
 
 // Keep the tile table import live for future shape-aware heuristics (and so the

@@ -171,6 +171,15 @@ for (let step = 0; step < 4000; step++) {
     if (st.tiles >= 18 && !shot.mid) {
       shot.mid = true;
       await snap(P.page, '05-midgame');
+      // The living board at a few hours and weathers, for eyeballing.
+      for (const [name, o] of [['dawn', { progress: 0.02, weather: 'clear' }], ['noon-rain', { progress: 0.45, weather: 'rain' }], ['golden', { progress: 0.8, weather: 'cloudy' }], ['night', { progress: 1, weather: 'clear' }]]) {
+        await P.page.evaluate((ov) => window.__carcassonne.setAmbient(ov), o);
+        await P.page.waitForTimeout(450);
+        await snap(P.page, `05e-ambient-${name}`);
+      }
+      await P.page.evaluate(() => window.__carcassonne.setAmbient({}));
+      const amb = await P.page.evaluate(() => window.__carcassonne.ambient());
+      console.log(`  🌤 ambient: ${JSON.stringify(amb)}`);
       // Wandering: road/city meeples get one continuous route across their whole feature.
       const poses0 = await P.page.evaluate(() => window.__carcassonne.poses());
       let longest = 0, multi = 0;

@@ -7,6 +7,7 @@ import { getTileCanvas, getTileCanvasIn, getTileBackCanvas, getMeepleCanvas, pre
 import { h, toast } from './dom.js';
 import { SKINS, currentSkin, setSkin, onSkinChange, applySkinToDocument } from './skins/index.js';
 import { monasteryCenter } from './skins/geometry.js';
+import { drawAmbientUnder, drawAmbientOver, ambientStatus, setAmbientOverride, type AmbientView } from './ambient.js';
 import {
   unlockAudio, isMusicOn, isSfxOn, setMusic, setSfx,
   sfxTilePlaced, sfxMeeplePlaced, sfxScore, sfxYourTurn, sfxGameOver, sfxPoke,
@@ -1411,6 +1412,13 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     if (A && now - c.start < (c.b ? 1800 : c.end - c.start)) drawBubble(ctx, c.textA, A.sx, A.sy, size);
     if (B && now - c.start >= 1100) drawBubble(ctx, c.textB, B.sx, B.sy, size);
   }
+  // The living board: cloud shadows, cloister smoke, the light of the hour.
+  const ambient: AmbientView | null = animateMeeples ? {
+    ctx, cw, ch, scale: camera.scale, now, game,
+    toScreen: (wx, wy) => worldToScreen(wx, wy, cw, ch),
+    bounds: boardBounds(board), skinId: currentSkin().id,
+  } : null;
+  if (ambient) drawAmbientUnder(ambient);
 
   // Meeple decision: the freshly placed tile glows and every feature you could claim
   // shows a translucent meeple in your colour. Hover one to see what it is; click to
@@ -1542,6 +1550,7 @@ function drawBoard(canvas: HTMLCanvasElement): void {
     }
   }
 
+  if (ambient) drawAmbientOver(ambient);
   drawParticles(ctx, cw, ch);
 }
 
@@ -1606,7 +1615,7 @@ function renderGame(): HTMLElement {
     h('h2', {}, 'Settings'),
     settingsRow('🎵 Background music', isMusicOn(), (v) => setMusic(v)),
     settingsRow('🔔 Sound effects', isSfxOn(), (v) => setSfx(v)),
-    settingsRow('🚶 Meeples wander their features', animateMeeples, (v) => { animateMeeples = v; try { localStorage.setItem(PREF_ANIMATE, v ? 'on' : 'off'); } catch { /* fine */ } if (v) ensureBoardAnimation(); else if (boardCanvasEl) drawBoard(boardCanvasEl); }),
+    settingsRow('🌤 Living board (wandering meeples, weather, birds)', animateMeeples, (v) => { animateMeeples = v; try { localStorage.setItem(PREF_ANIMATE, v ? 'on' : 'off'); } catch { /* fine */ } if (v) ensureBoardAnimation(); else if (boardCanvasEl) drawBoard(boardCanvasEl); }),
     settingsRow('📍 Mark who placed each tile', showOwners, (v) => { showOwners = v; try { localStorage.setItem(PREF_OWNERS, v ? 'on' : 'off'); } catch { /* fine */ } if (boardCanvasEl) drawBoard(boardCanvasEl); }),
     h('label', { class: 'settings-row' },
       h('span', {}, '🎨 Look'),
@@ -1896,6 +1905,8 @@ function renderEndModal(game: NonNullable<RoomDoc['game']>): HTMLElement | null 
     return [sx + r.left, sy + r.top];
   },
   chats: () => chats.length,
+  ambient: () => room?.game ? ambientStatus(room.game) : null,
+  setAmbient: (o: Parameters<typeof setAmbientOverride>[0]) => setAmbientOverride(o),
   pokes: () => pokes.size,
   skipPill: () => {
     if (!boardCanvasEl) return null;

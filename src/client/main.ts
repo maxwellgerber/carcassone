@@ -177,7 +177,11 @@ function connectSocket(roomId: string): void {
       if (room.game && (room.game.currentTile !== prev?.game?.currentTile || room.game.turnNumber !== prev?.game?.turnNumber)) { previewRot = 0; pending = null; }
       if (room.phase === 'lobby' || (prev?.phase !== 'playing' && room.phase === 'playing')) { endModalDismissed = false; }
       // Walk routes span whole features, so any new tile can extend them.
-      if (Object.keys(room.game?.board ?? {}).length !== Object.keys(prev?.game?.board ?? {}).length) walkCache.clear();
+      if (Object.keys(room.game?.board ?? {}).length !== Object.keys(prev?.game?.board ?? {}).length) {
+        // Note where everyone stands (against the old board) before the routes are rebuilt.
+        const cur = room; room = prev; try { rememberWalkers(); } finally { room = cur; }
+        walkCache.clear();
+      }
       reactToSync(prev, room);
       renderRoom();
     } else if (msg.type === 'error') {
@@ -632,6 +636,43 @@ interface WalkPath {
   pts: [number, number][]; cum: number[]; length: number; loop: boolean; speed: number; phase: number;
   /** Gait: walk for `walkSec`, rest for `restSec`, repeat — seeded per meeple so the crowd never marches in step. */
   walkSec: number; restSec: number; bobRate: number;
+  /** Progress anchor: at wall-clock `t0` (ms) the walker was `d0` along the cycle
+   *  (0..length for loops, 0..2*length for out-and-back). New routes inherit the
+   *  spot the meeple was standing on, so a tile landing never makes it jump. */
+  t0: number; d0: number;
+}
+/** Where each walker stood when its route was last thrown away, keyed like walkCache. */
+const carryOver = new Map<string, { x: number; y: number; forward: boolean }>();
+/** Seconds this walker has actually spent walking (rests dropped) by wall-clock `nowMs`. */
+function walkedSeconds(wp: { walkSec: number; restSec: number; phase: number }, nowMs: number): { walked: number; walking: boolean } {
+  const cycle = wp.walkSec + wp.restSec;
+  const elapsed = nowMs / 1000 + wp.phase * cycle * 3;
+  const full = Math.floor(elapsed / cycle), rem = elapsed - full * cycle;
+  return { walked: full * wp.walkSec + Math.min(rem, wp.walkSec), walking: rem < wp.walkSec };
+}
+/** Distance along a polyline of the point nearest to (x, y). */
+function nearestAlong(pts: [number, number][], cum: number[], x: number, y: number): number {
+  let best = 0, bestD = Infinity;
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, ay] = pts[i - 1]!, [bx, by] = pts[i]!;
+    const vx = bx - ax, vy = by - ay, L = vx * vx + vy * vy;
+    const t = L ? Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / L)) : 0;
+    const dd = Math.hypot(x - (ax + vx * t), y - (ay + vy * t));
+    if (dd < bestD) { bestD = dd; best = cum[i - 1]! + (cum[i]! - cum[i - 1]!) * t; }
+  }
+  return best;
+}
+/** Remember where every walker is right now, so rebuilt routes can resume there. */
+function rememberWalkers(): void {
+  const game = room?.game; if (!game) return;
+  const now = performance.now();
+  for (const m of game.meeples) {
+    const tile = game.board[`${m.x},${m.y}`]; if (!tile) continue;
+    const k = meepleKey(m);
+    if (!walkCache.has(k)) continue;
+    const p = meeplePose(m, tile.tileKey, tile.rot, now);
+    carryOver.set(k, { x: p.x, y: p.y + p.bob, forward: p.forward });
+  }
 }
 const walkCache = new Map<string, WalkPath>();
 
@@ -795,27 +836,33 @@ function walkPathFor(m: { x: number; y: number; kind: MeepleKind; idx: number; p
   else { pts = [[m.x + ax, m.y + ay]]; speed = 0; }
   const cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1]! + Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![1] - pts[i - 1]![1]));
-  const wp: WalkPath = { pts, cum, length: cum[cum.length - 1]!, loop, speed: speed * pace, phase, walkSec, restSec, bobRate };
+  const length = cum[cum.length - 1]!;
+  const t0 = performance.now();
+  let d0 = phase * length * 2;
+  const prev = carryOver.get(key);
+  if (prev && pts.length > 1) {
+    // Resume from the spot the walker was standing on, heading the same way.
+    const d = nearestAlong(pts, cum, prev.x, prev.y);
+    d0 = loop || prev.forward ? d : length * 2 - d;
+    carryOver.delete(key);
+  }
+  const wp: WalkPath = { pts, cum, length, loop, speed: speed * pace, phase, walkSec, restSec, bobRate, t0, d0 };
   walkCache.set(key, wp);
   return wp;
 }
 
 /** Where a meeple is right now, in world (tile-grid) units, plus which way it faces. */
-function meeplePose(m: { x: number; y: number; kind: MeepleKind; idx: number; playerIdx: number }, tileKey: string, rot: number, now: number): { x: number; y: number; flip: boolean; bob: number } {
+function meeplePose(m: { x: number; y: number; kind: MeepleKind; idx: number; playerIdx: number }, tileKey: string, rot: number, now: number): { x: number; y: number; flip: boolean; bob: number; forward: boolean } {
   const wp = walkPathFor(m, tileKey, rot);
   if (!animateMeeples || wp.length === 0 || wp.speed === 0) {
     const p = wp.pts[0]!;
     const rock = animateMeeples && m.kind === 'farm' ? Math.sin(now / 900 + wp.phase * 6) * 0.004 : 0;
-    return { x: p[0], y: p[1] + rock, flip: false, bob: 0 };
+    return { x: p[0], y: p[1] + rock, flip: false, bob: 0, forward: true };
   }
-  // Time actually spent walking: the gait cycle drops the rests, so the meeple
-  // stops on the path for a moment and then carries on from where it stood.
-  const cycle = wp.walkSec + wp.restSec;
-  const elapsed = now / 1000 + wp.phase * cycle * 3;
-  const full = Math.floor(elapsed / cycle), rem = elapsed - full * cycle;
-  const walking = rem < wp.walkSec;
-  const walked = full * wp.walkSec + Math.min(rem, wp.walkSec);
-  const t = walked * wp.speed + wp.phase * wp.length * 2;
+  // Time actually spent walking since the route was built: the gait cycle drops the
+  // rests, so the meeple stops on the path for a moment and then carries on.
+  const { walked, walking } = walkedSeconds(wp, now);
+  const t = (walked - walkedSeconds(wp, wp.t0).walked) * wp.speed + wp.d0;
   let d: number, forward = true;
   if (wp.loop) d = t % wp.length;
   else { const cycle = t % (wp.length * 2); if (cycle <= wp.length) d = cycle; else { d = wp.length * 2 - cycle; forward = false; } }
@@ -825,7 +872,7 @@ function meeplePose(m: { x: number; y: number; kind: MeepleKind; idx: number; pl
   const p = wp.pts[i - 1]!, q = wp.pts[i]!;
   const dx = (q[0] - p[0]) * (forward ? 1 : -1);
   const bob = walking ? Math.abs(Math.sin(now / wp.bobRate + wp.phase * 10)) * 0.012 : 0;
-  return { x: p[0] + (q[0] - p[0]) * k, y: p[1] + (q[1] - p[1]) * k - bob, flip: dx < -0.0005, bob };
+  return { x: p[0] + (q[0] - p[0]) * k, y: p[1] + (q[1] - p[1]) * k - bob, flip: dx < -0.0005, bob, forward };
 }
 
 let boardAnimFrame: number | null = null;

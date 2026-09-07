@@ -66,6 +66,7 @@ await A.page.click('text=Start game (3 players)');
 await A.page.waitForSelector('.board-wrap canvas');
 await B.page.waitForSelector('.board-wrap canvas');
 
+let prePoses = null, routeSmooth = 0;
 let placedByHumans = 0, meeplesPlaced = 0, skips = 0, pillSkips = 0, escSkips = 0, autoSkipToasts = 0, shot = { hover: false, ghosts: false, tooltip: false, mid: false };
 const rnd = (n) => Math.floor(Math.random() * n);
 // Screen positions are only trustworthy after the board has had a frame to refit
@@ -89,6 +90,7 @@ for (let step = 0; step < 4000; step++) {
     if (!st.my) continue;
     if (st.gphase === 'placeTile') {
       await afterFrame(P.page);
+      prePoses = await P.page.evaluate(() => window.__carcassonne.poses());
       // Cells under the placement bar at the top can't be tapped without panning first.
       const cells = (await P.page.evaluate(() => window.__carcassonne.legalCells())).filter((c) => c.sy > 80);
       if (!cells.length) { await P.page.click('button:has-text("Recenter")'); continue; }
@@ -111,6 +113,7 @@ for (let step = 0; step < 4000; step++) {
         errors.push(`${P.name}: nothing happened after clicking legal cell ${JSON.stringify(c)} — ${JSON.stringify(info)}`);
       }
     } else if (st.gphase === 'placeMeeple') {
+      prePoses = null;
       await afterFrame(P.page);
       const ghosts = await P.page.evaluate(() => window.__carcassonne.ghosts());
       if (ghosts.length === 0) { errors.push(`${P.name}: asked for a meeple with no ghosts to click (state ${JSON.stringify(st)})`); continue; }
@@ -153,6 +156,17 @@ for (let step = 0; step < 4000; step++) {
       }
       acted = true;
       if (!(await settle(P.page, st))) { await snap(P.page, `debug-meeple-${step}`); errors.push(`${P.name}: meeple decision (${action}) did not go through (state ${JSON.stringify(st)})`); }
+    }
+    if (acted && prePoses) {
+      const post = await P.page.evaluate(() => window.__carcassonne.poses());
+      for (const q of post) {
+        const before = prePoses.find((b) => b.key === q.key);
+        if (!before) continue;
+        const d = Math.hypot(q.x - before.x, q.y - before.y);
+        if (d > 0.3) errors.push(`${q.key}: jumped ${d.toFixed(2)} tiles when a tile landed`);
+        else if (d > 0.05) routeSmooth++;
+      }
+      prePoses = null;
     }
     if (st.tiles >= 18 && !shot.mid) {
       shot.mid = true;
@@ -247,7 +261,7 @@ else {
 await A.page.click('button:has-text("Final scores")');
 if (!(await A.page.$('.modal-backdrop'))) errors.push('end modal did not reopen');
 console.log('\nfinal:', finalA);
-console.log(`humans placed ${placedByHumans} tiles, ${meeplesPlaced} meeples via ghosts, ${skips} button skips, ${pillSkips} on-tile skips, ${escSkips} Esc skips, ${autoSkipToasts} auto-skip toasts`);
+console.log(`humans placed ${placedByHumans} tiles, ${meeplesPlaced} meeples via ghosts, ${skips} button skips, ${pillSkips} on-tile skips, ${escSkips} Esc skips, ${autoSkipToasts} auto-skip toasts; ${routeSmooth} walkers kept their spot across a tile landing`);
 await browser.close();
 if (errors.length) { console.error('\nERRORS:'); for (const e of errors) console.error(' -', e); process.exit(1); }
 if (finalA?.phase !== 'ended') { console.error('game did not finish'); process.exit(1); }

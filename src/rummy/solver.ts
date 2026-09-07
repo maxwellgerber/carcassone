@@ -21,6 +21,7 @@ import {
   DEFAULT_RULES,
   cardKey,
   cardPoints,
+  cardToString,
   pointsOf,
   withoutCards,
 } from './cards.js';
@@ -50,6 +51,10 @@ export interface Plan {
   readonly deadwood: readonly Card[];
   readonly deadwoodPoints: number;
   readonly status: SolutionStatus;
+  /** The integer program that was solved. */
+  readonly model: ModelInfo;
+  /** Names of the variables set to 1 in the optimal solution. */
+  readonly chosen: readonly string[];
 }
 
 /**
@@ -91,83 +96,128 @@ export function enumerateLayoffs(hand: readonly Card[], table: readonly TableMel
   return out;
 }
 
-/**
- * Find the minimum-deadwood arrangement of `hand` given `table`.
- *
- * Every candidate meld and lay-off card becomes a binary variable. Constraints:
- * each hand card used at most once; a lay-off card deeper in a run chain needs
- * the card before it; a set cannot grow past `maxSetSize`. Objective: maximise
- * points melded, i.e. minimise deadwood.
- */
-export function solveHand(hand: readonly Card[], table: readonly TableMeld[] = [], rules: Rules = DEFAULT_RULES): Plan {
-  if (hand.length === 0) return { moves: [], melded: [], deadwood: [], deadwoodPoints: 0, status: 'optimal' };
+/** One decision variable of the integer program, with what it means. */
+export interface VarInfo {
+  readonly name: string;
+  /** Objective coefficient: points melded if this variable is 1. */
+  readonly points: number;
+  readonly cards: readonly Card[];
+  /** e.g. "lay 9H 9D 9C as a set" or "lay off 8H onto T1 (high end)". */
+  readonly describe: string;
+  readonly move: { meld: Meld } | { layoff: number; j: number };
+}
 
+/** One constraint of the integer program: sum(coeff × var) ≤ max. */
+export interface ConstraintInfo {
+  readonly name: string;
+  readonly kind: 'card' | 'chain' | 'capacity';
+  readonly label: string;
+  readonly terms: readonly (readonly [string, number])[];
+  readonly max: number;
+}
+
+export interface ModelInfo {
+  readonly variables: readonly VarInfo[];
+  readonly constraints: readonly ConstraintInfo[];
+  readonly melds: readonly Meld[];
+  readonly layoffs: readonly Move[];
+}
+
+/**
+ * Build the integer program for `hand` against `table`.
+ *
+ *   maximise   Σ points(v) · v            over every candidate meld / lay-off card v
+ *   subject to Σ_{v ∋ c} v ≤ 1            for every card c in hand   (used at most once)
+ *              l_j − l_{j−1} ≤ 0          for lay-off chains          (extend a run outward in order)
+ *              Σ_{v adds to set t} v ≤ 4 − |t|                        (a set holds at most maxSetSize)
+ *              v ∈ {0, 1}
+ */
+export function buildModel(hand: readonly Card[], table: readonly TableMeld[] = [], rules: Rules = DEFAULT_RULES): ModelInfo {
   const melds = enumerateMelds(hand, rules);
   const layoffs = enumerateLayoffs(hand, table, rules);
-
-  const variables = new Map<string, [string, number][]>();
-  const constraints = new Map<string, { max: number }>();
-  /** Variable name -> what choosing it means. */
-  const decode = new Map<string, { meld: Meld } | { layoff: number; j: number }>();
-  for (const c of hand) constraints.set('c:' + cardKey(c), { max: 1 });
+  const variables: VarInfo[] = [];
+  const cardTerms = new Map<string, [string, number][]>();
+  for (const c of hand) cardTerms.set(cardKey(c), []);
+  const chains: ConstraintInfo[] = [];
+  const caps = new Map<string, { label: string; terms: [string, number][]; max: number }>();
 
   melds.forEach((m, i) => {
     const name = `m${i}`;
-    const coeffs: [string, number][] = [['obj', pointsOf(m.cards, rules)]];
-    for (const c of m.cards) coeffs.push(['c:' + cardKey(c), 1]);
-    variables.set(name, coeffs);
-    decode.set(name, { meld: m });
+    variables.push({ name, points: pointsOf(m.cards, rules), cards: m.cards, describe: `lay ${m.cards.map(cardToString).join(' ')} as a ${m.kind}`, move: { meld: m } });
+    for (const c of m.cards) cardTerms.get(cardKey(c))!.push([name, 1]);
   });
-
-  // Lay-off chains: one variable per card, chained so card j needs card j-1.
   layoffs.forEach((lo, i) => {
     if (lo.kind !== 'layoff') return;
-    const capName = `cap:${lo.target.id}`;
-    if (lo.end === 'set' && !constraints.has(capName)) constraints.set(capName, { max: rules.maxSetSize - lo.target.meld.cards.length });
     lo.cards.forEach((c, j) => {
       const name = `l${i}_${j}`;
-      const coeffs: [string, number][] = [['obj', cardPoints(c, rules)], ['c:' + cardKey(c), 1]];
-      if (lo.end === 'set') coeffs.push([capName, 1]);
-      if (j > 0) {
-        const chainName = `chain:${i}:${j}`;
-        constraints.set(chainName, { max: 0 });
-        coeffs.push([chainName, 1]);
-        variables.get(`l${i}_${j - 1}`)!.push([chainName, -1]);
+      const where = lo.end === 'set' ? `add ${cardToString(c)} to ${lo.target.id}` : `lay off ${cardToString(c)} onto ${lo.target.id} (${lo.end} end)`;
+      variables.push({ name, points: cardPoints(c, rules), cards: [c], describe: where, move: { layoff: i, j } });
+      cardTerms.get(cardKey(c))!.push([name, 1]);
+      if (lo.end === 'set') {
+        const cap = caps.get(lo.target.id) ?? { label: `${lo.target.id} can take at most ${rules.maxSetSize - lo.target.meld.cards.length} more`, terms: [], max: rules.maxSetSize - lo.target.meld.cards.length };
+        cap.terms.push([name, 1]);
+        caps.set(lo.target.id, cap);
       }
-      variables.set(name, coeffs);
-      decode.set(name, { layoff: i, j });
+      if (j > 0) {
+        chains.push({ name: `chain:${i}:${j}`, kind: 'chain', label: `${cardToString(c)} only after ${cardToString(lo.cards[j - 1]!)} on ${lo.target.id}`, terms: [[name, 1], [`l${i}_${j - 1}`, -1]], max: 0 });
+      }
     });
   });
 
+  const constraints: ConstraintInfo[] = [];
+  for (const c of hand) constraints.push({ name: 'c:' + cardKey(c), kind: 'card', label: `${cardToString(c)} used at most once`, terms: cardTerms.get(cardKey(c))!, max: 1 });
+  constraints.push(...chains);
+  for (const [id, cap] of caps) constraints.push({ name: `cap:${id}`, kind: 'capacity', label: cap.label, terms: cap.terms, max: cap.max });
+  return { variables, constraints, melds, layoffs };
+}
+
+/**
+ * Find the minimum-deadwood arrangement of `hand` given `table` by solving the
+ * integer program from `buildModel`.
+ */
+export function solveHand(hand: readonly Card[], table: readonly TableMeld[] = [], rules: Rules = DEFAULT_RULES): Plan {
+  const info = buildModel(hand, table, rules);
+  if (hand.length === 0 || info.variables.length === 0) {
+    return { moves: [], melded: [], deadwood: [...hand], deadwoodPoints: pointsOf(hand, rules), status: 'optimal', model: info, chosen: [] };
+  }
+
+  const variables = new Map<string, [string, number][]>();
+  for (const v of info.variables) variables.set(v.name, [['obj', v.points]]);
+  const constraints = new Map<string, { max: number }>();
+  for (const k of info.constraints) {
+    constraints.set(k.name, { max: k.max });
+    for (const [vname, coeff] of k.terms) variables.get(vname)!.push([k.name, coeff]);
+  }
   const model: Model = { direction: 'maximize', objective: 'obj', constraints, variables, binaries: true };
   const sol = solve(model);
 
   const moves: Move[] = [];
   const melded: Card[] = [];
+  const chosen: string[] = [];
   if (sol.status === 'optimal' || sol.status === 'timedout') {
-    const chosen = new Map<number, Card[]>(); // layoff index -> cards chosen from its chain
+    const byName = new Map(info.variables.map((v) => [v.name, v]));
+    const chosenChain = new Map<number, Card[]>(); // layoff index -> cards chosen from its chain
     for (const [name, value] of sol.variables) {
       if (value < 0.5) continue;
-      const d = decode.get(name);
-      if (!d) continue;
-      if ('meld' in d) moves.push({ kind: 'meld', meld: d.meld });
+      const v = byName.get(name);
+      if (!v) continue;
+      chosen.push(name);
+      if ('meld' in v.move) moves.push({ kind: 'meld', meld: v.move.meld });
       else {
-        const lo = layoffs[d.layoff]!;
-        if (lo.kind !== 'layoff') continue;
-        const arr = chosen.get(d.layoff) ?? [];
-        arr[d.j] = lo.cards[d.j]!;
-        chosen.set(d.layoff, arr);
+        const arr = chosenChain.get(v.move.layoff) ?? [];
+        arr[v.move.j] = v.cards[0]!;
+        chosenChain.set(v.move.layoff, arr);
       }
     }
-    for (const [i, cards] of chosen) {
-      const lo = layoffs[i]!;
+    for (const [i, cards] of chosenChain) {
+      const lo = info.layoffs[i]!;
       if (lo.kind !== 'layoff') continue;
       moves.push({ kind: 'layoff', target: lo.target, end: lo.end, cards: cards.filter((c): c is Card => !!c) });
     }
     for (const mv of moves) melded.push(...(mv.kind === 'meld' ? mv.meld.cards : mv.cards));
   }
   const deadwood = withoutCards(hand, melded);
-  return { moves, melded, deadwood, deadwoodPoints: pointsOf(deadwood, rules), status: sol.status };
+  return { moves, melded, deadwood, deadwoodPoints: pointsOf(deadwood, rules), status: sol.status, model: info, chosen };
 }
 
 /** Hand-size limit past which we refuse to analyse (keeps the UI honest). */
@@ -210,9 +260,8 @@ export interface Analysis {
 export function analyze(hand: readonly Card[], table: readonly TableMeld[] = [], rules: Rules = DEFAULT_RULES): Analysis {
   if (hand.length > MAX_HAND) throw new Error(`Hand too large (${hand.length} cards; limit ${MAX_HAND})`);
   const t0 = now();
-  const melds = enumerateMelds(hand, rules);
-  const layoffs = enumerateLayoffs(hand, table, rules);
   const best = solveHand(hand, table, rules);
+  const { melds, layoffs } = best.model;
 
   const discards: DiscardOption[] = hand.map((card) => ({ card, plan: solveHand(withoutCards(hand, [card]), table, rules) }));
   discards.sort((a, b) => a.plan.deadwoodPoints - b.plan.deadwoodPoints || a.plan.deadwood.length - b.plan.deadwood.length);

@@ -76,3 +76,16 @@ details .melds { margin-top: 0.5rem; }
 .deck button.pick.pending { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
 .pending-row { min-height: 2.2rem; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* equations */
+.equations .eq { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 0.2rem 0.6rem; align-items: center; padding: 0.15rem 0; font-size: 0.86rem; }
+.equations .eq-kw, .equations .eq-st { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.4rem; }
+.equations .eq-label { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--ink-soft); }
+.equations .eq-body { font-family: 'IBM Plex Mono', monospace; overflow-wrap: anywhere; line-height: 1.7; }
+.equations .eq-why { font-size: 0.78rem; color: var(--ink-soft); text-align: right; white-space: nowrap; }
+.equations .var { display: inline-block; padding: 0 0.25em; border-radius: 3px; border: 1px solid transparent; }
+.equations .var.one { background: color-mix(in srgb, var(--accent) 15%, transparent); border-color: var(--accent); font-weight: 600; }
+.equations .legend { margin-top: 0.6rem; border-top: 1px solid var(--line); padding-top: 0.4rem; }
+.equations .legend-row { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: 0.2rem 0.6rem; padding: 0.1rem 0; font-size: 0.84rem; }
+.equations .legend-row .eq-body { font-family: 'IBM Plex Sans', sans-serif; }
+@media (max-width: 600px) { .equations .eq, .equations .legend-row { grid-template-columns: 3rem minmax(0, 1fr); } .equations .eq-why { grid-column: 2; text-align: left; white-space: normal; } }

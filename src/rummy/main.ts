@@ -25,7 +25,7 @@ import {
   sortCards,
 } from './cards.js';
 import { type Meld, asMeld } from './melds.js';
-import { type Analysis, type Move, type Plan, type TableMeld, MAX_HAND, analyze } from './solver.js';
+import { type Analysis, type Move, type Plan, type TableMeld, MAX_HAND, analyze, solveHand } from './solver.js';
 
 interface State {
   hand: Card[];
@@ -277,22 +277,35 @@ function tablePanel(): HTMLElement {
       h('button', { class: 'x', type: 'button', title: 'Remove from table', onclick: () => { state.table = state.table.filter((x) => x !== t); render(); } }, '×'))))
     : h('div', { class: 'empty' }, 'Nothing on the table yet. Melds here can be laid off onto.');
 
-  const pendingMeld = state.pending.length >= 3 ? asMeld(state.pending, state.rules) : null;
+  // Partition the staged cards into melds with the solver itself: if nothing is
+  // left over, every meld it found can go on the table in one click.
+  const split = state.pending.length ? solveHand(state.pending, [], state.rules) : null;
+  const splitMelds = split ? split.moves.flatMap((m) => (m.kind === 'meld' ? [m.meld] : [])) : [];
+  const complete = !!split && split.deadwood.length === 0 && splitMelds.length > 0;
   const addPending = () => {
     try {
-      addTableMeld([...state.pending]);
+      for (const m of splitMelds) addTableMeld([...m.cards]);
       state.pending = [];
       render();
     } catch (e) {
       err.textContent = (e as Error).message;
     }
   };
-  const pendingRow = h('div', { class: 'row pending-row' },
-    h('span', { class: 'hint' }, 'Building:'),
-    state.pending.length ? cardRow(state.pending, 'new') : h('span', { class: 'empty' }, 'click cards above to build a meld'),
-    state.pending.length ? h('span', { class: pendingMeld ? 'hint' : 'error' }, pendingMeld ? `valid ${pendingMeld.kind}` : state.pending.length < 3 ? `${3 - state.pending.length} more` : 'not a set or run') : null,
-    h('button', { class: 'small', type: 'button', disabled: !pendingMeld, onclick: addPending }, 'Add to table'),
-    state.pending.length ? h('button', { class: 'small ghost', type: 'button', onclick: () => { state.pending = []; render(); } }, 'Clear') : null,
+  let status: HTMLElement | null = null;
+  if (split && state.pending.length) {
+    if (complete) status = h('span', { class: 'hint' }, splitMelds.length === 1 ? `valid ${splitMelds[0]!.kind}` : `${splitMelds.length} melds`);
+    else if (state.pending.length < 3) status = h('span', { class: 'hint' }, `${3 - state.pending.length} more`);
+    else status = h('span', { class: 'error' }, splitMelds.length ? 'left over: ' : 'not a set or run', splitMelds.length ? cardRow(split.deadwood, 'dead') : null);
+  }
+  const pendingRow = h('div', { class: 'pending-row' },
+    h('div', { class: 'row' },
+      h('span', { class: 'hint' }, 'Building:'),
+      state.pending.length ? cardRow(state.pending, 'new') : h('span', { class: 'empty' }, 'click cards above; pick several melds at once if you like'),
+      status,
+      h('button', { class: 'small', type: 'button', disabled: !complete, onclick: addPending }, splitMelds.length > 1 ? `Add ${splitMelds.length} melds` : 'Add to table'),
+      state.pending.length ? h('button', { class: 'small ghost', type: 'button', onclick: () => { state.pending = []; render(); } }, 'Clear') : null,
+    ),
+    complete && splitMelds.length > 1 ? h('div', { class: 'melds' }, ...splitMelds.map((m) => meldRow(m, 'new'))) : null,
   );
 
   const discard = h('input', { type: 'text', placeholder: 'e.g. JD', 'aria-label': 'Top of discard pile', value: state.discardTop ? cardToString(state.discardTop) : '' }) as HTMLInputElement;
@@ -341,6 +354,46 @@ function planSteps(plan: Plan, discard: Card | null): HTMLElement {
   if (discard) steps.push(h('li', {}, 'Discard ', cardChip(discard, 'dead')));
   if (!steps.length) steps.push(h('li', {}, 'Nothing to lay.'));
   return h('ol', { class: 'steps' }, ...steps);
+}
+
+/** Render the integer program behind a plan: objective, constraints, and the solution. */
+function equationsView(plan: Plan): HTMLElement {
+  const { variables, constraints } = plan.model;
+  const chosen = new Set(plan.chosen);
+  const sub = (name: string) => name.replace(/^m(\d+)$/, 'm$1').replace(/^l(\d+)_(\d+)$/, 'l$1.$2');
+  const v = (name: string) => h('span', { class: `var ${chosen.has(name) ? 'one' : ''}`, title: chosen.has(name) ? '= 1 in the optimal solution' : '= 0 in the optimal solution' }, sub(name));
+  const term = (name: string, coeff: number, first: boolean) => {
+    const parts: unknown[] = [];
+    if (coeff < 0) parts.push(first ? '−' : ' − ');
+    else if (!first) parts.push(' + ');
+    if (Math.abs(coeff) !== 1) parts.push(`${Math.abs(coeff)}·`);
+    parts.push(v(name));
+    return parts;
+  };
+
+  const objective = h('div', { class: 'eq' },
+    h('span', { class: 'eq-kw' }, 'maximise'),
+    h('span', { class: 'eq-body' }, ...variables.flatMap((x, i) => term(x.name, x.points, i === 0))),
+  );
+  const rows = constraints.map((k) => h('div', { class: `eq ${k.kind}` },
+    h('span', { class: 'eq-label' }, k.kind === 'card' ? cardChip(k.terms.length ? parseCard(k.label.split(' ')[0]!)! : { rank: 1, suit: 'S' }) : k.kind === 'chain' ? 'chain' : 'set'),
+    h('span', { class: 'eq-body' }, ...(k.terms.length ? k.terms.flatMap(([name, coeff], i) => term(name, coeff, i === 0)) : ['0']), ` ≤ ${k.max}`),
+    h('span', { class: 'eq-why' }, k.terms.length ? k.label : `${k.label.split(' ')[0]} fits nothing — deadwood`),
+  ));
+  const legend = h('div', { class: 'legend' }, ...variables.map((x) => h('div', { class: `legend-row ${chosen.has(x.name) ? 'one' : ''}` },
+    v(x.name), h('span', { class: 'eq-body' }, `= 1 if you ${x.describe}`), h('span', { class: 'eq-why' }, `${x.points} pts`))));
+  const value = variables.filter((x) => chosen.has(x.name)).reduce((t, x) => t + x.points, 0);
+
+  return h('details', { open: true, class: 'equations' },
+    h('summary', {}, 'The integer program ', h('small', {}, `${variables.length} binary variables, ${constraints.length} constraints — highlighted variables are 1 in the optimum`)),
+    h('p', { class: 'hint' }, 'Every way to use a card from your hand is a yes/no variable. The objective counts the points those choices meld; the constraints say each card can only be used once, a run can only grow outward one card at a time, and a set can hold at most four. Maximising melded points is the same as minimising deadwood.'),
+    objective,
+    h('div', { class: 'eq-st' }, 'subject to'),
+    ...rows,
+    h('div', { class: 'eq' }, h('span', { class: 'eq-label' }), h('span', { class: 'eq-body' }, 'every variable ∈ {0, 1}')),
+    h('div', { class: 'eq-st' }, `optimum: ${value} pts melded → ${plan.deadwoodPoints} pts of deadwood`),
+    legend,
+  );
 }
 
 function resultsPanel(): HTMLElement {
@@ -401,6 +454,8 @@ function resultsPanel(): HTMLElement {
     ? h('div', { class: 'melds' }, ...a.layoffs.map(moveRow))
     : h('div', { class: 'empty' }, state.table.length ? 'Nothing in hand fits a table meld.' : 'No melds on the table to lay off onto.');
 
+  const eq = equationsView(a.best);
+
   return h('section', { class: 'panel' },
     h('h2', {}, 'Analysis ', h('small', {}, `${a.hand.length + 1} integer programs in ${a.solveMs.toFixed(1)} ms`)),
     verdict,
@@ -408,6 +463,7 @@ function resultsPanel(): HTMLElement {
     h('details', { open: true }, h('summary', {}, 'Discard options ', h('small', {}, 'best first')), discards),
     h('details', { open: true }, h('summary', {}, 'Legal melds from hand ', h('small', {}, `${a.melds.length} — every set and run you could lay, including overlapping ones`)), meldList),
     h('details', { open: true }, h('summary', {}, 'Legal lay-offs ', h('small', {}, `${a.layoffs.length} — highlighted cards would be added`)), layoffList),
+    eq,
     h('div', { class: 'stat' }, `Model: one binary per candidate meld and per lay-off card, one "used at most once" constraint per hand card; objective maximises melded points. Solved with YALPS, a pure-JS branch-and-cut simplex.`),
   );
 }

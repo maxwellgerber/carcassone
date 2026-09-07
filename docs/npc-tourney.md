@@ -81,3 +81,81 @@ old-hard       100% (4)     0% (5)     0% (7)    39% (9)          —
   to normal 35/65; the sweep in `--tune` found reserve 7 with a 60% static weight
   and 12 rollouts x 4 plies, which is what ships.
 - Easy is a warm body: it has never beaten anything but easy.
+
+## The learned evaluator (scripts/selfplay.ts, scripts/train.ts)
+
+The position evaluation the search bots use can also come from a small neural
+net over the feature graph (`src/server/features.ts`: 86 numbers per seat —
+banked points, meeples in hand, and per-group aggregates of the cities, roads,
+cloisters and fields a seat holds, for me / the best opponent / the average
+opponent). It was trained on 371k positions from 2,000 self-play games between
+the normal bots (12% random moves for variety), predicting each seat's final
+margin. Held-out error: net 0.085 vs hand-written evaluation 0.119 (predicting
+the mean: 0.171), and the net is better in the early, mid and late game.
+
+Better prediction did not make a better player on its own. In the tourney
+(60 games per table, seed 5) the pure-net bots lost to the hand-written ones,
+but a 50/50 blend of the two evaluations was the strongest bot at every table
+size at normal's think time:
+
+```
+2 players (net = net evaluation, blend = 50/50, net-hard = net + rollouts)
+bot         seats  win%   avg pts  margin  reserve@mid  idle turns%  ms/move
+normal         28   48.2   84.7     2.9    0.75         35.1      21
+hard           23   73.9   83.4     4.5    0.83         30.6     158
+net            24   33.3   72.9    -5.8    0.63         36.7      23
+blend          18   72.2   91.2     6.3    0.72         28.2      26
+net-hard       27   31.5   75.2    -5.9    0.59         37.7     167
+
+```
+```
+3 players (net = net evaluation, blend = 50/50, net-hard = net + rollouts)
+bot         seats  win%   avg pts  margin  reserve@mid  idle turns%  ms/move
+normal         33   27.3   61.6    -0.4    1.18         19.6      23
+hard           35   40.0   66.1     3.5    1.11         17.3     172
+net            29   15.5   56.8    -6.1    1.45         20.5      27
+blend          49   50.0   68.7     3.5    1.18         19.3      29
+net-hard       34   23.5   59.7    -3.0    1.29         20.6     185
+```
+```
+4 players (net = net evaluation, blend = 50/50, net-hard = net + rollouts)
+bot         seats  win%   avg pts  margin  reserve@mid  idle turns%  ms/move
+normal         53   23.6   52.1    -0.6    1.75         12.5      23
+hard           41   30.5   53.3     3.1    1.61         13.5     175
+net            53   12.3   49.8    -2.8    1.98          9.5      30
+blend          53   36.8   51.3     0.8    1.70         11.6      34
+net-hard       40   22.5   50.4     0.3    2.35         10.9     193
+```
+Blend is what ships (`NPC_TUNING.evaluator = 'blend'`); normal and hard both
+use it. A confirmation run (seed 11) of the shipped normal/hard against
+hand-only versions (`hand`, `hand-hard`) shows a modest but consistent edge,
+clearest at 3-4 players; at 2 players it is close to a wash:
+
+```
+2 players (normal/hard = blend; hand/hand-hard = hand-written only)
+bot         seats  win%   avg pts  margin  reserve@mid  idle turns%  ms/move
+normal         29   50.0   85.5    -0.8    0.93         24.8      26
+hard           29   53.4   83.6     1.1    0.76         28.2     173
+hand           34   48.5   82.3    -0.5    0.71         34.4      21
+hand-hard      28   48.2   87.2     0.3    0.89         31.2     160
+
+```
+```
+3 players (normal/hard = blend; hand/hand-hard = hand-written only)
+bot         seats  win%   avg pts  margin  reserve@mid  idle turns%  ms/move
+normal         44   28.4   68.0     1.3    1.41         14.8      29
+hard           43   41.9   66.6     1.6    1.49         15.6     191
+hand           40   38.8   61.5    -2.2    1.32         17.7      22
+hand-hard      53   26.4   63.7    -0.7    1.38         17.8     167
+```
+```
+4 players (normal/hard = blend; hand/hand-hard = hand-written only)
+bot         seats  win%   avg pts  margin  reserve@mid  idle turns%  ms/move
+normal         54   27.8   55.9     1.7    1.89          8.0      35
+hard           67   26.9   52.6     0.3    1.82          9.0     213
+hand           67   20.9   50.6    -1.7    1.67          9.3      24
+hand-hard      52   25.0   52.1    -0.0    1.65         10.6     179
+```
+To go further: generate a second round of self-play with the blend bots
+(`--eval blend`), retrain, and re-run this comparison. Each round is about
+25 minutes of data generation on four cores plus a couple of minutes of training.

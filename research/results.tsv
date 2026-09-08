@@ -36,3 +36,5 @@ b35h	1b	strength	blend 0.35 vs shipped 0.25	-	STRENGTH win=0.378 ref_win=0.421 m
 v2@25	1b	strength	encoder v2 candidate vs shipped (blend 0.25)	-	STRENGTH win=0.433 ref_win=0.369 margin=0.55 ref_margin=-0.52 z=1.31 games=400	INFO	-
 29p	1b	strength	PROMOTE exp 29 pairwise-trained net vs shipped (blend 0.25)	-	STRENGTH win=0.443 ref_win=0.356 margin=0.68 ref_margin=-0.70 z=1.78 games=400	KEEP	036925f
 37	1b	features	encoder v2 + pairwise (2400 roots re-encoded), own split [regret metric]	0.10651 regret=0.982	-	REVERT	f9d9b24
+r5	1b	strength	reserveValue 5 vs shipped 7	-	STRENGTH win=0.378 ref_win=0.419 margin=-1.07 ref_margin=0.96 z=-0.84 games=400	REVERT	-
+r9	1b	strength	reserveValue 9 vs shipped 7	-	STRENGTH win=0.402 ref_win=0.399 margin=-0.28 ref_margin=0.27 z=0.06 games=400	REVERT	-

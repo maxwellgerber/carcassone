@@ -215,3 +215,7 @@ per-root regret with a dozen futures is an order of magnitude less sensitive
 than 400 games of self-play, which aggregate ~30,000 decisions. From here the
 benchmark is training data (pairwise supervision, where it demonstrably helped:
 exp 29 promoted on strength) and strength head-to-heads are the only gate.
+
+## Heuristic knob: reserveValue (head-to-head vs shipped 7, blend 0.25)
+
+5 → margin -1.07 (z -0.84); 9 → -0.28 (z 0.06). 7 stays.

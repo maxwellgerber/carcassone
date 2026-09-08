@@ -11,3 +11,4 @@ id	gen	kind	description	val_mse	strength	verdict	commit
 10	1	features	features: remaining-bag composition (8 dims)	0.09667	-	REVERT	197a2ac
 11	1	train	L2 1e-4 (was 1e-5)	0.09689	-	REVERT	da0837b
 12	1	train	standardise inputs (folded into layer 0 at export)	0.10621	-	REVERT	4cd8ad2
+13	1	train	fast loop + hidden [96,48]	0.09841	-	REVERT	a37281e

@@ -219,3 +219,10 @@ exp 29 promoted on strength) and strength head-to-heads are the only gate.
 ## Heuristic knob: reserveValue (head-to-head vs shipped 7, blend 0.25)
 
 5 → margin -1.07 (z -0.84); 9 → -0.28 (z 0.06). 7 stays.
+
+## Encoder v2 + pairwise, trained on 18k games (gen1b + gen2), vs shipped
+
+win 0.406 vs 0.395, margin +0.55, z = 0.22. The v2 encoder still does not turn
+into strength, with or without pairwise supervision. Parked; the next lever is
+the search side of the hard bot (rollout blend, static weight, shortlist size),
+measured hard-vs-hard.

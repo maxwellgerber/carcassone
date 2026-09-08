@@ -7,16 +7,21 @@
 // Bots: easy / normal / hard are the live brains; old-normal / old-hard are the
 // pre-rewrite heuristics (scripts/legacy-npc.ts) kept as a baseline.
 import * as E from '../src/shared/engine.js';
-import { chooseNpcMeepleMove, chooseNpcTilePlacement, NPC_SEARCH, NPC_TUNING } from '../src/server/npc.js';
+import { chooseNpcMeepleMove, chooseNpcTilePlacement, NPC_SEARCH, NPC_TUNING, setCandidateWeights } from '../src/server/npc.js';
 import { chooseNpcMeepleMove as oldMeeple, chooseNpcTilePlacement as oldTile } from './legacy-npc.js';
 import type { GameState, NpcDifficulty, Placement } from '../src/shared/types.js';
 import { writeFileSync } from 'node:fs';
 
-type BotName = 'easy' | 'normal' | 'hard' | 'old-normal' | 'old-hard' | 'net' | 'net-hard' | 'blend' | 'blend-hard' | 'hand' | 'hand-hard';
-const BOTS: BotName[] = ['easy', 'normal', 'hard', 'old-normal', 'old-hard', 'net', 'net-hard', 'blend', 'blend-hard', 'hand', 'hand-hard'];
+type BotName = 'easy' | 'normal' | 'hard' | 'old-normal' | 'old-hard' | 'net' | 'net-hard' | 'blend' | 'blend-hard' | 'hand' | 'hand-hard' | 'cand' | 'cand-hard';
+const BOTS: BotName[] = ['easy', 'normal', 'hard', 'old-normal', 'old-hard', 'net', 'net-hard', 'blend', 'blend-hard', 'hand', 'hand-hard', 'cand', 'cand-hard'];
 /** Which evaluator each bot thinks with (switched per move so bots can share a table);
  *  plain normal/hard use whatever NPC_TUNING.evaluator ships with. */
-const EVALUATOR: Partial<Record<BotName, 'hand' | 'net' | 'blend'>> = { net: 'net', 'net-hard': 'net', blend: 'blend', 'blend-hard': 'blend', hand: 'hand', 'hand-hard': 'hand' };
+const EVALUATOR: Partial<Record<BotName, 'hand' | 'net' | 'blend' | 'blend-cand'>> = { net: 'net', 'net-hard': 'net', blend: 'blend', 'blend-hard': 'blend', hand: 'hand', 'hand-hard': 'hand', cand: 'blend-cand', 'cand-hard': 'blend-cand' };
+// cand / cand-hard use src/server/weights-candidate.ts (written by scripts/hillclimb.sh) if present.
+try {
+  const m = await import('../src/server/weights-candidate.js') as { WEIGHTS_CANDIDATE: Parameters<typeof setCandidateWeights>[0] };
+  setCandidateWeights(m.WEIGHTS_CANDIDATE);
+} catch { /* no candidate: cand bots would throw if used */ }
 
 function mkRng(seed: number): () => number {
   let s = seed >>> 0 || 1;

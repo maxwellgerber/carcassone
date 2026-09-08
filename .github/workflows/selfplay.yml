@@ -1,0 +1,72 @@
+name: Self-play data
+
+# Generates game records for the learned evaluator on GitHub's runners (free on a
+# public repo) and publishes them as a workflow artifact. Run it by hand:
+#   Actions → Self-play data → Run workflow (shards, games per shard, seed base)
+# Each shard is one 4-vCPU runner playing `games` games with the current bots.
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: 'Parallel shards (max 20 concurrent on the free tier)'
+        default: '16'
+      games:
+        description: 'Games per shard'
+        default: '500'
+      seed:
+        description: 'Seed base (shard i uses seed + i)'
+        default: '1000'
+      epsilon:
+        description: 'Exploration rate'
+        default: '0.12'
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.mk.outputs.shards }}
+    steps:
+      - id: mk
+        run: echo "shards=$(node -e "console.log(JSON.stringify(Array.from({length:${{ inputs.shards }}},(_,i)=>i+1)))")" >> "$GITHUB_OUTPUT"
+
+  play:
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.matrix.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Play
+        run: |
+          mkdir -p out
+          npx tsx scripts/selfplay.ts --games ${{ inputs.games }} --seed $(( ${{ inputs.seed }} + ${{ matrix.shard }} )) --epsilon ${{ inputs.epsilon }} --records out/rec-${{ inputs.seed }}-${{ matrix.shard }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: selfplay-${{ inputs.seed }}-${{ matrix.shard }}
+          path: out/*.json
+          retention-days: 30
+
+  bundle:
+    needs: play
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: selfplay-${{ inputs.seed }}-*
+          merge-multiple: true
+          path: all
+      - run: ls -la all && du -sh all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: selfplay-bundle-${{ inputs.seed }}
+          path: all/*.json
+          retention-days: 30

@@ -13,7 +13,7 @@ import {
   placeMeeple, placeTile, skipMeeple, type Features,
 } from '../shared/engine.js';
 import { TILE_TYPES } from '../shared/tiles.js';
-import { Net } from './net.js';
+import { Net, type NetWeights } from './net.js';
 import { WEIGHTS } from './weights.js';
 import { encode } from './features.js';
 import type { GameState, MeepleKind, NpcDifficulty, Placement } from '../shared/types.js';
@@ -27,7 +27,7 @@ export type NpcMove =
  *  Durable Object alarm never runs long; the tourney script raises it. */
 export const NPC_SEARCH = { candidates: 5, rollouts: 12, depth: 4, thinkMs: 150, staticWeight: 0.6 };
 /** Evaluation knobs, exposed so scripts/tourney.ts can sweep them. */
-export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend' };
+export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' | 'blend-cand' } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend' };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;
@@ -122,11 +122,19 @@ export function evaluatePositions(state: GameState, features: Features): number[
  *  strongest opponent, with a nod to the field average in bigger games. */
 export function evaluateFor(state: GameState, me: number, features = deriveFeatures(state)): number {
   if (NPC_TUNING.evaluator !== 'hand') {
-    const learned = netValue(state, me, features);
+    const learned = NPC_TUNING.evaluator === 'blend-cand' ? candidateValue(state, me, features) : netValue(state, me, features);
     if (NPC_TUNING.evaluator === 'net') return learned;
     return 0.5 * learned + 0.5 * handValue(state, me, features);
   }
   return handValue(state, me, features);
+}
+
+/** A challenger net for the hill climb's gate tourney (scripts/hillclimb.sh). */
+let candNet: Net | null = null;
+export function setCandidateWeights(w: NetWeights): void { candNet = Net.fromJSON(w); }
+function candidateValue(state: GameState, me: number, features: Features): number {
+  if (!candNet) throw new Error('no candidate weights loaded');
+  return candNet.predict(encode(state, me, features)) * 40;
 }
 
 /** The learned evaluator: a small net over the feature-graph encoding, trained on

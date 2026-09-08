@@ -13,3 +13,7 @@ export function randomSeed(): number {
   }
   return Math.floor(Math.random() * 0xffffffff) || 1;
 }
+
+/** Self-play records shuffle the bag from `gameSeed ^ DECK_SALT`, separate from the
+ *  exploration rolls, so a record replays without reproducing the bot's own dice. */
+export const DECK_SALT = 0x9e3779b9;

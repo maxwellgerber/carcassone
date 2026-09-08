@@ -11,13 +11,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 DESC="${1:?description}"; shift || true
-KIND="train"; STRENGTH=0; GEN="${GEN:-1}"; BUDGET="${BUDGET:-90}"; DATA="${DATA:-data/research}"; METRIC="mse"
-while [ $# -gt 0 ]; do case "$1" in --kind) KIND="$2"; shift 2;; --strength) STRENGTH=1; shift;; --gen) GEN="$2"; shift 2;; --metric) METRIC="$2"; shift 2;; *) echo "unknown arg $1"; exit 2;; esac; done
+KIND="train"; STRENGTH=0; GEN="${GEN:-1}"; BUDGET="${BUDGET:-90}"; DATA="${DATA:-data/research}"; METRIC="mse"; NOPREP=0
+while [ $# -gt 0 ]; do case "$1" in --kind) KIND="$2"; shift 2;; --strength) STRENGTH=1; shift;; --gen) GEN="$2"; shift 2;; --metric) METRIC="$2"; shift 2;; --noprep) NOPREP=1; shift;; *) echo "unknown arg $1"; exit 2;; esac; done
 BEST=research/best.json
 [ -f "$BEST" ] || echo '{"val_mse": 9, "strength_win": 0}' > "$BEST"
 id=$(( $(wc -l < research/results.tsv) ))  # header is row 0
 mkdir -p "$DATA"
-if [ "$KIND" = "features" ]; then
+if [ "$KIND" = "features" ] && [ "$NOPREP" = "0" ]; then
   echo "== re-encoding (encoder changed)"; npx tsx research/prepare.ts "$DATA"/../gen*/rec-*.json --out "$DATA" 2>/dev/null | tail -1
 fi
 echo "== exp $id: $DESC (kind $KIND, budget ${BUDGET}s)"
@@ -33,8 +33,8 @@ if [ "$METRIC" = "regret" ]; then
   # Paired held-out regret of the deployed blend (candidate net + hand) against the shipped blend
   # on the same roots. Improved = lower by more than two standard errors.
   echo "== held-out regret"
-  recs=""; [ "$KIND" = "features" ] && recs="--records data/gen1-actions/rec-*.json"
-  line=$(npx tsx research/regret.ts data/bench-heldout/*.json --weights "$DATA/candidate.ts" $recs 2>/dev/null | grep -E "^(blend:file|residual:file\(alpha=1)" | head -1)
+  recs=(); [ "$KIND" = "features" ] && recs=(--records 'data/gen1-actions/rec-*.json')
+  line=$(npx tsx research/regret.ts data/bench-heldout/*.json --weights "$DATA/candidate.ts" "${recs[@]}" 2>/dev/null | grep -E "^(blend:file|residual:file\(alpha=1)" | head -1 || true)
   echo "   $line"
   regret=$(echo "$line" | awk '{print $2}')
   delta=$(echo "$line" | sed -n 's/.* \([-+][0-9.]*\) ± \([0-9.]*\)$/\1/p'); dse=$(echo "$line" | sed -n 's/.* \([-+][0-9.]*\) ± \([0-9.]*\)$/\2/p')

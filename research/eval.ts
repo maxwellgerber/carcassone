@@ -24,11 +24,14 @@ const tag = String(process.pid);
 const candFile = `src/server/weights-candidate-${tag}.ts`, encFile = `src/server/features-candidate-${tag}.ts`;
 copyFileSync(candidate, candFile);
 if (encoder) copyFileSync(encoder, encFile);
-if (reference !== 'research/reference-weights.ts') throw new Error('the reference is fixed at research/reference-weights.ts (its encoder is frozen alongside it)');
+// --reference shipped: play the live shipped bot (current weights + live encoder) instead
+// of the frozen gen-0 reference — the head-to-head that decides a promotion.
+const vsShipped = reference === 'shipped';
+if (!vsShipped && reference !== 'research/reference-weights.ts') throw new Error('the reference is the frozen research/reference-weights.ts, or "shipped"');
 try {
   const runs = [2, 3].map((n) => {
     const outFile = `data/research/eval-${n}p.json`;
-    execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', 'blend,cand,blend-hard,cand-hard', '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, CARC_REFERENCE: '1', CARC_CANDIDATE_FILE: `../src/server/weights-candidate-${tag}.js`, ...(encoder ? { CARC_CANDIDATE_ENCODER: `../src/server/features-candidate-${tag}.js` } : {}), ...(blend ? { CARC_CAND_BLEND: blend } : {}) } });
+    execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', 'blend,cand,blend-hard,cand-hard', '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, ...(vsShipped ? {} : { CARC_REFERENCE: '1' }), CARC_CANDIDATE_FILE: `../src/server/weights-candidate-${tag}.js`, ...(encoder ? { CARC_CANDIDATE_ENCODER: `../src/server/features-candidate-${tag}.js` } : {}), ...(blend ? { CARC_CAND_BLEND: blend } : {}) } });
     return outFile;
   });
   const verdict = execFileSync('npx', ['tsx', 'scripts/gate.ts', ...runs], { encoding: 'utf8' }).trim();

@@ -97,7 +97,7 @@ jobs:
         run: |
           mkdir -p results
           for id in $(node -e 'for (const j of JSON.parse(require("fs").readFileSync("${{ inputs.queue }}","utf8")).jobs) console.log(j.id)'); do
-            files=$(ls all/$id-*p.json 2>/dev/null || true)
+            files=$(ls all/$id-[0-9]*p.json 2>/dev/null || true)
             if [ -z "$files" ]; then echo "$id	(no results)" | tee -a results/summary.tsv; continue; fi
             v=$(npx tsx scripts/gate.ts $files)
             echo "$id	$v" | tee -a results/summary.tsv

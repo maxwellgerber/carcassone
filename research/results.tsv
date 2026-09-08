@@ -65,3 +65,13 @@ mac-g2	2	strength	[Mac, 2p only, 640 seats] gen2 pairwise net (v1 encoder) vs sh
 cf-v2	2	strength	[confirm, 2p+3p, seed 8101] v2 encoder net (exp17) vs shipped	-	STRENGTH win=0.407 ref_win=0.393 margin=0.24 ref_margin=-0.22 z=0.40 games=800	FLAT	-
 cf-b30	2	strength	[confirm, 2p+3p, seed 8102] blend 0.30 vs shipped 0.25	-	STRENGTH win=0.413 ref_win=0.387 margin=0.19 ref_margin=-0.20 z=0.74 games=800	FLAT	-
 cf-v2b30	2	strength	[confirm, 2p+3p, seed 8103] v2 encoder net + blend 0.30 vs shipped	-	STRENGTH win=0.486 ref_win=0.314 margin=1.89 ref_margin=-1.88 z=5.04 games=800	CONFIRMING	-
+c1-v2	2	strength	[Actions confirm1, 2p+3p, 1600 seats] v2 encoder net (exp17) vs shipped v1 exp29	-	STRENGTH win=0.449 ref_win=0.352 margin=1.09 ref_margin=-1.07 z=3.98 games=1600	PROMOTE	-
+c1-v2b30	2	strength	[Actions confirm1, 1600 seats] v2 encoder + blend 0.30 vs shipped	-	STRENGTH win=0.430 ref_win=0.369 margin=1.03 ref_margin=-1.04 z=2.50 games=1600	KEEP (not better than v2 alone)	-
+c1-b30	2	strength	[Actions confirm1, 1600 seats] blend 0.30 vs shipped 0.25	-	STRENGTH win=0.405 ref_win=0.395 margin=0.19 ref_margin=-0.20 z=0.39 games=1600	REVERT	-
+c1-b20	2	strength	[Actions confirm1, 1600 seats] blend 0.20 vs shipped 0.25	-	STRENGTH win=0.374 ref_win=0.425 margin=-0.61 ref_margin=0.58 z=-2.06 games=1600	REVERT	-
+c1-d07	2	strength	[Actions confirm1, 1600 seats] reserveDecay 0.7 vs 0.6	-	STRENGTH win=0.400 ref_win=0.400 margin=0.18 ref_margin=-0.18 z=0.00 games=1600	REVERT	-
+c1-f06	2	strength	[Actions confirm1, 1600 seats] farmOpenFactor 0.6 vs 0.8	-	STRENGTH win=0.466 ref_win=0.331 margin=1.41 ref_margin=-1.47 z=5.54 games=1600	KEEP (re-test on v2)	-
+c1-f10	2	strength	[Actions confirm1, 1600 seats] farmOpenFactor 1.0 vs 0.8	-	STRENGTH win=0.358 ref_win=0.443 margin=-1.31 ref_margin=1.36 z=-3.48 games=1600	REVERT	-
+c1-o03	2	strength	[Actions confirm1, 1600 seats] oppBestWeight 0.3 vs 0.4	-	STRENGTH win=0.389 ref_win=0.411 margin=-0.05 ref_margin=0.05 z=-0.92 games=1600	REVERT	-
+c1-hd6	2	strength	[Actions confirm1, 1600 seats] hard depth 6 vs 4 (hard-vs-hard)	-	STRENGTH win=0.417 ref_win=0.383 margin=0.39 ref_margin=-0.40 z=1.36 games=1600	KEEP? (re-test)	-
+c1-ht300	2	strength	[Actions confirm1, 1600 seats] hard thinkMs 300 vs 150 (hard-vs-hard)	-	STRENGTH win=0.384 ref_win=0.416 margin=-0.23 ref_margin=0.23 z=-1.30 games=1600	REVERT	-

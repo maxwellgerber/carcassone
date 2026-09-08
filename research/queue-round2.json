@@ -1,0 +1,15 @@
+{
+  "_": "Round 2, after promoting encoder v2 (exp17). Everything vs the new shipped bot. 4 shards x 80 games/size = 1,600 seats each.",
+  "jobs": [
+    { "id": "old-v1-exp29", "candidate": "research/candidates/v1-exp29.ts", "args": ["--encoder", "research/encoder-v1.ts", "--reference", "shipped"], "games": 80, "seed": 9101 },
+    { "id": "farm-0.6", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":0.6}"], "games": 80, "seed": 9102 },
+    { "id": "farm-0.5", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":0.5}"], "games": 80, "seed": 9103 },
+    { "id": "farm-0.4", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":0.4}"], "games": 80, "seed": 9104 },
+    { "id": "v2-pairwise-18k", "candidate": "research/candidates/v2-pairwise-18k.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9105 },
+    { "id": "blend-0.35", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.35"], "games": 80, "seed": 9106 },
+    { "id": "blend-0.20", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.2"], "games": 80, "seed": 9107 },
+    { "id": "hard-depth-6", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"depth\":6}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9108 },
+    { "id": "hard-depth-3", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"depth\":3}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9109 },
+    { "id": "reserve-8", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveValue\":8}"], "games": 80, "seed": 9110 }
+  ]
+}

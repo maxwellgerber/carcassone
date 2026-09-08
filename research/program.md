@@ -297,3 +297,34 @@ runners that each play `games` per table size against the shipped bot with seed
 and commits one line per job (plus the raw JSONs) to the `match-results` branch
 under `results/<label>/`. 4 shards × 80 games = 1,600 seats per job, about an hour
 of wall-clock at 20 parallel runners, and it costs nothing on a public repo.
+
+## Confirmation round 1 on Actions (10 jobs × 1,600 seats, 2p+3p, seeds 9001–9010)
+
+| candidate vs shipped (v1 exp29, blend 0.25) | win | ref win | margin | z |
+|---|---|---|---|---|
+| **v2 encoder net (exp17)** | 44.9% | 35.2% | +1.09 | **3.98** |
+| **farmOpenFactor 0.6** | 46.6% | 33.1% | +1.41 | **5.54** |
+| v2 encoder + blend 0.30 | 43.0% | 36.9% | +1.03 | 2.50 |
+| hard depth 6 (hard-vs-hard) | 41.7% | 38.3% | +0.39 | 1.36 |
+| blend 0.30 | 40.5% | 39.5% | +0.19 | 0.39 |
+| reserveDecay 0.7 | 40.0% | 40.0% | +0.18 | 0.00 |
+| oppBestWeight 0.3 | 38.9% | 41.1% | -0.05 | -0.92 |
+| hard thinkMs 300 | 38.4% | 41.6% | -0.23 | -1.30 |
+| blend 0.20 | 37.4% | 42.5% | -0.61 | -2.06 |
+| farmOpenFactor 1.0 | 35.8% | 44.3% | -1.31 | -3.48 |
+
+(Win rates pool 2p and 3p seats, so 40% is par.) The local 800-seat confirmations
+agreed on the sign for every job they covered. Blend 0.30 was a 2p-only mirage:
+flat at 2p+3p, and 0.20 is clearly worse, so 0.25 stays. The v2 encoder is real
+and is now **promoted** (src/server/features.ts is the former research/encoder-v2.ts,
+the v1 encoder is kept as research/encoder-v1.ts, weights are exp 17). Three
+earlier 400-seat tries had put it at +0.5, z ≤ 1.3: the effect was there, the
+matches were too small.
+
+farmOpenFactor 0.6 beat 0.8 by the widest margin of anything measured so far
+(farms are being over-valued while their cities are open), with 1.0 symmetric on the
+losing side, so the bracket is clean. It was measured against the v1 net, so it is
+re-tested on the promoted bot along with 0.5 and 0.4 (round 2) before shipping.
+
+Workflow fix: the bundle step's glob `all/<id>-*p.json` also matched jobs whose id
+extends another's (v2-encoder matched v2-encoder-blend-0.30); now `<id>-[0-9]*p.json`.

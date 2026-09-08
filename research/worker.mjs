@@ -2,7 +2,7 @@
 // a time, then push results to the `mac-results` branch. Plain Node, no shell tricks,
 // so it behaves the same on macOS and Linux. Finished jobs are skipped on re-runs.
 //
-//   node research/worker.mjs            # parallelism = CPU cores
+//   node research/worker.mjs            # parallelism = half the CPU cores (keeps the machine usable)
 //   node research/worker.mjs 8          # or pick it
 //   node research/worker.mjs 8 --no-push
 //   QUEUE=path/to/other.json node research/worker.mjs
@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 process.chdir(root);
-const par = Number(process.argv[2]) || cpus().length;
+const par = Number(process.argv[2]) || Math.max(1, Math.floor(cpus().length / 2));
 const push = !process.argv.includes('--no-push');
 const queueFile = process.env.QUEUE ?? 'research/queue.json';
 const outDir = 'research/mac-results';

@@ -18,7 +18,8 @@ const encoder = arg('encoder', '');
 const blend = arg('blend', '');
 const tune = arg('tune', '');
 const search = arg('search', ''); // optional JSON of hard-bot search knobs for the candidate only
-const bots = arg('bots', 'blend,cand,blend-hard,cand-hard'); // e.g. blend-hard,cand-hard for search experiments // optional JSON of evaluation knobs for the candidate only, e.g. '{"reserveValue":9}' // optional: the candidate's net weight in the blend (shipped: 0.5) // optional: an encoder file (src/server-relative imports) the candidate was trained with
+const bots = arg('bots', 'blend,cand,blend-hard,cand-hard');
+const outPrefix = arg('out', ''); // optional: where the per-size tourney JSONs go (default data/research/eval-<pid>) // e.g. blend-hard,cand-hard for search experiments // optional JSON of evaluation knobs for the candidate only, e.g. '{"reserveValue":9}' // optional: the candidate's net weight in the blend (shipped: 0.5) // optional: an encoder file (src/server-relative imports) the candidate was trained with
 
 // Install the candidate where the tourney's cand bots find it; the reference (weights
 // and its frozen encoder) is loaded by the tourney itself under CARC_REFERENCE=1.
@@ -33,7 +34,7 @@ const vsShipped = reference === 'shipped';
 if (!vsShipped && reference !== 'research/reference-weights.ts') throw new Error('the reference is the frozen research/reference-weights.ts, or "shipped"');
 try {
   const runs = [2, 3].map((n) => {
-    const outFile = `data/research/eval-${tag}-${n}p.json`;
+    const outFile = `${outPrefix || `data/research/eval-${tag}`}-${n}p.json`;
     execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', bots, '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, ...(vsShipped ? {} : { CARC_REFERENCE: '1' }), CARC_CANDIDATE_FILE: `../src/server/weights-candidate-${tag}.js`, ...(encoder ? { CARC_CANDIDATE_ENCODER: `../src/server/features-candidate-${tag}.js` } : {}), ...(blend ? { CARC_CAND_BLEND: blend } : {}), ...(tune ? { CARC_CAND_TUNE: tune } : {}), ...(search ? { CARC_CAND_SEARCH: search } : {}) } });
     return outFile;
   });

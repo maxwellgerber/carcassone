@@ -1,0 +1,15 @@
+{
+  "_": "Confirmation round for the Mac 2p winners and the marginal knobs, fresh seeds. Run via the matches workflow (4 shards x 80 games/size = 1,600 seats each).",
+  "jobs": [
+    { "id": "v2-encoder", "candidate": "research/candidates/v2-encoder-exp17.ts", "args": ["--encoder", "research/encoder-v2.ts", "--reference", "shipped"], "games": 80, "seed": 9001 },
+    { "id": "blend-0.30", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.3"], "games": 80, "seed": 9002 },
+    { "id": "v2-encoder-blend-0.30", "candidate": "research/candidates/v2-encoder-exp17.ts", "args": ["--encoder", "research/encoder-v2.ts", "--reference", "shipped", "--blend", "0.3"], "games": 80, "seed": 9003 },
+    { "id": "blend-0.20", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.2"], "games": 80, "seed": 9004 },
+    { "id": "decay-0.7", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveDecay\":0.7}"], "games": 80, "seed": 9005 },
+    { "id": "farm-0.6", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":0.6}"], "games": 80, "seed": 9006 },
+    { "id": "opp-0.3", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"oppBestWeight\":0.3}"], "games": 80, "seed": 9007 },
+    { "id": "farm-1.0", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":1.0}"], "games": 80, "seed": 9008 },
+    { "id": "hard-depth-6", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"depth\":6}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9009 },
+    { "id": "hard-think-300", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"thinkMs\":300}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9010 }
+  ]
+}

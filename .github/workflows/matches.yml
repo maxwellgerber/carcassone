@@ -1,0 +1,116 @@
+name: Head-to-head matches
+
+# Runs the match queue (research/queue.json by default) on GitHub's runners: every
+# job in the queue is split into shards that each play `games` per table size
+# (2p and 3p) against the shipped bot, then the shards are pooled through
+# scripts/gate.ts and one STRENGTH line per job is committed to the
+# `match-results` branch under results/<run>/. Run by hand from the Actions tab.
+
+on:
+  workflow_dispatch:
+    inputs:
+      queue:
+        description: 'Queue file (research/*.json)'
+        default: 'research/queue.json'
+      shards:
+        description: 'Shards per job'
+        default: '4'
+      games:
+        description: 'Games per table size per shard'
+        default: '80'
+      label:
+        description: 'Name for this run (results/<label>/)'
+        default: 'run'
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      jobs: ${{ steps.mk.outputs.jobs }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: mk
+        run: |
+          node -e '
+            const q = JSON.parse(require("fs").readFileSync("${{ inputs.queue }}", "utf8")).jobs;
+            const n = Number("${{ inputs.shards }}");
+            const out = [];
+            for (const j of q) for (let s = 1; s <= n; s++) out.push({ id: j.id, candidate: j.candidate, args: j.args ?? [], seed: j.seed + 100 * s, shard: s });
+            console.log("jobs=" + JSON.stringify(out));
+          ' >> "$GITHUB_OUTPUT"
+
+  play:
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        job: ${{ fromJson(needs.matrix.outputs.jobs) }}
+    name: ${{ matrix.job.id }} / ${{ matrix.job.shard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Play
+        env:
+          JOB: ${{ toJson(matrix.job) }}
+          GAMES: ${{ inputs.games }}
+        run: |
+          mkdir -p out data/research
+          node -e '
+            const j = JSON.parse(process.env.JOB);
+            const args = ["tsx", "research/eval.ts", "--candidate", j.candidate, "--games", process.env.GAMES, "--seed", String(j.seed), "--out", `out/${j.id}-${j.shard}`, ...j.args];
+            console.log("npx " + args.join(" "));
+            const r = require("child_process").spawnSync("npx", args, { stdio: "inherit" });
+            process.exit(r.status ?? 1);
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: match-${{ inputs.label }}-${{ matrix.job.id }}-${{ matrix.job.shard }}
+          path: out/*.json
+          retention-days: 30
+
+  bundle:
+    needs: play
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: match-${{ inputs.label }}-*
+          merge-multiple: true
+          path: all
+      - name: Pool shards through the gate
+        run: |
+          mkdir -p results
+          for id in $(node -e 'for (const j of JSON.parse(require("fs").readFileSync("${{ inputs.queue }}","utf8")).jobs) console.log(j.id)'); do
+            files=$(ls all/$id-*p.json 2>/dev/null || true)
+            if [ -z "$files" ]; then echo "$id	(no results)" | tee -a results/summary.tsv; continue; fi
+            v=$(npx tsx scripts/gate.ts $files)
+            echo "$id	$v" | tee -a results/summary.tsv
+          done
+      - name: Commit to the match-results branch
+        run: |
+          git config user.name "match-bot"
+          git config user.email "match-bot@users.noreply.github.com"
+          git fetch origin match-results && git checkout match-results || git checkout --orphan match-results
+          git rm -rq --cached . 2>/dev/null || true
+          mkdir -p "results/${{ inputs.label }}"
+          cp all/*.json "results/${{ inputs.label }}/" 2>/dev/null || true
+          cp results/summary.tsv "results/${{ inputs.label }}/summary.tsv"
+          git add results
+          git commit -m "Matches ${{ inputs.label }}: ${{ inputs.queue }}, ${{ inputs.shards }} shards x ${{ inputs.games }} games/size" || echo "nothing new"
+          git push origin HEAD:match-results

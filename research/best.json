@@ -1,6 +1,6 @@
 {
-  "val_mse": 0.09885,
+  "val_mse": 0.09705,
   "noise_sd": 0.0005,
-  "exp": 3,
-  "desc": "batch 1024, lr 8e-3"
+  "exp": 4,
+  "desc": "batch 2048, lr 1e-2"
 }

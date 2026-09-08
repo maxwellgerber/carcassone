@@ -1,0 +1,10 @@
+v2-encoder	KEEP: candidate win 44.0% (1597 seats, margin 1.06) vs incumbent 36.1% (1603 seats, margin -1.05), z=4.58
+blend-0.30	REJECT: candidate win 40.5% (818 seats, margin 0.19) vs incumbent 39.5% (782 seats, margin -0.20), z=0.39
+v2-encoder-blend-0.30	KEEP: candidate win 43.0% (804 seats, margin 1.03) vs incumbent 36.9% (796 seats, margin -1.04), z=2.50
+blend-0.20	REJECT: candidate win 37.4% (784 seats, margin -0.61) vs incumbent 42.5% (816 seats, margin 0.58), z=-2.06
+decay-0.7	REJECT: candidate win 40.0% (800 seats, margin 0.18) vs incumbent 40.0% (800 seats, margin -0.18), z=0.00
+farm-0.6	KEEP: candidate win 46.6% (817 seats, margin 1.41) vs incumbent 33.1% (783 seats, margin -1.47), z=5.54
+opp-0.3	REJECT: candidate win 38.9% (800 seats, margin -0.05) vs incumbent 41.1% (800 seats, margin 0.05), z=-0.92
+farm-1.0	REJECT: candidate win 35.8% (815 seats, margin -1.31) vs incumbent 44.3% (785 seats, margin 1.36), z=-3.48
+hard-depth-6	KEEP: candidate win 41.7% (803 seats, margin 0.39) vs incumbent 38.3% (797 seats, margin -0.40), z=1.36
+hard-think-300	REJECT: candidate win 38.4% (803 seats, margin -0.23) vs incumbent 41.6% (797 seats, margin 0.23), z=-1.30

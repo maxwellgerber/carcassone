@@ -158,3 +158,7 @@ Net weight 0.75: win 0.278 vs 0.523, margin -4.88 vs +4.88, z = -5.2. Against th
 frozen reference it had looked identical to 0.5 (both 0.49 win) — the reference is
 too weak to separate them; head-to-heads decide. The heuristic's share in the
 blend matters a lot; 0.25 is being tested next.
+
+Net weight 0.25 vs shipped 0.5, head-to-head (seed 7171, 400 seats): win 0.627 vs
+0.171, margin +9.70 vs -9.80, z = 10.5. The single largest effect in the study so
+far. Sweeping 0.0 (pure heuristic) and 0.1 to find the optimum before promoting.

@@ -7,13 +7,22 @@
 // Also reports pairwise ordering accuracy on pairs whose label gap is clearly non-zero,
 // and a split-half reliability check of the labels themselves.
 //
-//   npx tsx research/regret.ts data/bench/*.json [--weights data/research/candidate.ts] [--alpha 0.5]
+//   npx tsx research/regret.ts data/bench/*.json [--weights data/research/candidate.ts] [--alpha 0.5] [--records 'data/gen1/rec-*.json']
+//
+// With --records the roots are replayed and every candidate re-encoded with the CURRENT
+// encoder (src/server/features.ts), so a net trained on a different encoding than the
+// one stored in the benchmark can still be scored.
 //
 // Always reports the stored hand heuristic and the stored net (as of generation), the
 // 50/50 blend of those, and — with --weights — the given net alone and blended.
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { Net } from '../src/server/net.js';
+import * as E from '../src/shared/engine.js';
+import { encode } from '../src/server/features.js';
+import { DECK_SALT } from '../src/shared/rng.js';
+import { completeActions, rootFromRecord, type Rec } from './continue.js';
+import { globSync } from 'node:fs';
 
 function arg(name: string, def: string): string { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1]! : def; }
 const files = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !(i > 0 && all[i - 1]!.startsWith('--')));
@@ -24,6 +33,26 @@ interface Cand { label: string; x: number[]; hand: number; net: number; q: numbe
 interface Root { game: number; stopAt: number; players: number; tilesLeft: number; me: number; candidates: Cand[] }
 const roots: Root[] = [];
 for (const f of files) roots.push(...(JSON.parse(readFileSync(f, 'utf8')) as { roots: Root[] }).roots);
+
+// Optional re-encoding of every candidate with the live encoder.
+const recordsGlob = arg('records', '');
+if (recordsGlob) {
+  const bySeed = new Map<number, Rec>();
+  for (const f of globSync(recordsGlob)) for (const r of (JSON.parse(readFileSync(f, 'utf8')) as { games: Rec[] }).games) bySeed.set(r.seed, r);
+  let missing = 0;
+  for (const r of roots) {
+    const rec = bySeed.get(r.game);
+    if (!rec) { missing++; continue; }
+    const root = rootFromRecord(rec, r.stopAt, DECK_SALT);
+    const acts = new Map(completeActions(root).map((a) => [a.label, a.state]));
+    for (const c of r.candidates) {
+      const st = acts.get(c.label);
+      if (!st) { missing++; continue; }
+      c.x = Array.from(encode(st, r.me, E.deriveFeatures(st)));
+    }
+  }
+  console.error(`re-encoded with the live encoder (${missing} candidates/roots not found)`);
+}
 
 let net: Net | null = null;
 if (weightsPath) {

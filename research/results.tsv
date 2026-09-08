@@ -16,3 +16,4 @@ id	gen	kind	description	val_mse	strength	verdict	commit
 4s	1	strength	exp 4 candidate vs reference (promoted to shipped weights)	0.09705	STRENGTH win=0.490 ref_win=0.308 margin=2.05 ref_margin=-2.09 z=3.78 games=400	KEEP	9ef24da
 16	1b	train	fast loop + best-checkpoint export (gen1b)	0.10024	-	REVERT	7678e8a
 17	1b	features	encoder v2: opening geometry, fillability, contest gaps, merge potential, unclaimed features (142 dims)	0.10757	-	REVERT	20211fa
+18	1b	train	residual target: r = z - H, deploy H + 1.0 r (gen1b)	0.10052	-	REVERT	76db75f

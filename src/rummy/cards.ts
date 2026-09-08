@@ -36,6 +36,12 @@ export interface Rules {
    * whole hand also counts as going out.
    */
   discardToGoOut: boolean;
+  /**
+   * Melds on the table may be taken apart and rebuilt with cards from your hand,
+   * as long as every card that was on the table ends up in a valid meld. When
+   * false you may only lay off onto the ends of existing melds.
+   */
+  rearrangeTable: boolean;
 }
 
 export const DEFAULT_RULES: Rules = {
@@ -45,6 +51,7 @@ export const DEFAULT_RULES: Rules = {
   facePoints: 10,
   maxSetSize: 4,
   discardToGoOut: true,
+  rearrangeTable: true,
 };
 
 export function card(rank: Rank, suit: Suit): Card {

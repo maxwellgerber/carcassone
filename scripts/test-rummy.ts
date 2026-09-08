@@ -18,6 +18,7 @@ import {
 import { type Meld, asMeld, enumerateMelds, meldKey, meldToString } from '../src/rummy/melds.js';
 import { type TableMeld, analyze, enumerateLayoffs, solveHand } from '../src/rummy/solver.js';
 
+const LAYOFF: Rules = { ...DEFAULT_RULES, rearrangeTable: false };
 let pass = 0, fail = 0;
 function assert(cond: boolean, msg: string): void {
   if (cond) pass++;
@@ -104,24 +105,24 @@ function tbl(...melds: string[]): TableMeld[] {
 }
 {
   // Lay-offs beat deadwood. Table run 5H-7H, hand has 8H 9H 4H and junk.
-  const p = solveHand(parseCards('8H 9H 4H KS'), tbl('5H 6H 7H'));
+  const p = solveHand(parseCards('8H 9H 4H KS'), tbl('5H 6H 7H'), LAYOFF);
   eq(cardsToString(p.deadwood), 'KS', 'chain lay-off both ends');
   const lay = p.moves.filter((m) => m.kind === 'layoff');
   eq(lay.length, 2, 'two lay-off moves (one per end)');
 }
 {
   // Chain constraint: 9H cannot be laid without 8H.
-  const p = solveHand(parseCards('9H KS'), tbl('5H 6H 7H'));
+  const p = solveHand(parseCards('9H KS'), tbl('5H 6H 7H'), LAYOFF);
   eq(cardsToString(p.deadwood), '9H KS', '9H is stranded without the 8H');
 }
 {
   // A card is used once: 8H is both a lay-off and part of a set — solver picks the better.
-  const p = solveHand(parseCards('8H 8S 8D'), tbl('5H 6H 7H'));
+  const p = solveHand(parseCards('8H 8S 8D'), tbl('5H 6H 7H'), LAYOFF);
   eq(p.deadwoodPoints, 0, 'set beats lay-off when it melds more');
   eq(p.moves.length, 1, 'single move');
 }
 {
-  const p = solveHand(parseCards('9C 9S'), tbl('9H 9D 9C'));
+  const p = solveHand(parseCards('9C 9S'), tbl('9H 9D 9C'), LAYOFF);
   // 9C already on table — duplicate in a single deck; ensure nothing crashes and 9S is laid off
   assert(p.status === 'optimal', 'duplicates do not crash');
 }
@@ -148,7 +149,7 @@ function tbl(...melds: string[]): TableMeld[] {
 }
 {
   // Two cards left; one is a lay-off, so going out is possible by laying off the 9H and discarding the 9C.
-  const a = analyze(parseCards('AS 2S 3S 7H 7D 7C 9H 9C'), tbl('5H 6H 7H 8H'));
+  const a = analyze(parseCards('AS 2S 3S 7H 7D 7C 9H 9C'), tbl('5H 6H 7H 8H'), LAYOFF);
   assert(a.goOut.possible && !!a.goOut.discard && cardToString(a.goOut.discard) === '9C', 'go out via lay-off plus discard');
 }
 {
@@ -191,6 +192,72 @@ function brute(hand: Card[], table: Meld[], rules: Rules): number {
   return best;
 }
 
+/**
+ * Exhaustive exact-cover search for the rearranging variant: choose disjoint
+ * melds from the pool so every table card is covered; maximise hand points covered.
+ */
+function bruteRearrange(hand: Card[], table: TableMeld[], rules: Rules): number {
+  const handKeys = new Set(hand.map(cardToString));
+  const tableCards = table.flatMap((t) => t.meld.cards);
+  const pool = [...tableCards, ...hand];
+  const melds = enumerateMelds(pool, rules);
+  const memo2 = new Map<string, number>();
+  const rec = (remaining: Card[]): number => {
+    const mustCover = remaining.filter((c) => !handKeys.has(cardToString(c)));
+    const key = remaining.map(cardToString).sort().join(',');
+    const hit = memo2.get(key);
+    if (hit !== undefined) return hit;
+    let best: number;
+    if (mustCover.length === 0) {
+      // Only hand cards left: pick disjoint melds among them freely.
+      best = brute(remaining, [], rules);
+    } else {
+      best = -Infinity;
+      const c = mustCover[0]!;
+      const remKeys = new Set(remaining.map(cardToString));
+      for (const m of melds) {
+        if (!m.cards.some((x) => cardToString(x) === cardToString(c))) continue;
+        if (!m.cards.every((x) => remKeys.has(cardToString(x)))) continue;
+        const gained = pointsOf(m.cards.filter((x) => handKeys.has(cardToString(x))), rules);
+        best = Math.max(best, gained + rec(withoutCards(remaining, m.cards)));
+      }
+    }
+    memo2.set(key, best);
+    return best;
+  };
+  return rec(pool);
+}
+
+// --- Rearranging the table -----------------------------------------------------------
+{
+  // Two kings in hand; the table has two 9-K runs. Take the K off each run and lay four kings.
+  const a = analyze(parseCards('KS KH'), tbl('9C 10C JC QC KC', '9D 10D JD QD KD'));
+  eq(a.best.deadwoodPoints, 0, 'kings melded by breaking both runs');
+  const rebuilt = a.best.moves.filter((m) => m.kind === 'rearrange');
+  eq(rebuilt.length, 3, 'rebuilt table: two shortened runs + the new set');
+  const lay = solveHand(parseCards('KS KH'), tbl('9C 10C JC QC KC', '9D 10D JD QD KD'), LAYOFF);
+  eq(lay.deadwoodPoints, 20, 'lay-off-only mode cannot break the runs');
+}
+{
+  // Cannot break a run of exactly 3: the table must stay legal.
+  const p = solveHand(parseCards('KS KH'), tbl('JC QC KC'));
+  eq(p.deadwoodPoints, 20, 'a 3-run cannot give up its king');
+  // ...unless the hand supplies a replacement.
+  const p2 = solveHand(parseCards('KS KH 10C'), tbl('JC QC KC'));
+  eq(p2.deadwoodPoints, 0, '10C extends the run so KC is free to join the set');
+}
+{
+  // Splitting a long run in the middle to insert a card: 5-6-7-8-9-10 on table, hand 7S 7D 7C? 7H in run -> take it out would break; instead run 5-6 invalid. Use 3-4-5-6-7-8-9 and take the 6 for a set: 3-4-5 + 7-8-9 both valid.
+  const p = solveHand(parseCards('6S 6D'), tbl('3H 4H 5H 6H 7H 8H 9H'));
+  eq(p.deadwoodPoints, 0, 'a 7-run can be split around the card taken from its middle');
+}
+{
+  // Unchanged table melds are not reported as moves.
+  const p = solveHand(parseCards('AS 2S 3S'), tbl('9C 10C JC'));
+  eq(p.moves.length, 1, 'only the new meld is a move');
+  eq(p.moves[0]!.kind, 'meld', 'and it is a plain lay');
+}
+
 {
   let s = 12345;
   const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
@@ -198,7 +265,7 @@ function brute(hand: Card[], table: Meld[], rules: Rules): number {
   let mismatches = 0;
   const trials = 400;
   for (let trial = 0; trial < trials; trial++) {
-    const rules: Rules = { ...DEFAULT_RULES, aceHigh: rnd() < 0.5, aceLow: true };
+    const rules: Rules = { ...DEFAULT_RULES, aceHigh: rnd() < 0.5, aceLow: true, rearrangeTable: true };
     // Bias hands toward interesting structure: draw from a few suits/ranks.
     const deck = shuffle(fullDeck()).filter(() => rnd() < 0.55);
     const handSize = 5 + Math.floor(rnd() * 5);
@@ -215,14 +282,16 @@ function brute(hand: Card[], table: Meld[], rules: Rules): number {
       m.cards.forEach((c) => used.add(cardToString(c)));
       table.push({ id: `T${table.length + 1}`, meld: m });
     }
+    const rearrange = trial % 2 === 1;
+    if (!rearrange) rules.rearrangeTable = false;
     const ilp = solveHand(hand, table, rules);
-    const expectMelded = brute(hand, table.map((t) => t.meld), rules);
+    const expectMelded = rearrange ? bruteRearrange(hand, table, rules) : brute(hand, table.map((t) => t.meld), rules);
     const gotMelded = pointsOf(hand, rules) - ilp.deadwoodPoints;
     if (ilp.status !== 'optimal' || gotMelded !== expectMelded) {
       mismatches++;
       if (mismatches <= 5) {
         console.error(`MISMATCH hand=[${cardsToString(hand)}] table=[${table.map((t) => meldToString(t.meld)).join(' | ')}] aceHigh=${rules.aceHigh} ilp=${gotMelded} brute=${expectMelded} status=${ilp.status}`);
-        console.error('  ilp moves:', ilp.moves.map((m) => m.kind === 'meld' ? meldToString(m.meld) : `${m.target.id}<-${cardsToString(m.cards)}`).join(' ; '));
+        console.error('  ilp moves:', ilp.moves.map((m) => m.kind === 'meld' ? meldToString(m.meld) : m.kind === 'rearrange' ? `rebuild ${meldToString(m.meld)}` : `${m.target.id}<-${cardsToString(m.cards)}`).join(' ; '));
       }
     }
     // Sanity: the plan is self-consistent.

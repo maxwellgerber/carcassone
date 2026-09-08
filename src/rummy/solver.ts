@@ -37,6 +37,14 @@ export interface TableMeld {
 export type Move =
   | { readonly kind: 'meld'; readonly meld: Meld }
   | {
+      /** A meld on the rebuilt table that uses table cards (and maybe hand cards). */
+      readonly kind: 'rearrange';
+      readonly meld: Meld;
+      readonly fromHand: readonly Card[];
+      /** Ids of the table melds the table cards came from. */
+      readonly sources: readonly string[];
+    }
+  | {
       readonly kind: 'layoff';
       readonly target: TableMeld;
       /** Which end of a run the cards extend, or `set` for adding to a set. */
@@ -110,10 +118,12 @@ export interface VarInfo {
 /** One constraint of the integer program: sum(coeff × var) ≤ max. */
 export interface ConstraintInfo {
   readonly name: string;
-  readonly kind: 'card' | 'chain' | 'capacity';
+  readonly kind: 'card' | 'table' | 'chain' | 'capacity';
   readonly label: string;
   readonly terms: readonly (readonly [string, number])[];
   readonly max: number;
+  /** When true the left-hand side must equal `max` rather than be at most it. */
+  readonly equal?: boolean;
 }
 
 export interface ModelInfo {
@@ -133,6 +143,7 @@ export interface ModelInfo {
  *              v ∈ {0, 1}
  */
 export function buildModel(hand: readonly Card[], table: readonly TableMeld[] = [], rules: Rules = DEFAULT_RULES): ModelInfo {
+  if (rules.rearrangeTable) return buildRearrangeModel(hand, table, rules);
   const melds = enumerateMelds(hand, rules);
   const layoffs = enumerateLayoffs(hand, table, rules);
   const variables: VarInfo[] = [];
@@ -172,20 +183,58 @@ export function buildModel(hand: readonly Card[], table: readonly TableMeld[] = 
 }
 
 /**
+ * The rearranging formulation (Den Hertog & Hulshof's Rummikub model): pool the
+ * table cards with the hand and choose a set of melds such that every table card
+ * is in exactly one chosen meld and every hand card in at most one. The objective
+ * counts only hand cards, since table cards are already melded.
+ */
+function buildRearrangeModel(hand: readonly Card[], table: readonly TableMeld[], rules: Rules): ModelInfo {
+  const handKeys = new Set(hand.map(cardKey));
+  const tableCards: Card[] = [];
+  const tableSource = new Map<string, string>();
+  for (const t of table) for (const c of t.meld.cards) {
+    if (handKeys.has(cardKey(c)) || tableSource.has(cardKey(c))) continue;
+    tableCards.push(c);
+    tableSource.set(cardKey(c), t.id);
+  }
+  const pool = [...tableCards, ...hand];
+  const melds = enumerateMelds(pool, rules);
+  const variables: VarInfo[] = [];
+  const terms = new Map<string, [string, number][]>();
+  for (const c of pool) terms.set(cardKey(c), []);
+  melds.forEach((m, i) => {
+    const name = `m${i}`;
+    const fromHand = m.cards.filter((c) => handKeys.has(cardKey(c)));
+    const fromTable = m.cards.filter((c) => !handKeys.has(cardKey(c)));
+    const describe = fromTable.length === 0
+      ? `lay ${m.cards.map(cardToString).join(' ')} as a ${m.kind}`
+      : fromHand.length === 0
+        ? `keep ${m.cards.map(cardToString).join(' ')} on the table as a ${m.kind}`
+        : `build ${m.cards.map(cardToString).join(' ')} as a ${m.kind}, using ${fromHand.map(cardToString).join(' ')} from hand`;
+    variables.push({ name, points: pointsOf(fromHand, rules), cards: m.cards, describe, move: { meld: m } });
+    for (const c of m.cards) terms.get(cardKey(c))!.push([name, 1]);
+  });
+  const constraints: ConstraintInfo[] = [];
+  for (const c of hand) constraints.push({ name: 'c:' + cardKey(c), kind: 'card', label: `${cardToString(c)} used at most once`, terms: terms.get(cardKey(c))!, max: 1 });
+  for (const c of tableCards) constraints.push({ name: 't:' + cardKey(c), kind: 'table', label: `${cardToString(c)} (${tableSource.get(cardKey(c))}) must stay in exactly one meld`, terms: terms.get(cardKey(c))!, max: 1, equal: true });
+  return { variables, constraints, melds, layoffs: enumerateLayoffs(hand, table, rules) };
+}
+
+/**
  * Find the minimum-deadwood arrangement of `hand` given `table` by solving the
  * integer program from `buildModel`.
  */
 export function solveHand(hand: readonly Card[], table: readonly TableMeld[] = [], rules: Rules = DEFAULT_RULES): Plan {
   const info = buildModel(hand, table, rules);
-  if (hand.length === 0 || info.variables.length === 0) {
+  if (info.variables.length === 0) {
     return { moves: [], melded: [], deadwood: [...hand], deadwoodPoints: pointsOf(hand, rules), status: 'optimal', model: info, chosen: [] };
   }
 
   const variables = new Map<string, [string, number][]>();
   for (const v of info.variables) variables.set(v.name, [['obj', v.points]]);
-  const constraints = new Map<string, { max: number }>();
+  const constraints = new Map<string, { max?: number; equal?: number }>();
   for (const k of info.constraints) {
-    constraints.set(k.name, { max: k.max });
+    constraints.set(k.name, k.equal ? { equal: k.max } : { max: k.max });
     for (const [vname, coeff] of k.terms) variables.get(vname)!.push([k.name, coeff]);
   }
   const model: Model = { direction: 'maximize', objective: 'obj', constraints, variables, binaries: true };
@@ -194,6 +243,9 @@ export function solveHand(hand: readonly Card[], table: readonly TableMeld[] = [
   const moves: Move[] = [];
   const melded: Card[] = [];
   const chosen: string[] = [];
+  const handKeys = new Set(hand.map(cardKey));
+  const tableSource = new Map<string, string>();
+  for (const t of table) for (const c of t.meld.cards) if (!tableSource.has(cardKey(c))) tableSource.set(cardKey(c), t.id);
   if (sol.status === 'optimal' || sol.status === 'timedout') {
     const byName = new Map(info.variables.map((v) => [v.name, v]));
     const chosenChain = new Map<number, Card[]>(); // layoff index -> cards chosen from its chain
@@ -202,8 +254,16 @@ export function solveHand(hand: readonly Card[], table: readonly TableMeld[] = [
       const v = byName.get(name);
       if (!v) continue;
       chosen.push(name);
-      if ('meld' in v.move) moves.push({ kind: 'meld', meld: v.move.meld });
-      else {
+      if ('meld' in v.move) {
+        const m = v.move.meld;
+        const fromHand = m.cards.filter((c) => handKeys.has(cardKey(c)));
+        if (fromHand.length === m.cards.length) moves.push({ kind: 'meld', meld: m });
+        else {
+          const sources = [...new Set(m.cards.filter((c) => !handKeys.has(cardKey(c))).map((c) => tableSource.get(cardKey(c))!))];
+          const unchanged = fromHand.length === 0 && table.some((t) => t.meld.cards.length === m.cards.length && t.meld.cards.every((c) => m.cards.some((x) => cardKey(x) === cardKey(c))));
+          if (!unchanged) moves.push({ kind: 'rearrange', meld: m, fromHand, sources });
+        }
+      } else {
         const arr = chosenChain.get(v.move.layoff) ?? [];
         arr[v.move.j] = v.cards[0]!;
         chosenChain.set(v.move.layoff, arr);
@@ -214,7 +274,7 @@ export function solveHand(hand: readonly Card[], table: readonly TableMeld[] = [
       if (lo.kind !== 'layoff') continue;
       moves.push({ kind: 'layoff', target: lo.target, end: lo.end, cards: cards.filter((c): c is Card => !!c) });
     }
-    for (const mv of moves) melded.push(...(mv.kind === 'meld' ? mv.meld.cards : mv.cards));
+    for (const mv of moves) melded.push(...(mv.kind === 'meld' ? mv.meld.cards : mv.kind === 'rearrange' ? mv.fromHand : mv.cards));
   }
   const deadwood = withoutCards(hand, melded);
   return { moves, melded, deadwood, deadwoodPoints: pointsOf(deadwood, rules), status: sol.status, model: info, chosen };
@@ -307,7 +367,7 @@ export function evaluateSetting(info: ModelInfo, hand: readonly Card[], on: Read
   }
   const checks = info.constraints.map((k) => {
     const lhs = k.terms.reduce((t, [name, coeff]) => t + (on.has(name) ? coeff : 0), 0);
-    return { constraint: k, lhs, ok: lhs <= k.max };
+    return { constraint: k, lhs, ok: k.equal ? lhs === k.max : lhs <= k.max };
   });
   return { score, checks, feasible: checks.every((c) => c.ok), usage };
 }
@@ -326,13 +386,13 @@ export interface Relaxation {
 export function solveRelaxed(info: ModelInfo): Relaxation {
   if (info.variables.length === 0) return { value: 0, fractional: [] };
   const variables = new Map<string, [string, number][]>();
-  const constraints = new Map<string, { max: number }>();
+  const constraints = new Map<string, { max?: number; equal?: number }>();
   for (const v of info.variables) {
     variables.set(v.name, [['obj', v.points], [`ub:${v.name}`, 1]]);
     constraints.set(`ub:${v.name}`, { max: 1 });
   }
   for (const k of info.constraints) {
-    constraints.set(k.name, { max: k.max });
+    constraints.set(k.name, k.equal ? { equal: k.max } : { max: k.max });
     for (const [vname, coeff] of k.terms) variables.get(vname)!.push([k.name, coeff]);
   }
   const sol = solve({ direction: 'maximize', objective: 'obj', constraints, variables });

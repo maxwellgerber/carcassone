@@ -53,6 +53,7 @@ function writeHash(): void {
   if (!state.rules.aceLow) o.push('nolow');
   if (state.rules.aceHigh) o.push('high');
   if (!state.rules.discardToGoOut) o.push('nodiscard');
+  if (!state.rules.rearrangeTable) o.push('layoffonly');
   if (o.length) p.set('o', o.join(','));
   history.replaceState(null, '', p.size ? '#' + p.toString() : location.pathname);
 }
@@ -60,7 +61,7 @@ function writeHash(): void {
 function readHash(): void {
   const p = new URLSearchParams(location.hash.slice(1));
   const o = new Set((p.get('o') ?? '').split(',').filter(Boolean));
-  state.rules = { ...DEFAULT_RULES, aceLow: !o.has('nolow'), aceHigh: o.has('high'), discardToGoOut: !o.has('nodiscard') };
+  state.rules = { ...DEFAULT_RULES, aceLow: !o.has('nolow'), aceHigh: o.has('high'), discardToGoOut: !o.has('nodiscard'), rearrangeTable: !o.has('layoffonly') };
   try {
     state.hand = parseCards(p.get('h') ?? '');
     state.table = [];
@@ -163,6 +164,15 @@ function meldRow(m: Meld, tag: string, extra?: HTMLElement): HTMLElement {
 
 function moveRow(mv: Move): HTMLElement {
   if (mv.kind === 'meld') return meldRow(mv.meld, 'lay');
+  if (mv.kind === 'rearrange') {
+    const fromHand = new Set(mv.fromHand.map(cardToString));
+    const cards = mv.meld.kind === 'run' ? mv.meld.cards : sortCards(mv.meld.cards);
+    return h('div', { class: 'meld' },
+      h('span', { class: 'tag' }, mv.sources.join('+')),
+      h('span', { class: 'cards' }, ...cards.map((c) => cardChip(c, fromHand.has(cardToString(c)) ? 'new' : 'ghost'))),
+      h('span', { class: 'kind' }, mv.fromHand.length ? `rebuilt ${mv.meld.kind}` : `${mv.meld.kind} left over`),
+    );
+  }
   const t = mv.target.meld;
   const before = t.kind === 'run' ? t.cards : sortCards(t.cards);
   const after = mv.end === 'low' ? [...[...mv.cards].reverse().map((c) => ({ c, isNew: true })), ...before.map((c) => ({ c, isNew: false }))]
@@ -324,7 +334,7 @@ function tablePanel(): HTMLElement {
   discard.addEventListener('keydown', (e) => { if (e.key === 'Enter') setDiscard(); });
   discard.addEventListener('blur', setDiscard);
 
-  const rule = (key: 'aceLow' | 'aceHigh' | 'discardToGoOut', label: string) =>
+  const rule = (key: 'aceLow' | 'aceHigh' | 'discardToGoOut' | 'rearrangeTable', label: string) =>
     h('label', { class: 'check' },
       h('input', { type: 'checkbox', checked: state.rules[key], onchange: (e: Event) => { state.rules = { ...state.rules, [key]: (e.target as HTMLInputElement).checked }; revalidateTable(); render(); } }),
       label);
@@ -337,7 +347,7 @@ function tablePanel(): HTMLElement {
     list,
     h('div', { class: 'row' }, input, h('button', { class: 'small', type: 'button', onclick: add }, 'Add meld')),
     h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Top of discard pile:'), discard, h('span', { class: 'hint' }, 'optional — shows what taking it would do')),
-    h('div', { class: 'row' }, rule('aceLow', 'Ace low (A-2-3)'), rule('aceHigh', 'Ace high (Q-K-A)'), rule('discardToGoOut', 'Must discard to go out')),
+    h('div', { class: 'row' }, rule('aceLow', 'Ace low (A-2-3)'), rule('aceHigh', 'Ace high (Q-K-A)'), rule('discardToGoOut', 'Must discard to go out'), rule('rearrangeTable', 'Table melds can be rearranged')),
     err,
   );
 }
@@ -349,7 +359,14 @@ function revalidateTable(): void {
 
 function planSteps(plan: Plan, discard: Card | null): HTMLElement {
   const steps: HTMLElement[] = [];
+  const rebuilt = plan.moves.filter((m): m is Extract<Move, { kind: 'rearrange' }> => m.kind === 'rearrange');
+  if (rebuilt.length) {
+    const sources = [...new Set(rebuilt.flatMap((m) => m.sources))];
+    steps.push(h('li', {}, `Take apart ${sources.join(', ')} and rebuild the table as:`,
+      h('div', { class: 'melds' }, ...rebuilt.map(moveRow))));
+  }
   for (const mv of plan.moves) {
+    if (mv.kind === 'rearrange') continue;
     if (mv.kind === 'meld') steps.push(h('li', {}, 'Lay ', cardRow(mv.meld.cards), ` as a ${mv.meld.kind}`));
     else steps.push(h('li', {}, mv.end === 'set' ? 'Add ' : 'Lay off ', h('span', { class: 'cards' }, ...mv.cards.map((c) => cardChip(c, 'new'))), ` onto ${mv.target.id} `, h('span', { class: 'cards' }, ...(mv.target.meld.kind === 'run' ? mv.target.meld.cards : sortCards(mv.target.meld.cards)).map((c) => cardChip(c, 'ghost'))), mv.end === 'set' ? '' : ` (${mv.end} end)`));
   }
@@ -424,7 +441,7 @@ function resultsPanel(a: Analysis | Error | null): HTMLElement {
     draw,
     h('details', { open: true }, h('summary', {}, 'Discard options ', h('small', {}, 'best first')), discards),
     h('details', { open: true }, h('summary', {}, 'Legal melds from hand ', h('small', {}, `${a.melds.length} — every set and run you could lay, including overlapping ones`)), meldList),
-    h('details', { open: true }, h('summary', {}, 'Legal lay-offs ', h('small', {}, `${a.layoffs.length} — highlighted cards would be added`)), layoffList),
+    h('details', { open: true }, h('summary', {}, 'Legal lay-offs ', h('small', {}, `${a.layoffs.length} — highlighted cards would be added${state.rules.rearrangeTable ? '; rearrangements are in the plan above' : ''}`)), layoffList),
     h('div', { class: 'stat' }, `Model: one binary per candidate meld and per lay-off card, one "used at most once" constraint per hand card; objective maximises melded points. Solved with YALPS, a pure-JS branch-and-cut simplex.`),
   );
 }
@@ -468,27 +485,35 @@ function explainerSection(a: Analysis | Error | null): HTMLElement {
       title: `${varLabel(name)} is ${on.has(name) ? 1 : 0} — click to flip`,
     }, varLabel(name), opts.withValue ? h('span', { class: 'sw-val' }, on.has(name) ? '= 1' : '= 0') : null);
 
+  const handKeys = new Set(a.hand.map(cardToString));
   const optionRow = (v: VarInfo) => h('div', { class: `opt ${on.has(v.name) ? 'on' : ''}` },
     sw(v.name, { withValue: true }),
-    h('span', { class: 'cards' }, ...v.cards.map((c) => cardChip(c))),
-    h('span', { class: 'opt-what' }, v.describe.replace(/^lay off \S+ /, 'lay off onto ').replace(/^add \S+ to /, 'add to ').replace(/^lay .* as a (set|run)$/, 'lay as a $1')),
+    h('span', { class: 'cards' }, ...v.cards.map((c) => cardChip(c, handKeys.has(cardToString(c)) ? '' : 'ghost'))),
+    h('span', { class: 'opt-what' }, v.describe.replace(/^lay off \S+ /, 'lay off onto ').replace(/^add \S+ to /, 'add to ').replace(/^lay .* as a (set|run)$/, 'lay as a $1').replace(/^keep .* on the table as a (set|run)$/, 'already on the table, keep as a $1').replace(/^build .* as a (set|run), using (.*) from hand$/, 'rebuild as a $1 with $2 from hand')),
     h('span', { class: 'opt-pts' }, `${v.points} pts`),
   );
 
   // Step 1 — options
   const meldOpts = vars.filter((v) => 'meld' in v.move);
   const layOpts = vars.filter((v) => !('meld' in v.move));
+  const rearr = state.rules.rearrangeTable;
+  const tableCount = state.table.reduce((n, t) => n + t.meld.cards.length, 0);
   const step1 = sec(1, 'Write down every option',
-    h('p', {}, 'Look at your hand and list every complete thing you could do with it: each set or run you could lay, and each single card you could lay off onto a meld already on the table. Overlapping options are fine, and they are the whole point: a card that fits two options is exactly where a decision has to be made.'),
-    h('p', {}, `Your hand has `, h('b', {}, `${meldOpts.length} melds`), ' you could lay and ', h('b', {}, `${layOpts.length} lay-off cards`), `, ${vars.length} options in all. There is nothing clever here yet; this is a plain list.`),
+    rearr
+      ? h('p', {}, 'Pool the cards on the table with the cards in your hand, and list every set or run that could be made from that pool: melds entirely from your hand, melds that are already on the table, and melds that mix the two. Overlapping options are fine, and they are the whole point: a card that fits two options is exactly where a decision has to be made.')
+      : h('p', {}, 'Look at your hand and list every complete thing you could do with it: each set or run you could lay, and each single card you could lay off onto a meld already on the table. Overlapping options are fine, and they are the whole point: a card that fits two options is exactly where a decision has to be made.'),
+    rearr
+      ? h('p', {}, `The pool is ${a.hand.length} hand cards plus ${tableCount} on the table, and it contains `, h('b', {}, `${vars.length} possible melds`), '. There is nothing clever here yet; this is a plain list.')
+      : h('p', {}, `Your hand has `, h('b', {}, `${meldOpts.length} melds`), ' you could lay and ', h('b', {}, `${layOpts.length} lay-off cards`), `, ${vars.length} options in all. There is nothing clever here yet; this is a plain list.`),
     vars.length ? null : h('p', { class: 'empty' }, 'Right now there are none, so the whole hand is deadwood and the solver has nothing to decide. Deal a hand with some pairs and sequences to see the rest.'),
   );
 
   // Step 2 — variables
   const step2 = sec(2, 'Give each option a switch',
-    h('p', {}, 'Each option gets a variable that can only be 0 or 1: off or on. Lay that meld, or don\'t. That is all a "binary variable" is. Meld options are named ', h('code', {}, 'm0, m1, …'), ' and lay-off cards ', h('code', {}, 'l1.0, l1.1, …'), ' where the second number is the card\'s place in the chain.'),
+    h('p', {}, 'Each option gets a variable that can only be 0 or 1: off or on. Lay that meld, or don\'t. That is all a "binary variable" is. Meld options are named ', h('code', {}, 'm0, m1, …'), rearr ? '.' : [' and lay-off cards ', h('code', {}, 'l1.0, l1.1, …'), ' where the second number is the card\'s place in the chain.']),
     h('p', {}, 'A full setting of the switches is one possible way to play the hand. ', h('b', {}, 'Try it:'), ' click any switch below to flip it. Everything further down recomputes for your setting, including the rules you break.'),
     vars.length ? h('div', { class: 'opts' }, ...vars.map(optionRow)) : null,
+    rearr && state.table.length ? h('p', { class: 'hint' }, 'Faded cards are already on the table. The melds that are on the table right now are options too: keeping one is just switching it on.') : null,
     vars.length ? h('div', { class: 'row' },
       h('button', { class: 'small', type: 'button', onclick: () => { on.clear(); render(); } }, 'All off'),
       h('button', { class: 'small', type: 'button', onclick: () => { on.clear(); for (const v of vars) on.add(v.name); render(); } }, 'All on'),
@@ -500,7 +525,7 @@ function explainerSection(a: Analysis | Error | null): HTMLElement {
   // Step 3 — objective
   const objTerms = vars.flatMap((v, i) => [i ? ' + ' : '', h('span', { class: 'term' }, `${v.points}×`, sw(v.name))]);
   const step3 = sec(3, 'Score a setting: the objective',
-    h('p', {}, 'Multiply each switch by the points of its option and add them up. A switch that is off contributes 0, so the sum is simply the points you have melded. Making this as large as possible is the same as leaving as little deadwood as possible, because every card is either melded or deadwood.'),
+    h('p', {}, 'Multiply each switch by the points of its option and add them up. A switch that is off contributes 0, so the sum is simply the points you have melded. Making this as large as possible is the same as leaving as little deadwood as possible, because every card is either melded or deadwood.', rearr ? ' Only cards from your hand count: cards already on the table are worth 0 in every option, since they were melded before your turn began.' : ''),
     vars.length ? h('div', { class: 'formula' },
       h('div', { class: 'f-line' }, h('span', { class: 'f-kw' }, 'maximise'), h('span', { class: 'f-body' }, ...objTerms)),
       h('div', { class: 'f-line' }, h('span', { class: 'f-kw' }, 'your setting'), h('span', { class: 'f-body' }, vars.filter((v) => on.has(v.name)).map((v) => v.points).join(' + ') || '0', ` = `, h('b', {}, `${ev.score} pts melded`), ` → ${handPts} − ${ev.score} = `, h('b', {}, `${handPts - ev.score} pts of deadwood`))),
@@ -515,16 +540,17 @@ function explainerSection(a: Analysis | Error | null): HTMLElement {
   };
   const conRow = (k: (typeof ev.checks)[number]) => {
     const kk = k.constraint;
-    const card = kk.kind === 'card' ? parseCard(kk.label.split(' ')[0]!) : null;
+    const card = kk.kind === 'card' || kk.kind === 'table' ? parseCard(kk.label.split(' ')[0]!) : null;
     const terms = kk.terms.length ? kk.terms.flatMap(([n, c], i) => [i ? (c < 0 ? ' − ' : ' + ') : (c < 0 ? '−' : ''), sw(n)]) : ['0'];
     return h('div', { class: `con ${k.ok ? 'ok' : 'bad'}` },
       h('span', { class: 'con-who' }, card ? cardChip(card) : kk.kind === 'chain' ? 'order' : 'room'),
-      h('span', { class: 'con-eq' }, ...terms, ` ≤ ${kk.max}`),
-      h('span', { class: 'con-val' }, `${lhsText(k)} = ${k.lhs}`, k.ok ? ' ✓' : ` ✗ over by ${k.lhs - kk.max}`),
+      h('span', { class: 'con-eq' }, ...terms, ` ${kk.equal ? '=' : '≤'} ${kk.max}`),
+      h('span', { class: 'con-val' }, `${lhsText(k)} = ${k.lhs}`, k.ok ? ' ✓' : k.lhs > kk.max ? ` ✗ over by ${k.lhs - kk.max}` : ` ✗ short by ${kk.max - k.lhs}`),
       h('span', { class: 'con-why' }, kk.terms.length ? kk.label : `${kk.label.split(' ')[0]} fits no option — it can only be deadwood`),
     );
   };
   const cardCons = ev.checks.filter((k) => k.constraint.kind === 'card');
+  const tableCons = ev.checks.filter((k) => k.constraint.kind === 'table');
   const chainCons = ev.checks.filter((k) => k.constraint.kind === 'chain');
   const capCons = ev.checks.filter((k) => k.constraint.kind === 'capacity');
   const step4 = sec(4, 'Forbid the impossible: the constraints',
@@ -532,6 +558,9 @@ function explainerSection(a: Analysis | Error | null): HTMLElement {
     h('h4', {}, 'Each card can be used once'),
     h('p', {}, 'For every card in your hand, add up the switches of the options that use it. That sum may be at most 1. If a card sits in two options, this line is what stops you laying it twice. Cards that appear in only one option, or none, get a trivial line, but the solver writes them all the same.'),
     h('div', { class: 'cons' }, ...cardCons.map(conRow)),
+    tableCons.length ? h('h4', {}, 'The table must stay legal') : null,
+    tableCons.length ? h('p', {}, 'Every card that was already on the table must end up in exactly one chosen meld: not zero, or you would have pocketed a card from the table, and not two. Note the "=" instead of "≤". This one line is what lets the solver take a run apart and reuse its cards, because any rearrangement that leaves every table card in some valid meld is allowed.') : null,
+    tableCons.length ? h('div', { class: 'cons' }, ...tableCons.map(conRow)) : null,
     chainCons.length ? h('h4', {}, 'A run grows outward in order') : null,
     chainCons.length ? h('p', {}, 'You can only lay the second card of an extension if the first is laid too. "Second minus first is at most 0" says exactly that: the only forbidden combination is second on, first off, which would make the left side 1.') : null,
     chainCons.length ? h('div', { class: 'cons' }, ...chainCons.map(conRow)) : null,

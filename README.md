@@ -133,9 +133,15 @@ constraints so a run can only be extended outward one card at a time, and an
 objective that maximises melded points. It runs in the browser on
 [YALPS](https://github.com/Ivordir/YALPS), a pure-JS MILP solver — a 13-card
 hand is a few dozen variables and solves in well under a millisecond, so the
-page re-solves on every click. Rules toggles: ace low, ace high, and whether
-going out requires a discard. Single deck, no jokers, no rearranging table
-melds.
+page re-solves on every click. By default the table may be rearranged
+(every card already on the table must land in exactly one meld of the new
+arrangement, so a run can be broken to free a card as long as what is left is
+still valid); a toggle switches to lay-off-only rummy, which uses a second
+formulation with chain constraints for extending runs. Other toggles: ace low,
+ace high, and whether going out requires a discard. Single deck, no jokers.
+The page ends with a step-by-step explainer of the program built for the
+current hand, with switches the reader can flip to see constraints pass or
+fail.
 
 `npm run test:rummy` checks hand-picked situations and compares the integer
 program against an independent brute-force search on 400 random hands.

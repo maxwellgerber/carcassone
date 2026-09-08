@@ -66,3 +66,27 @@ across generations are not comparable; the log notes the generation.
   data, so it only pays once there is more data or a bigger net that helps.
 - Conclusion: data-limited. Next generation of data (8,000 games from Actions)
   before more training experiments.
+
+## Collision check (gen 1, 40 roots, `research/collisions.ts`)
+
+- 83 complete actions per root; **96% share an encoding with at least one other
+  action** (460 groups, mean size 6.9). The net's top choice is a forced tie at
+  **70%** of roots (tie size ~5), so the shipped search breaks most of its
+  decisions by enumeration order.
+- The hand heuristic separates only 5% of those tie groups by > 0.5 pt: it pools
+  the same way, so it is not the blend's tie-breaker.
+- Most groups are near-equivalent (median shared-future spread 0.25 pt), but 4 of
+  60 checked hide 1.7-3.2 pt differences with zero heuristic spread: which farm
+  region a farmer lands in, which rotation of a tile next to a city, where an
+  unclaimed-feature tile goes. Those are decisions no amount of training can fix
+  with this encoding.
+- Implication: the encoding sees only claimed features. Geometry that matters is
+  invisible: unclaimed features and their adjacency to claimed ones, distinct
+  empty cells per opening, fillability of specific openings, farm-to-city
+  adjacency by ownership. Those are the next encoder experiments, judged on the
+  benchmark regret first.
+
+## Strength transfer (exp 4 candidate vs gen-0 reference)
+
+win 0.490 vs 0.308, margin +2.05 vs -2.09, z = 3.8 over 400 seats. Promoted to the
+shipped weights. The proxy improvement from batch size did carry to play.

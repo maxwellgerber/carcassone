@@ -124,3 +124,26 @@ benchmark is needed for any of these calls.
 win 0.485 vs 0.313, margin +2.46 vs -2.51, z = 3.6 — the same decisive margin the
 shipped v1 net has over the reference (0.490/0.308, +2.05/-2.09), despite v2's
 worse budgeted MSE (0.1076 vs 0.0999). Head-to-head v2 vs shipped v1 is running.
+
+## Held-out benchmark (400 roots from the Actions run, 12 futures x 30 plies)
+
+Label half-split disagreement 2.84 pts against a 6.99 pt root spread.
+
+| evaluator | mean regret | pairwise acc | big misses (>1 pt, >2 SE) |
+|---|---|---|---|
+| random | 3.61 | 48% | 122/400 |
+| net v1 (shipped weights) | 1.63 | 83.7% | 34 |
+| hand | 1.30 | 89.8% | 23 |
+| blend v1 (shipped) | 1.22 | 90.7% | 18 |
+| net v2 encoder (exp 17) | 1.26 | 90.4% | 19 |
+| blend v2 | 1.16 | 92.0% | 18 |
+| net v1 + pairwise loss (exp 21) | 1.23 | 91.2% | 18 |
+| blend v1 + pairwise | 1.15 | 91.5% | 16 |
+
+Pairwise supervision from 1,200 labelled roots takes the net alone from 1.63 to
+1.23 (the hand heuristic's level) with a barely changed MSE (0.1004 vs 0.0999),
+which is the "supervise differences between moves" effect directly. The v2
+encoder gives a similar gain through the other route. Both were rejected by the
+MSE rule; from here, target and encoder experiments are kept on paired held-out
+regret (`experiment.sh --metric regret`, keep if the blend's regret falls by more
+than two standard errors of the paired difference).

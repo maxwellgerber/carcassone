@@ -26,7 +26,7 @@ best_mse=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$BEST','u
 echo "   val_mse $metric (best $best_mse)"
 strength="-"
 verdict="REVERT"
-improved=$(node -e "console.log(($best_mse - $metric) >= 0.0005 ? 1 : 0)")
+improved=$(node -e "console.log(($best_mse - $metric) >= 0.0015 ? 1 : 0)")
 if [ "$STRENGTH" = "1" ] || { [ "$improved" = "1" ] && [ "$KIND" != "train" ]; }; then
   echo "== strength eval"
   strength=$(npx tsx research/eval.ts --candidate "$DATA/candidate.ts" --games "${GAMES:-80}" 2> "$DATA/exp-$id-eval.log" | sed -n 's/^STRENGTH //p')

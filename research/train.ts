@@ -34,7 +34,7 @@ const BATCH = 64;
 const LR0 = 2e-3;
 const LR_DECAY_PER_EPOCH = 0.7;
 const L2 = 1e-5;
-const SEED = 11;
+const SEED = Number(arg('seed', '11'));
 
 // ---- training under budget ------------------------------------------------------
 const rng = mkRng(SEED);

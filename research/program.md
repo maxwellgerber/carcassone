@@ -32,8 +32,8 @@ budget, and an agent that proposes, edits, runs, keeps or reverts, and logs.
 
 ## Keep rule
 
-1. Proxy experiment: keep if `val_mse` drops by ≥ 0.0005 (noise floor measured by
-   re-running the baseline with different seeds), else revert.
+1. Proxy experiment: keep if `val_mse` drops by ≥ 0.0015 (three times the seed-to-seed
+   noise of 0.0005 measured on the baseline), else revert.
 2. Strength experiment: keep if candidate win rate exceeds the reference's by more
    than one standard error (gate.ts `z > 1`) with a positive margin, else revert.
 3. A kept change is committed with its metric in the message and a row in

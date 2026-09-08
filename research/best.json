@@ -1,0 +1,1 @@
+{ "val_mse": 0.1055, "noise_sd": 0.0005, "exp": 0, "desc": "baseline: [64,32], batch 64, lr 2e-3 x0.7/epoch, 90 s budget (3 seeds: 0.10554 0.10576 0.10475)" }

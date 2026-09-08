@@ -10,6 +10,7 @@
 // metric measures generalisation to unseen games, not unseen moments of seen ones.
 import * as E from '../src/shared/engine.js';
 import { encode, FEATURE_DIM } from '../src/server/features.js';
+import { evaluateFor, NPC_TUNING } from '../src/server/npc.js';
 import { mkRng, DECK_SALT } from '../src/shared/rng.js';
 import { readFileSync, writeFileSync, mkdirSync, openSync, writeSync, closeSync } from 'node:fs';
 
@@ -26,7 +27,10 @@ console.log(`${games.length} game records from ${files.length} files`);
 
 // Streamed straight to disk: ten thousand games are ~1.8M positions, more than a JS
 // array wants to hold at once.
-const fds = { trainX: openSync(`${outDir}/train.x.f32`, 'w'), trainY: openSync(`${outDir}/train.y.f32`, 'w'), valX: openSync(`${outDir}/val.x.f32`, 'w'), valY: openSync(`${outDir}/val.y.f32`, 'w') };
+const fds = { trainX: openSync(`${outDir}/train.x.f32`, 'w'), trainY: openSync(`${outDir}/train.y.f32`, 'w'), valX: openSync(`${outDir}/val.x.f32`, 'w'), valY: openSync(`${outDir}/val.y.f32`, 'w'), trainH: openSync(`${outDir}/train.h.f32`, 'w'), valH: openSync(`${outDir}/val.h.f32`, 'w') };
+// The hand heuristic's value for every sample (same scale as the target), so a net can
+// be trained as a residual on top of it.
+NPC_TUNING.evaluator = 'hand';
 let nTrain = 0, nVal = 0;
 const split = mkRng(1234);
 const t0 = Date.now();
@@ -36,7 +40,7 @@ games.forEach((rec, gi) => {
   // Which moves get recorded from every seat is a per-game coin flip (about a third),
   // not every third move: a fixed stride would lock to the seat cycle at three players.
   const pick = mkRng((rec.seed * 31 + 7) >>> 0);
-  const X: number[] = [], Y: number[] = [];
+  const X: number[] = [], Y: number[] = [], H: number[] = [];
   for (const a of rec.actions) {
     const seat = g.currentPlayer;
     if (a[0] === 't') E.placeTile(g, a[1] as number, a[2] as number, a[3] as number);
@@ -50,11 +54,13 @@ games.forEach((rec, gi) => {
       for (let i = 0; i < v.length; i++) X.push(v[i]!);
       const mine = rec.scores[s]!, best = Math.max(...rec.scores.filter((_, i) => i !== s));
       Y.push(Math.max(-2, Math.min(2, (mine - best) / 40)));
+      H.push(evaluateFor(g, s, f) / 40);
       if (isVal) nVal++; else nTrain++;
     }
   }
   writeSync(isVal ? fds.valX : fds.trainX, Buffer.from(new Float32Array(X).buffer));
   writeSync(isVal ? fds.valY : fds.trainY, Buffer.from(new Float32Array(Y).buffer));
+  writeSync(isVal ? fds.valH : fds.trainH, Buffer.from(new Float32Array(H).buffer));
   const finalScores = g.players.map((p) => p.score);
   if (finalScores.some((sc, i) => sc !== rec.scores[i])) throw new Error(`record ${gi} did not replay to its recorded scores (${finalScores} vs ${rec.scores})`);
   if ((gi + 1) % 500 === 0) console.error(`  ${gi + 1}/${games.length} games replayed (${((Date.now() - t0) / 1000).toFixed(0)}s)`);

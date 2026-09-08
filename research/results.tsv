@@ -5,3 +5,4 @@ id	gen	kind	description	val_mse	strength	verdict	commit
 4	1	train	batch 2048, lr 1e-2	0.09705	-	KEEP	1fdb4cb
 5	1	train	batch 4096, lr 1.5e-2	0.09727	-	REVERT	29bbc64
 6	1	train	hidden [128,64]	0.10028	-	REVERT	a4fea04
+7	1	train	cosine lr over the budget (was x0.7 per epoch)	0.09657	-	REVERT	a798c58

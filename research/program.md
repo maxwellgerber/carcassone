@@ -226,3 +226,9 @@ win 0.406 vs 0.395, margin +0.55, z = 0.22. The v2 encoder still does not turn
 into strength, with or without pairwise supervision. Parked; the next lever is
 the search side of the hard bot (rollout blend, static weight, shortlist size),
 measured hard-vs-hard.
+
+## Gen 2 round (18k games incl. 8k by the promoted bot, v1 encoder + pairwise) vs shipped
+
+win 0.411 vs 0.367, margin +0.52, z = 0.87. Positive but under the gate. Net-side
+changes are now worth about half a point each, consistent with the net being a
+quarter of the blend; the heuristic's own terms are the bigger surface.

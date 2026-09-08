@@ -151,3 +151,10 @@ than two standard errors of the paired difference).
 Head-to-head, v2 candidate vs shipped v1 (seed 5151, 400 seats): win 0.423 vs 0.374,
 margin +0.41 vs -0.45, z = 1.0. A small edge, not enough for promotion on its own;
 v2 combined with the pairwise loss is being measured.
+
+## Blend weight (strength, head-to-head vs shipped 0.5)
+
+Net weight 0.75: win 0.278 vs 0.523, margin -4.88 vs +4.88, z = -5.2. Against the
+frozen reference it had looked identical to 0.5 (both 0.49 win) — the reference is
+too weak to separate them; head-to-heads decide. The heuristic's share in the
+blend matters a lot; 0.25 is being tested next.

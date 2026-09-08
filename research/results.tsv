@@ -23,3 +23,4 @@ b75	1b	strength	blend net-weight 0.75 (shipped weights) vs gen-0 reference	-	STR
 22	1b	train	pairwise difference loss from the Actions benchmark (1200 roots), weight 1.0, every 4th batch [regret metric]	0.10041 regret=1.152	-	REVERT	408d1a1
 23	1b	train	pairwise loss every batch (weight 1.0) [regret metric]	0.10128 regret=1.194	-	REVERT	f38e5be
 17h	1b	strength	encoder v2 candidate vs shipped v1 (head-to-head)	-	STRENGTH win=0.423 ref_win=0.374 margin=0.41 ref_margin=-0.45 z=1.00 games=400	INFO	-
+b75h	1b	strength	blend net-weight 0.75 vs shipped 0.5 (head-to-head)	-	STRENGTH win=0.278 ref_win=0.523 margin=-4.88 ref_margin=4.88 z=-5.17 games=400	REVERT	-

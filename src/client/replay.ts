@@ -90,13 +90,15 @@ function applyReplayStep(step: number): void {
  *  are refreshed in place; the full rebuild waits for the pointer to let go. */
 export function scrubReplay(step: number): void {
   if (!replay) return;
-  replayPlay(false);
+  if (replay.playing) replayPlay(false, false); // pause, but keep the slider under the pointer
   applyReplayStep(step);
   if (boardCanvasEl) drawBoard(boardCanvasEl);
   updateReplayReadouts();
 }
 
-export function replayPlay(on: boolean): void {
+/** Start or stop auto-play. `rerender` rebuilds the control bar so the play button
+ *  reflects the new state; a scrub passes false and patches the button itself. */
+export function replayPlay(on: boolean, rerender = true): void {
   if (!replay) return;
   replay.playing = on;
   if (replay.timer) { clearInterval(replay.timer); replay.timer = null; }
@@ -107,7 +109,7 @@ export function replayPlay(on: boolean): void {
       setReplayStep(replay.step + 1);
     }, 900 / replay.speed);
   }
-  renderReplayBar();
+  if (rerender) renderReplayBar();
 }
 
 export let replayBarEl: HTMLElement | null = null;
@@ -124,13 +126,15 @@ function replayCaption(): string {
 }
 
 /** The parts of the bar that change with every step, kept so a scrub can update them in place. */
-let readouts: { slider: HTMLInputElement; step: HTMLElement; caption: HTMLElement } | null = null;
+let readouts: { slider: HTMLInputElement; step: HTMLElement; caption: HTMLElement; play: HTMLElement } | null = null;
 function updateReplayReadouts(): void {
   if (!replay || !readouts || !readouts.slider.isConnected) return;
   const last = replay.states.length - 1;
   if (Number(readouts.slider.value) !== replay.step) readouts.slider.value = String(replay.step);
   readouts.step.textContent = `${replay.step} / ${last}`;
   readouts.caption.textContent = replayCaption();
+  readouts.play.textContent = replay.playing ? '❚❚' : '▶';
+  readouts.play.title = replay.playing ? 'Pause' : 'Play';
 }
 
 export function renderReplayBar(): void {
@@ -148,13 +152,14 @@ export function renderReplayBar(): void {
   }) as HTMLInputElement;
   const stepEl = h('span', { class: 'replay-step' }, `${r.step} / ${last}`);
   const captionEl = h('div', { class: 'replay-caption' }, what);
-  readouts = { slider, step: stepEl, caption: captionEl };
+  const playEl = h('button', { class: 'small primary', title: r.playing ? 'Pause' : 'Play', onclick: () => { if (r.step >= last) setReplayStep(0); replayPlay(!r.playing); } }, r.playing ? '❚❚' : '▶');
+  readouts = { slider, step: stepEl, caption: captionEl, play: playEl };
   const bar = replayBarEl;
   bar.appendChild(h('div', { class: 'replay-title' }, h('strong', {}, `🎞 Replay`), ` · game ${sm.no} in "${r.doc.roomId}" · ${new Date(sm.endedAt).toLocaleDateString()}`));
   bar.appendChild(h('div', { class: 'replay-controls' },
       h('button', { class: 'small', title: 'Start', onclick: () => { replayPlay(false); setReplayStep(0); } }, '⏮'),
       h('button', { class: 'small', title: 'Back', onclick: () => { replayPlay(false); setReplayStep(r.step - 1); } }, '◀'),
-      h('button', { class: 'small primary', title: r.playing ? 'Pause' : 'Play', onclick: () => { if (r.step >= last) setReplayStep(0); replayPlay(!r.playing); } }, r.playing ? '❚❚' : '▶'),
+      playEl,
       h('button', { class: 'small', title: 'Forward', onclick: () => { replayPlay(false); setReplayStep(r.step + 1); } }, '▶|'),
       h('button', { class: 'small', title: 'End', onclick: () => { replayPlay(false); setReplayStep(last); } }, '⏭'),
       h('select', { class: 'small', onchange: (e: Event) => { r.speed = Number((e.target as HTMLSelectElement).value); if (r.playing) replayPlay(true); } },

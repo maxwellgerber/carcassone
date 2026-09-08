@@ -3,7 +3,7 @@
 // Everything here is decoration — it reads state and draws, never the reverse —
 // and it all rides the same 30 fps loop the wandering meeples use.
 import { TILE_TYPES } from '../shared/tiles.js';
-import { monasteryCenter } from './skins/geometry.js';
+import { cityPath, cityInteriorSpots, hasJunction, monasteryCenter, seeded, shieldAnchor, type Pt } from './skins/geometry.js';
 import type { GameState } from '../shared/types.js';
 
 export interface AmbientView {
@@ -36,7 +36,9 @@ export function dayProgress(game: GameState): number {
   if (game.phase === 'gameover') return 1;
   return Math.min(1, Math.max(0, (placed - 1) / Math.max(1, total - 1)));
 }
-interface Light { r: number; g: number; b: number; a: number; night: number }
+/** `night` ramps 0→1 over the last stretch of the game; `lamps` starts a little
+ *  earlier, so the first windows light up while the sky is still dusky. */
+interface Light { r: number; g: number; b: number; a: number; night: number; lamps: number }
 function lighting(p: number): Light {
   // Keyframes through the day: [progress, r, g, b, alpha]
   const keys: [number, number, number, number, number][] = [
@@ -46,13 +48,13 @@ function lighting(p: number): Light {
     [0.62, 255, 255, 255, 0.00],
     [0.78, 255, 190, 100, 0.14], // golden hour
     [0.88, 150, 90, 140, 0.22],  // dusk
-    [1.00, 20, 30, 80, 0.40],    // night
+    [1.00, 40, 55, 110, 0.30],   // night: a blue wash, but every tile still readable
   ];
   let i = 0; while (i < keys.length - 2 && keys[i + 1]![0] <= p) i++;
   const a = keys[i]!, b = keys[i + 1]!;
   const t = Math.min(1, Math.max(0, (p - a[0]) / (b[0] - a[0])));
   const mix = (x: number, y: number) => x + (y - x) * t;
-  return { r: mix(a[1], b[1]), g: mix(a[2], b[2]), b: mix(a[3], b[3]), a: mix(a[4], b[4]), night: Math.max(0, (p - 0.85) / 0.15) };
+  return { r: mix(a[1], b[1]), g: mix(a[2], b[2]), b: mix(a[3], b[3]), a: mix(a[4], b[4]), night: Math.max(0, (p - 0.85) / 0.15), lamps: Math.max(0, Math.min(1, (p - 0.8) / 0.15)) };
 }
 
 // --- weather ---------------------------------------------------------------
@@ -216,17 +218,94 @@ function drawFireflies(v: AmbientView, night: number): void {
   ctx.restore();
 }
 
-// --- cloister windows glow after dark ----------------------------------------
-function drawWindows(v: AmbientView, night: number): void {
-  if (night <= 0.05) return;
-  const { ctx, scale, game } = v;
+// --- night lights ------------------------------------------------------------
+// Once the light goes, the board lights itself: windows in the city houses, torches
+// at crossroads, city gates and keeps, a lantern by every cloister door. Positions
+// are worked out once per tile type in tile-local coordinates and rotated into
+// place per tile, so the lamps stay put from frame to frame.
+type LampKind = 'window' | 'torch' | 'lantern';
+interface Lamp { x: number; y: number; kind: LampKind; phase: number } // x,y in 0..1 tile units
+const lampCache = new Map<string, Lamp[]>();
+let probeCtx: CanvasRenderingContext2D | null = null;
+function lampsFor(tileKey: string): Lamp[] {
+  const hit = lampCache.get(tileKey);
+  if (hit) return hit;
+  const t = TILE_TYPES[tileKey]!;
+  if (!probeCtx) probeCtx = document.createElement('canvas').getContext('2d')!;
+  const ctx = probeCtx;
+  const rng = seeded('lamps:' + tileKey);
+  const out: Lamp[] = [];
+  const push = (pt: Pt, kind: LampKind) => out.push({ x: pt[0] / 200, y: pt[1] / 200, kind, phase: rng() * Math.PI * 2 });
+  const cities = t.cityGroups.map((_, gi) => cityPath(t, gi));
+  // A handful of lit windows per city, scattered where the houses stand.
+  cities.forEach((city) => { for (const p of cityInteriorSpots(ctx, city, rng, 4, 9)) push(p, 'window'); });
+  // Torches where a road runs up to a city wall: walk each road in from its edge
+  // and stop at the first step that is inside a city.
+  const MID: Pt[] = [[100, 0], [200, 100], [100, 200], [0, 100]];
+  for (const grp of t.roadGroups) {
+    for (const side of grp) {
+      const [ax, ay] = MID[side]!;
+      const [bx, by] = grp.length === 2 ? MID[grp.find((s) => s !== side)!]! : [100, 100];
+      let prev: Pt = [ax, ay];
+      for (let k = 1; k <= 24; k++) {
+        const f = k / 24;
+        const cur: Pt = [ax + (bx - ax) * f, ay + (by - ay) * f];
+        if (cities.some((c) => ctx.isPointInPath(c, cur[0], cur[1]))) {
+          // Flank the gate: one torch either side of the road, just outside the wall.
+          const dx = cur[0] - prev[0], dy = cur[1] - prev[1], len = Math.hypot(dx, dy) || 1;
+          const nx = -dy / len * 26, ny = dx / len * 26;
+          push([prev[0] + nx, prev[1] + ny], 'torch'); push([prev[0] - nx, prev[1] - ny], 'torch');
+          break;
+        }
+        prev = cur;
+      }
+    }
+  }
+  if (hasJunction(t)) push([100, 100], 'torch');
+  if (t.shield) push(shieldAnchor(t), 'torch');
+  if (t.monastery) { const [mx, my] = monasteryCenter(t); push([mx - 22, my + 34], 'lantern'); }
+  lampCache.set(tileKey, out);
+  return out;
+}
+
+/** Soft glow sprites, drawn once, so a frame full of lamps is just cheap blits. */
+const glowSprites = new Map<LampKind, HTMLCanvasElement>();
+function glowSprite(kind: LampKind): HTMLCanvasElement {
+  const hit = glowSprites.get(kind);
+  if (hit) return hit;
+  const S = 96, c = document.createElement('canvas'); c.width = S; c.height = S;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  if (kind === 'torch') { g.addColorStop(0, 'rgba(255,225,150,0.95)'); g.addColorStop(0.12, 'rgba(255,170,60,0.7)'); g.addColorStop(0.45, 'rgba(255,120,30,0.18)'); g.addColorStop(1, 'rgba(255,100,20,0)'); }
+  else if (kind === 'lantern') { g.addColorStop(0, 'rgba(255,235,180,0.9)'); g.addColorStop(0.2, 'rgba(255,200,110,0.5)'); g.addColorStop(1, 'rgba(255,190,100,0)'); }
+  else { g.addColorStop(0, 'rgba(255,215,130,0.85)'); g.addColorStop(0.25, 'rgba(255,190,100,0.35)'); g.addColorStop(1, 'rgba(255,180,90,0)'); }
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  glowSprites.set(kind, c);
+  return c;
+}
+
+function drawNightLights(v: AmbientView, lamps: number): void {
+  if (lamps <= 0.02) return;
+  const { ctx, scale, game, now, cw, ch } = v;
+  const radius: Record<LampKind, number> = { window: 0.11, torch: 0.26, lantern: 0.16 };
   ctx.save();
-  for (const [x, y] of chimneys(game)) {
-    const [sx, sy] = v.toScreen(x - 0.11, y + 0.17);
-    const r = scale * 0.16;
-    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
-    g.addColorStop(0, `rgba(255,200,110,${0.55 * night})`); g.addColorStop(1, 'rgba(255,200,110,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const [k, tile] of Object.entries(game.board)) {
+    const [tx, ty] = k.split(',').map(Number) as [number, number];
+    const rot = ((tile.rot % 4) + 4) % 4;
+    for (const lamp of lampsFor(tile.tileKey)) {
+      let px = lamp.x, py = lamp.y;
+      for (let i = 0; i < rot; i++) { const nx = 1 - py, ny = px; px = nx; py = ny; }
+      const [sx, sy] = v.toScreen(tx + px, ty + py);
+      const r = scale * radius[lamp.kind];
+      if (sx < -r || sy < -r || sx > cw + r || sy > ch + r) continue;
+      // Torches gutter; windows only breathe.
+      const flicker = lamp.kind === 'torch'
+        ? 0.78 + 0.22 * Math.sin(now / 90 + lamp.phase) * Math.sin(now / 37 + lamp.phase * 1.7)
+        : 0.92 + 0.08 * Math.sin(now / 900 + lamp.phase);
+      ctx.globalAlpha = lamps * flicker;
+      ctx.drawImage(glowSprite(lamp.kind), sx - r, sy - r, r * 2, r * 2);
+    }
   }
   ctx.restore();
 }
@@ -246,7 +325,7 @@ export function drawAmbientUnder(v: AmbientView): void {
     ctx.fillRect(0, 0, cw, ch);
     ctx.restore();
   }
-  drawWindows(v, light.night);
+  drawNightLights(v, light.lamps);
   drawFireflies(v, light.night);
 }
 

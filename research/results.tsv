@@ -31,3 +31,5 @@ b25h	1b	strength	blend net-weight 0.25 vs shipped 0.5 (head-to-head)	-	STRENGTH 
 b00h	1b	strength	blend 0.0 (pure heuristic) vs shipped 0.5	-	STRENGTH win=0.464 ref_win=0.338 margin=4.03 ref_margin=-3.88 z=2.59 games=400	INFO	-
 b10h	1b	strength	blend 0.1 vs shipped 0.5	-	STRENGTH win=0.495 ref_win=0.306 margin=4.58 ref_margin=-4.54 z=3.93 games=400	INFO	-
 b25p	1b	strength	PROMOTE blend net-weight 0.25 (sweep peak: 0.0 +4.0, 0.1 +4.6, 0.25 +9.7, 0.5 ref, 0.75 -4.9)	-	see b25h	KEEP	e067bdf
+b15h	1b	strength	blend 0.15 vs shipped 0.25	-	STRENGTH win=0.387 ref_win=0.414 margin=-0.20 ref_margin=0.23 z=-0.55 games=400	INFO	-
+b35h	1b	strength	blend 0.35 vs shipped 0.25	-	STRENGTH win=0.378 ref_win=0.421 margin=-0.29 ref_margin=0.28 z=-0.88 games=400	INFO	-

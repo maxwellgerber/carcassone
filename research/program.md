@@ -192,3 +192,6 @@ Blend sweep, head-to-head vs shipped 0.5 (400 seats each, 2p + 3p):
 Promoted: NPC_TUNING.blendNet = 0.25. Even the bare heuristic beat the 0.5 blend,
 so the net at 0.5 was over-weighted; at 0.25 it adds a lot. Head-to-heads at
 0.15 and 0.35 against the new default are next to locate the optimum.
+
+Fine bracket vs the new 0.25 default: 0.15 → margin -0.20 (z -0.55), 0.35 → -0.29
+(z -0.88). Flat within noise on either side; 0.25 stays.

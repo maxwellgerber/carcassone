@@ -1,0 +1,13 @@
+{
+  "_": "Round 3: sweep the newly exposed heuristic constants (city/road growth per open edge, reserve horizon) vs the shipped bot (encoder v2). 4 shards x 80 games/size = 1,600 seats each.",
+  "jobs": [
+    { "id": "city-growth-0.3", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"cityGrowth\":0.3}"], "games": 80, "seed": 9201 },
+    { "id": "city-growth-0.9", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"cityGrowth\":0.9}"], "games": 80, "seed": 9202 },
+    { "id": "road-growth-0.25", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"roadGrowth\":0.25}"], "games": 80, "seed": 9203 },
+    { "id": "road-growth-0.75", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"roadGrowth\":0.75}"], "games": 80, "seed": 9204 },
+    { "id": "horizon-12", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveHorizon\":12}"], "games": 80, "seed": 9205 },
+    { "id": "horizon-27", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveHorizon\":27}"], "games": 80, "seed": 9206 },
+    { "id": "tiles-per-edge-4", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"chanceTilesPerEdge\":4}"], "games": 80, "seed": 9207 },
+    { "id": "tiles-per-edge-7", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"chanceTilesPerEdge\":7}"], "games": 80, "seed": 9208 }
+  ]
+}

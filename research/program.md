@@ -11,7 +11,9 @@ budget, and an agent that proposes, edits, runs, keeps or reverts, and logs.
   by game. Re-run only when the encoder changes or a new data generation lands.
 - `research/eval.ts` — strength: candidate-blend vs a frozen reference net on
   seeded 2p and 3p tourneys. Same seeds every run.
-- `research/reference-weights.ts` — the frozen opponent (gen-0 weights).
+- `research/reference-weights.ts` — the frozen opponent (gen-0 weights), fed by
+  `research/reference-features.ts`, a frozen copy of the encoder it was trained
+  with. Encoder experiments therefore change only the candidate's inputs.
 - The metric definitions and the time budget.
 
 ## What the loop edits
@@ -50,3 +52,17 @@ across generations are not comparable; the log notes the generation.
 ## Log format
 
 `research/results.tsv`: `id  gen  kind  description  val_mse  strength  verdict  commit`
+
+## Findings so far (gen 1, 2,000 local games, 373k positions)
+
+- Batch size was the big lever under a fixed budget: 64 → 2048 took val_mse
+  0.1055 → 0.0971 (exp 1–4); 4096 gave nothing more.
+- Width, depth, a smaller net, stronger L2, cosine decay, input standardisation,
+  and bag-composition features all failed to clear the 0.0015 bar on this data.
+  Standardising inputs actively hurt (0.106): the encoding is sparse and the
+  zeros carry meaning.
+- The training loop's allocation-free rewrite doubles throughput (10 epochs in
+  the budget instead of 5) but the small net has converged by epoch 5 on this
+  data, so it only pays once there is more data or a bigger net that helps.
+- Conclusion: data-limited. Next generation of data (8,000 games from Actions)
+  before more training experiments.

@@ -6,6 +6,7 @@ import { h } from './dom.js';
 import { me, refreshMe } from './session.js';
 import { navigate, root } from './router.js';
 import { renderRoom, setConnStatus, setCurrentRoomId, setRoom } from './room.js';
+import { boardCanvasEl, drawBoard } from './board.js';
 import { walkCache } from './wander.js';
 
 export interface Replay { doc: ReplayDoc; states: NonNullable<RoomDoc['game']>[]; step: number; playing: boolean; timer: ReturnType<typeof setInterval> | null; speed: number }
@@ -63,14 +64,36 @@ export function replayRoomDoc(): RoomDoc {
   };
 }
 
+/** Move the replay to `step` and rebuild the whole view (board, sidebar, controls). */
 export function setReplayStep(step: number): void {
+  if (!replay) return;
+  applyReplayStep(step);
+  renderRoom();
+}
+
+/** Move the replay to `step` without touching the DOM: swaps in the room document
+ *  for that moment so anything that reads `room` (the board painter, the walkers)
+ *  sees the new state. Callers decide how much of the page to refresh. */
+function applyReplayStep(step: number): void {
   if (!replay) return;
   const last = replay.states.length - 1;
   replay.step = Math.max(0, Math.min(last, step));
   if (replay.step === last && replay.playing) replayPlay(false);
   walkCache.clear();
   setRoom(replayRoomDoc());
-  renderRoom();
+}
+
+/** Scrubbing: the slider fires `input` on every pixel of a drag, and rebuilding the
+ *  page for each one would tear the slider out from under the pointer (the drag
+ *  dies after the first move) and repaint the whole sidebar dozens of times a
+ *  second. So while the thumb is moving only the board and the little readouts
+ *  are refreshed in place; the full rebuild waits for the pointer to let go. */
+export function scrubReplay(step: number): void {
+  if (!replay) return;
+  replayPlay(false);
+  applyReplayStep(step);
+  if (boardCanvasEl) drawBoard(boardCanvasEl);
+  updateReplayReadouts();
 }
 
 export function replayPlay(on: boolean): void {
@@ -89,17 +112,43 @@ export function replayPlay(on: boolean): void {
 
 export let replayBarEl: HTMLElement | null = null;
 export function setReplayBarEl(v: HTMLElement | null): void { replayBarEl = v; }
+
+/** What the current move is, in words, for the caption under the slider. */
+function replayCaption(): string {
+  const r = replay!;
+  const sm = r.doc.summary;
+  const mv = r.step > 0 ? r.doc.moves[r.step - 1] : null;
+  const who = mv ? sm.players.find((p) => p.id === mv.playerId)?.name ?? '?' : null;
+  const role: Record<MeepleKind, string> = { city: 'knight in the city', road: 'highwayman on the road', monastery: 'monk in the cloister', farm: 'farmer in the field' };
+  return !mv ? 'The table is set.' : mv.action.type === 'place_tile' ? `${who} lays a tile` : mv.action.type === 'place_meeple' ? `${who} places a ${role[mv.action.kind]}` : `${who} keeps their meeples`;
+}
+
+/** The parts of the bar that change with every step, kept so a scrub can update them in place. */
+let readouts: { slider: HTMLInputElement; step: HTMLElement; caption: HTMLElement } | null = null;
+function updateReplayReadouts(): void {
+  if (!replay || !readouts || !readouts.slider.isConnected) return;
+  const last = replay.states.length - 1;
+  if (Number(readouts.slider.value) !== replay.step) readouts.slider.value = String(replay.step);
+  readouts.step.textContent = `${replay.step} / ${last}`;
+  readouts.caption.textContent = replayCaption();
+}
+
 export function renderReplayBar(): void {
   if (!replay || !replayBarEl) return;
   const r = replay;
   const last = r.states.length - 1;
   const sm = r.doc.summary;
-  const mv = r.step > 0 ? r.doc.moves[r.step - 1] : null;
-  const who = mv ? sm.players.find((p) => p.id === mv.playerId)?.name ?? '?' : null;
-  const role: Record<MeepleKind, string> = { city: 'knight in the city', road: 'highwayman on the road', monastery: 'monk in the cloister', farm: 'farmer in the field' };
-  const what = !mv ? 'The table is set.' : mv.action.type === 'place_tile' ? `${who} lays a tile` : mv.action.type === 'place_meeple' ? `${who} places a ${role[mv.action.kind]}` : `${who} keeps their meeples`;
+  const what = replayCaption();
   replayBarEl.innerHTML = '';
-  const slider = h('input', { type: 'range', min: 0, max: last, value: r.step, class: 'replay-slider', oninput: (e: Event) => { replayPlay(false); setReplayStep(Number((e.target as HTMLInputElement).value)); } });
+  const slider = h('input', {
+    type: 'range', min: 0, max: last, value: r.step, class: 'replay-slider', 'aria-label': 'Replay position',
+    // Dragging: cheap in-place updates. Letting go (or an arrow key): the full page catches up.
+    oninput: (e: Event) => scrubReplay(Number((e.target as HTMLInputElement).value)),
+    onchange: (e: Event) => { replayPlay(false); setReplayStep(Number((e.target as HTMLInputElement).value)); },
+  }) as HTMLInputElement;
+  const stepEl = h('span', { class: 'replay-step' }, `${r.step} / ${last}`);
+  const captionEl = h('div', { class: 'replay-caption' }, what);
+  readouts = { slider, step: stepEl, caption: captionEl };
   const bar = replayBarEl;
   bar.appendChild(h('div', { class: 'replay-title' }, h('strong', {}, `🎞 Replay`), ` · game ${sm.no} in "${r.doc.roomId}" · ${new Date(sm.endedAt).toLocaleDateString()}`));
   bar.appendChild(h('div', { class: 'replay-controls' },
@@ -110,10 +159,10 @@ export function renderReplayBar(): void {
       h('button', { class: 'small', title: 'End', onclick: () => { replayPlay(false); setReplayStep(last); } }, '⏭'),
       h('select', { class: 'small', onchange: (e: Event) => { r.speed = Number((e.target as HTMLSelectElement).value); if (r.playing) replayPlay(true); } },
         ...[0.5, 1, 2, 4].map((sp) => h('option', { value: sp, selected: sp === r.speed }, `${sp}×`))),
-      h('span', { class: 'replay-step' }, `${r.step} / ${last}`),
+      stepEl,
     ));
   bar.appendChild(slider);
-  bar.appendChild(h('div', { class: 'replay-caption' }, what));
+  bar.appendChild(captionEl);
   bar.appendChild(h('div', { style: 'display:flex;gap:0.5rem;justify-content:center' },
       h('button', { class: 'small', onclick: () => navigate(`/r/${r.doc.roomId}`) }, 'Back to the table'),
       h('button', { class: 'small', onclick: () => navigate('/') }, 'Home'),

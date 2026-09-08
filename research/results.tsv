@@ -18,3 +18,4 @@ id	gen	kind	description	val_mse	strength	verdict	commit
 17	1b	features	encoder v2: opening geometry, fillability, contest gaps, merge potential, unclaimed features (142 dims)	0.10757	-	REVERT	20211fa
 18	1b	train	residual target: r = z - H, deploy H + 1.0 r (gen1b)	0.10052	-	REVERT	76db75f
 17s	1b	strength	encoder v2 candidate vs gen-0 reference	0.10757	STRENGTH win=0.485 ref_win=0.313 margin=2.46 ref_margin=-2.51 z=3.57 games=400	INFO	-
+b75	1b	strength	blend net-weight 0.75 (shipped weights) vs gen-0 reference	-	STRENGTH win=0.490 ref_win=0.308 margin=2.69 ref_margin=-2.75 z=3.78 games=400	INFO	-

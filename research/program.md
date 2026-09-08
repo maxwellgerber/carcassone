@@ -147,3 +147,7 @@ encoder gives a similar gain through the other route. Both were rejected by the
 MSE rule; from here, target and encoder experiments are kept on paired held-out
 regret (`experiment.sh --metric regret`, keep if the blend's regret falls by more
 than two standard errors of the paired difference).
+
+Head-to-head, v2 candidate vs shipped v1 (seed 5151, 400 seats): win 0.423 vs 0.374,
+margin +0.41 vs -0.45, z = 1.0. A small edge, not enough for promotion on its own;
+v2 combined with the pairwise loss is being measured.

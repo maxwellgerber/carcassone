@@ -43,6 +43,7 @@ const idx = new Uint32Array(nTrain); for (let i = 0; i < nTrain; i++) idx[i] = i
 const started = Date.now();
 const valMse = () => { let s = 0; for (let i = 0; i < nVal; i++) { const d = net.predict(row(valX, i)) - valY[i]!; s += d * d; } return s / nVal; };
 let epoch = 0, seen = 0;
+let bestVal = Infinity, bestSnap = net.snapshot();
 outer: for (;;) {
   for (let i = nTrain - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); const t = idx[i]!; idx[i] = idx[j]!; idx[j] = t; }
   const lr = LR0 * Math.pow(LR_DECAY_PER_EPOCH, epoch);
@@ -53,8 +54,12 @@ outer: for (;;) {
     if ((Date.now() - started) / 1000 > budgetSec) break outer;
   }
   epoch++;
-  console.error(`epoch ${epoch} done at ${((Date.now() - started) / 1000).toFixed(0)}s, val ${valMse().toFixed(5)}`);
+  const v = valMse();
+  if (v < bestVal) { bestVal = v; bestSnap = net.snapshot(); }
+  console.error(`epoch ${epoch} done at ${((Date.now() - started) / 1000).toFixed(0)}s, val ${v.toFixed(5)}`);
 }
+// Export the best epoch-end checkpoint seen inside the budget, and report its error.
+if (valMse() > bestVal) net.restore(bestSnap);
 const mse = valMse();
 console.error(`stopped after ${epoch} full epochs + partial, ${seen} samples seen, ${((Date.now() - started) / 1000).toFixed(0)}s`);
 const j = net.toJSON();

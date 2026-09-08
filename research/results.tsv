@@ -9,3 +9,4 @@ id	gen	kind	description	val_mse	strength	verdict	commit
 8	1	train	net.ts: allocation-free forward/backward (throughput)	0.09715	-	REVERT	fd844f9
 9	1	train	fast loop + hidden [128,64] + cosine lr	0.09761	-	REVERT	895c9ed
 10	1	features	features: remaining-bag composition (8 dims)	0.09667	-	REVERT	197a2ac
+11	1	train	L2 1e-4 (was 1e-5)	0.09689	-	REVERT	da0837b

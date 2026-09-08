@@ -58,6 +58,8 @@ Claude-Session: https://claude.ai/code/session_01E5Q7DMm3xNPParJnPc1D2x"
   git add research/results.tsv && git commit -q --amend --no-edit
 else
   git checkout -q -- research/train.ts src/server/features.ts src/server/npc.ts src/server/net.ts
+  # A reverted encoder change leaves re-encoded data behind: put the split back.
+  if [ "$KIND" = "features" ]; then echo "== re-encoding (encoder reverted)"; npx tsx research/prepare.ts "$DATA"/../gen*/rec-*.json --out "$DATA" 2>/dev/null | tail -1; fi
   git add research/results.tsv && git commit -q -m "autoresearch #$id: $DESC — reverted (val_mse $metric)
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

@@ -55,11 +55,12 @@ if (recordsGlob) {
 }
 
 let net: Net | null = null;
+let netMode: { mode?: 'value' | 'residual'; alpha?: number } = {};
 if (weightsPath) {
-  const m = await import(pathToFileURL(weightsPath).href) as Record<string, { sizes: number[]; w: number[][]; b: number[][] }>;
+  const m = await import(pathToFileURL(weightsPath).href) as Record<string, { sizes: number[]; w: number[][]; b: number[][]; mode?: 'value' | 'residual'; alpha?: number }>;
   const w = m.WEIGHTS_CANDIDATE ?? m.WEIGHTS ?? m.WEIGHTS_REFERENCE;
   if (!w) throw new Error('no weights export found');
-  net = Net.fromJSON(w);
+  net = Net.fromJSON(w); netMode = { mode: w.mode, alpha: w.alpha };
 }
 
 type Scorer = (c: Cand) => number;
@@ -71,8 +72,14 @@ const scorers: Record<string, Scorer> = {
 };
 if (net) {
   const n = net;
-  scorers['net:file'] = (c) => n.predict(c.x) * 40;
-  scorers[`blend:file(a=${alpha})`] = (c) => (1 - alpha) * c.hand + alpha * n.predict(c.x) * 40;
+  if (netMode.mode === 'residual') {
+    const a = netMode.alpha ?? 1;
+    scorers[`residual:file(alpha=${a})`] = (c) => c.hand + a * n.predict(c.x) * 40;
+    scorers['residual:file(alpha=0.5)'] = (c) => c.hand + 0.5 * n.predict(c.x) * 40;
+  } else {
+    scorers['net:file'] = (c) => n.predict(c.x) * 40;
+    scorers[`blend:file(a=${alpha})`] = (c) => (1 - alpha) * c.hand + alpha * n.predict(c.x) * 40;
+  }
 }
 
 // Label reliability: mean |Q_A - Q_B| between the two halves of each candidate's futures,

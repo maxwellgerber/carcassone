@@ -122,21 +122,30 @@ export function evaluatePositions(state: GameState, features: Features): number[
  *  strongest opponent, with a nod to the field average in bigger games. */
 export function evaluateFor(state: GameState, me: number, features = deriveFeatures(state)): number {
   if (NPC_TUNING.evaluator !== 'hand') {
-    const learned = NPC_TUNING.evaluator === 'blend-cand' ? candidateValue(state, me, features)
-      : NPC_TUNING.evaluator === 'blend-ref' ? referenceValue(state, me, features)
-      : netValue(state, me, features);
+    const which = NPC_TUNING.evaluator === 'blend-cand' ? 'cand' : NPC_TUNING.evaluator === 'blend-ref' ? 'ref' : 'net';
+    const mode = which === 'cand' ? candMode : which === 'ref' ? refMode : shippedMode;
+    if (mode.mode === 'residual') {
+      // A residual net corrects the heuristic; there is nothing further to blend.
+      const r = which === 'cand' ? candidateValue(state, me, features) : which === 'ref' ? referenceValue(state, me, features) : netValue(state, me, features);
+      return handValue(state, me, features) + (mode.alpha ?? 1) * r;
+    }
+    const learned = which === 'cand' ? candidateValue(state, me, features) : which === 'ref' ? referenceValue(state, me, features) : netValue(state, me, features);
     if (NPC_TUNING.evaluator === 'net') return learned;
     return 0.5 * learned + 0.5 * handValue(state, me, features);
   }
   return handValue(state, me, features);
 }
+type NetMode = { mode?: 'value' | 'residual'; alpha?: number };
+const shippedMode: NetMode = { mode: WEIGHTS.mode, alpha: WEIGHTS.alpha };
+let candMode: NetMode = {};
+let refMode: NetMode = {};
 
 /** A frozen reference net with its own frozen encoder (research/eval.ts), so the
  *  opponent in strength evals never changes when the live encoder does. */
 let refNet: Net | null = null;
 let refEncode: ((state: GameState, me: number, features: Features) => ArrayLike<number>) | null = null;
 export function setReferenceEvaluator(w: NetWeights, enc: (state: GameState, me: number, features: Features) => ArrayLike<number>): void {
-  refNet = Net.fromJSON(w); refEncode = enc;
+  refNet = Net.fromJSON(w); refEncode = enc; refMode = { mode: w.mode, alpha: w.alpha };
 }
 function referenceValue(state: GameState, me: number, features: Features): number {
   if (!refNet || !refEncode) throw new Error('no reference evaluator loaded');
@@ -147,7 +156,7 @@ function referenceValue(state: GameState, me: number, features: Features): numbe
 let candNet: Net | null = null;
 let candEncode: ((state: GameState, me: number, features: Features) => ArrayLike<number>) | null = null;
 /** The challenger may bring its own encoder (an encoder experiment); default is the live one. */
-export function setCandidateWeights(w: NetWeights, enc?: (state: GameState, me: number, features: Features) => ArrayLike<number>): void { candNet = Net.fromJSON(w); candEncode = enc ?? null; }
+export function setCandidateWeights(w: NetWeights, enc?: (state: GameState, me: number, features: Features) => ArrayLike<number>): void { candNet = Net.fromJSON(w); candEncode = enc ?? null; candMode = { mode: w.mode, alpha: w.alpha }; }
 function candidateValue(state: GameState, me: number, features: Features): number {
   if (!candNet) throw new Error('no candidate weights loaded');
   return candNet.predict((candEncode ?? encode)(state, me, features)) * 40;

@@ -3,7 +3,13 @@
 // ships its weights as JSON. No tensor library: the net is a few thousand
 // parameters and a forward pass is a few microseconds.
 
-export interface NetWeights { sizes: number[]; w: number[][]; b: number[][] }
+export interface NetWeights {
+  sizes: number[]; w: number[][]; b: number[][];
+  /** 'value' (default): the output is the position value. 'residual': the output is a
+   *  correction to the hand heuristic, deployed as H + alpha * r. */
+  mode?: 'value' | 'residual';
+  alpha?: number;
+}
 
 export class Net {
   sizes: number[];

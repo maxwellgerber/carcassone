@@ -1,8 +1,1 @@
-{
-  "val_mse": 0.09705,
-  "noise_sd": 0.0005,
-  "exp": 4,
-  "desc": "batch 2048, lr 1e-2",
-  "strength": "STRENGTH win=0.490 ref_win=0.308 margin=2.05 ref_margin=-2.09 z=3.78 games=400 (exp 4 candidate vs gen-0 reference)",
-  "promoted": "exp 4"
-}
+{ "gen": "1b", "val_mse": 0.1011, "noise_sd": 0.0006, "exp": 0, "desc": "gen1b baseline (10k games, 1.68M train / 196k val): [64,32], batch 2048, lr 1e-2 x0.7/epoch, 90 s = ~1 epoch (seeds 11/12/13: 0.10099 0.10181 0.10062)" }

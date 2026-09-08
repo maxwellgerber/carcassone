@@ -237,3 +237,9 @@ quarter of the blend; the heuristic's own terms are the bigger surface.
 
 0.8 → win 0.385 vs 0.436, margin -0.11; 0.4 → 0.395 vs 0.427, margin +0.46. Flat;
 0.6 stays. Next: rollouts 24 and shortlist 8 under the same 150 ms cap.
+
+## Heuristic knob: opponent weighting (head-to-head vs shipped 0.7)
+
+1.0 (strongest opponent only) → margin +0.18, z -0.22. 0.4 (leaning on the
+average opponent) → win 0.434 vs 0.369, margin +1.23, z = 1.33. Promoted to 0.4;
+bracketing with 0.0 and 0.2 against the new default.

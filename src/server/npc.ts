@@ -35,7 +35,7 @@ export const NPC_TUNING: {
   chanceSlope: number; chanceTilesPerEdge: number;
   /** Farms: value of an unfinished adjacent city relative to a finished one. */
   farmOpenFactor: number;
-} = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.25, candBlendNet: null, oppBestWeight: 0.7, chanceSlope: 0.16, chanceTilesPerEdge: 5, farmOpenFactor: 0.8 };
+} = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.25, candBlendNet: null, oppBestWeight: 0.4, chanceSlope: 0.16, chanceTilesPerEdge: 5, farmOpenFactor: 0.8 };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;

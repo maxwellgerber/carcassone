@@ -42,3 +42,5 @@ v2p	2	strength	encoder v2 + pairwise (18k games) vs shipped	0.10675	STRENGTH win
 g2	2	strength	gen2 round: v1 encoder + pairwise on 18k games vs shipped	0.10121	STRENGTH win=0.411 ref_win=0.367 margin=0.52 ref_margin=-0.52 z=0.87 games=360	REVERT	-
 hsw8	1b	strength	hard staticWeight 0.8 vs 0.6 (hard-vs-hard)	-	STRENGTH win=0.385 ref_win=0.436 margin=-0.11 ref_margin=0.10 z=-0.95 games=340	REVERT	-
 hsw4	1b	strength	hard staticWeight 0.4 vs 0.6 (hard-vs-hard)	-	STRENGTH win=0.395 ref_win=0.427 margin=0.46 ref_margin=-0.42 z=-0.60 games=340	REVERT	-
+opp10	1b	strength	oppBestWeight 1.0 vs shipped 0.7	-	STRENGTH win=0.394 ref_win=0.405 margin=0.18 ref_margin=-0.17 z=-0.22 games=400	REVERT	-
+opp04	1b	strength	PROMOTE oppBestWeight 0.4 vs shipped 0.7	-	STRENGTH win=0.434 ref_win=0.369 margin=1.23 ref_margin=-1.11 z=1.33 games=400	KEEP	8fd0b23

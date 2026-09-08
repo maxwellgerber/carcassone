@@ -43,7 +43,7 @@ const idx = new Uint32Array(nTrain); for (let i = 0; i < nTrain; i++) idx[i] = i
 const started = Date.now();
 const valMse = () => { let s = 0; for (let i = 0; i < nVal; i++) { const d = net.predict(row(valX, i)) - valY[i]!; s += d * d; } return s / nVal; };
 let epoch = 0, seen = 0;
-outer: while (true) {
+outer: for (;;) {
   for (let i = nTrain - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); const t = idx[i]!; idx[i] = idx[j]!; idx[j] = t; }
   const lr = LR0 * Math.pow(LR_DECAY_PER_EPOCH, epoch);
   for (let s = 0; s < nTrain; s += BATCH) {

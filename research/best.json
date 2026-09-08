@@ -1,1 +1,1 @@
-{ "gen": "1b", "val_mse": 0.1011, "noise_sd": 0.0006, "exp": 0, "desc": "gen1b baseline (10k games, 1.68M train / 196k val): [64,32], batch 2048, lr 1e-2 x0.7/epoch, 90 s = ~1 epoch (seeds 11/12/13: 0.10099 0.10181 0.10062)" }
+{ "gen": "1b", "val_mse": 0.0999, "noise_sd": 0.0002, "threshold": 0.001, "exp": 0, "desc": "gen1b baseline with the fast loop (10k games): [64,32], batch 2048, lr 1e-2 x0.7/epoch, 90 s = ~2.3 epochs (seeds 11/12/13: 0.09996 0.09986 0.10001)" }

@@ -27,9 +27,11 @@ if (process.env.CARC_REFERENCE === '1') {
 }
 // cand / cand-hard use src/server/weights-candidate.ts (written by scripts/hillclimb.sh) if present.
 try {
-  const m = await import('../src/server/weights-candidate.js') as { WEIGHTS_CANDIDATE: Parameters<typeof setCandidateWeights>[0] };
-  // CARC_CANDIDATE_ENCODER=1: the candidate uses src/server/features-candidate.ts (an encoder experiment).
-  const enc = process.env.CARC_CANDIDATE_ENCODER === '1' ? (await import('../src/server/features-candidate.js') as { encode: Parameters<typeof setCandidateWeights>[1] }).encode : undefined;
+  // CARC_CANDIDATE_FILE / CARC_CANDIDATE_ENCODER: module paths (relative to this file) for the
+  // challenger's weights and, for an encoder experiment, its encoder; research/eval.ts sets them.
+  const m = await import(process.env.CARC_CANDIDATE_FILE ?? '../src/server/weights-candidate.js') as { WEIGHTS_CANDIDATE: Parameters<typeof setCandidateWeights>[0] };
+  const encPath = process.env.CARC_CANDIDATE_ENCODER;
+  const enc = encPath ? (await import(encPath === '1' ? '../src/server/features-candidate.js' : encPath) as { encode: Parameters<typeof setCandidateWeights>[1] }).encode : undefined;
   setCandidateWeights(m.WEIGHTS_CANDIDATE, enc);
   // CARC_CAND_BLEND=0.7: the candidate blends its net at this weight (a blend-weight experiment).
   if (process.env.CARC_CAND_BLEND) NPC_TUNING.candBlendNet = Number(process.env.CARC_CAND_BLEND);

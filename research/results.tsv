@@ -50,3 +50,4 @@ hr24	1b	strength	hard rollouts 24 vs 12 (hard-vs-hard)	-	STRENGTH win=0.423 ref_
 hc8	2	search	hard shortlist 8 vs 5 (hard-vs-hard)	-	STRENGTH win=0.423 ref_win=0.402 margin=0.72 ref_margin=-0.66 z=0.40 games=340	REVERT	-
 sl10	2	strength	chanceSlope 0.10 vs shipped 0.16	-	STRENGTH win=0.358 ref_win=0.441 margin=-0.52 ref_margin=0.51 z=-1.70 games=400	REVERT	-
 sl24	2	strength	chanceSlope 0.24 vs shipped 0.16	-	STRENGTH win=0.363 ref_win=0.433 margin=-0.40 ref_margin=0.37 z=-1.44 games=400	REVERT	-
+hand	2	strength	pure heuristic (net weight 0) vs shipped bot, direct	-	STRENGTH win=0.295 ref_win=0.505 margin=-3.18 ref_margin=3.18 z=-4.39 games=400	INFO	-

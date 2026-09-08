@@ -246,3 +246,9 @@ bracketing with 0.0 and 0.2 against the new default.
 
 Bracket vs 0.4: 0.0 → margin -0.09 (z -1.3), 0.2 → +0.14 (z 0.1). 0.4 stays.
 Hard rollouts 24 vs 12 under the same cap: +0.72, z 0.4 (flat).
+
+## Does the shipped bot beat the bare heuristic? (direct, seed 6161, 400 seats)
+
+Pure heuristic (net weight 0, same knobs) vs shipped: 29.5% vs 50.5%, margin
+-3.18 vs +3.18, z = -4.4. Yes: the learned quarter of the blend is worth about
+three points a game over the heuristic alone.

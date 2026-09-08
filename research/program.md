@@ -110,3 +110,11 @@ Rule change: encoder and target experiments are judged on benchmark regret
 with MSE reported, and promotion still by the strength gate. Label noise: the
 half-split disagreement is 2.8 pts against a 6.1 pt root spread at 8 futures;
 the Actions benchmark uses 12 futures x 30 plies.
+
+## Residual target (exp 18, gen 1b)
+
+r = z - H trained on the same data, deployed as H + alpha r: val_mse 0.1005 (vs 0.0999
+for the plain value net), regret 0.87 at alpha 1 and 0.75 at alpha 0.5 (hand 0.66,
+blend 0.73) on the 60-root benchmark. No better than blending; reverted. The
+60-root benchmark is too small to separate 0.66 from 0.75 — the 1,600-root Actions
+benchmark is needed for any of these calls.

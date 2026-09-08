@@ -243,3 +243,6 @@ quarter of the blend; the heuristic's own terms are the bigger surface.
 1.0 (strongest opponent only) → margin +0.18, z -0.22. 0.4 (leaning on the
 average opponent) → win 0.434 vs 0.369, margin +1.23, z = 1.33. Promoted to 0.4;
 bracketing with 0.0 and 0.2 against the new default.
+
+Bracket vs 0.4: 0.0 → margin -0.09 (z -1.3), 0.2 → +0.14 (z 0.1). 0.4 stays.
+Hard rollouts 24 vs 12 under the same cap: +0.72, z 0.4 (flat).

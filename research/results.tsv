@@ -44,3 +44,6 @@ hsw8	1b	strength	hard staticWeight 0.8 vs 0.6 (hard-vs-hard)	-	STRENGTH win=0.38
 hsw4	1b	strength	hard staticWeight 0.4 vs 0.6 (hard-vs-hard)	-	STRENGTH win=0.395 ref_win=0.427 margin=0.46 ref_margin=-0.42 z=-0.60 games=340	REVERT	-
 opp10	1b	strength	oppBestWeight 1.0 vs shipped 0.7	-	STRENGTH win=0.394 ref_win=0.405 margin=0.18 ref_margin=-0.17 z=-0.22 games=400	REVERT	-
 opp04	1b	strength	PROMOTE oppBestWeight 0.4 vs shipped 0.7	-	STRENGTH win=0.434 ref_win=0.369 margin=1.23 ref_margin=-1.11 z=1.33 games=400	KEEP	8fd0b23
+opp00	1b	strength	oppBestWeight 0.0 vs shipped 0.4	-	STRENGTH win=0.370 ref_win=0.434 margin=-0.09 ref_margin=0.10 z=-1.31 games=400	REVERT	-
+opp02	1b	strength	oppBestWeight 0.2 vs shipped 0.4	-	STRENGTH win=0.403 ref_win=0.397 margin=0.14 ref_margin=-0.14 z=0.12 games=400	REVERT	-
+hr24	1b	strength	hard rollouts 24 vs 12 (hard-vs-hard)	-	STRENGTH win=0.423 ref_win=0.402 margin=0.72 ref_margin=-0.66 z=0.40 games=340	REVERT	-

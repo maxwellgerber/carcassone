@@ -118,3 +118,9 @@ for the plain value net), regret 0.87 at alpha 1 and 0.75 at alpha 0.5 (hand 0.6
 blend 0.73) on the 60-root benchmark. No better than blending; reverted. The
 60-root benchmark is too small to separate 0.66 from 0.75 — the 1,600-root Actions
 benchmark is needed for any of these calls.
+
+## Encoder v2 strength (exp 17 candidate vs gen-0 reference)
+
+win 0.485 vs 0.313, margin +2.46 vs -2.51, z = 3.6 — the same decisive margin the
+shipped v1 net has over the reference (0.490/0.308, +2.05/-2.09), despite v2's
+worse budgeted MSE (0.1076 vs 0.0999). Head-to-head v2 vs shipped v1 is running.

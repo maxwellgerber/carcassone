@@ -162,3 +162,19 @@ blend matters a lot; 0.25 is being tested next.
 Net weight 0.25 vs shipped 0.5, head-to-head (seed 7171, 400 seats): win 0.627 vs
 0.171, margin +9.70 vs -9.80, z = 10.5. The single largest effect in the study so
 far. Sweeping 0.0 (pure heuristic) and 0.1 to find the optimum before promoting.
+
+## Encoder v2 + pairwise (exp 28, pairs re-encoded)
+
+Blend regret 1.144, Δ -0.075 ± 0.076 vs shipped: the same size of effect as v2
+alone (-0.063) and pairwise alone (-0.066), none of them 2 SE on 400 roots.
+Reverted.
+
+## The benchmark is biased toward the evaluator that labelled it
+
+Held-out regret of the shipped net at blend weight 0.25 is -0.021 ± 0.068 vs 0.5,
+and +0.066 at 0.1 — flat — while head-to-head strength moves by z = 10 (0.25
+wins 0.627 vs 0.171). The labels are 30-ply continuations valued by the
+blend-0.5 evaluator itself, so any evaluator that agrees with blend-0.5 looks
+good on them. Fix: label with terminal outcomes (continuations to the end of the
+game). A 16 x 40-root run with plies=400 is queued (seed 300); the 30-ply sets
+stay as a secondary signal.

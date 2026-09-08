@@ -15,7 +15,8 @@ const reference = arg('reference', 'research/reference-weights.ts');
 const games = Number(arg('games', '80'));
 const seed = Number(arg('seed', '4242'));
 const encoder = arg('encoder', '');
-const blend = arg('blend', ''); // optional: the candidate's net weight in the blend (shipped: 0.5) // optional: an encoder file (src/server-relative imports) the candidate was trained with
+const blend = arg('blend', '');
+const tune = arg('tune', ''); // optional JSON of evaluation knobs for the candidate only, e.g. '{"reserveValue":9}' // optional: the candidate's net weight in the blend (shipped: 0.5) // optional: an encoder file (src/server-relative imports) the candidate was trained with
 
 // Install the candidate where the tourney's cand bots find it; the reference (weights
 // and its frozen encoder) is loaded by the tourney itself under CARC_REFERENCE=1.
@@ -31,7 +32,7 @@ if (!vsShipped && reference !== 'research/reference-weights.ts') throw new Error
 try {
   const runs = [2, 3].map((n) => {
     const outFile = `data/research/eval-${n}p.json`;
-    execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', 'blend,cand,blend-hard,cand-hard', '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, ...(vsShipped ? {} : { CARC_REFERENCE: '1' }), CARC_CANDIDATE_FILE: `../src/server/weights-candidate-${tag}.js`, ...(encoder ? { CARC_CANDIDATE_ENCODER: `../src/server/features-candidate-${tag}.js` } : {}), ...(blend ? { CARC_CAND_BLEND: blend } : {}) } });
+    execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', 'blend,cand,blend-hard,cand-hard', '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, ...(vsShipped ? {} : { CARC_REFERENCE: '1' }), CARC_CANDIDATE_FILE: `../src/server/weights-candidate-${tag}.js`, ...(encoder ? { CARC_CANDIDATE_ENCODER: `../src/server/features-candidate-${tag}.js` } : {}), ...(blend ? { CARC_CAND_BLEND: blend } : {}), ...(tune ? { CARC_CAND_TUNE: tune } : {}) } });
     return outFile;
   });
   const verdict = execFileSync('npx', ['tsx', 'scripts/gate.ts', ...runs], { encoding: 'utf8' }).trim();

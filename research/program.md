@@ -204,3 +204,14 @@ Fine bracket vs the new 0.25 default: 0.15 → margin -0.20 (z -0.55), 0.35 → 
   pairwise difference loss every fourth batch) lives in research/patches
   (pairwise.patch) and is applied per experiment; the effect on 30-ply regret was
   small (-0.03 ± 0.04) but strength agrees in sign.
+
+## Terminal-outcome benchmark (640 roots, 12 futures to game end)
+
+Label half-split disagreement 4.69 pts vs 9.14 root spread (noisier than 30-ply,
+as expected). Regret: hand 2.67, net v1 2.53, blend 0.5 2.36, blend 0.25 2.45
+(+0.09 ± 0.07), shipped pairwise net alone 2.33, its blend 0.25 2.40. It does
+not reproduce the head-to-head ordering (0.25 over 0.5 at z = 10). Conclusion:
+per-root regret with a dozen futures is an order of magnitude less sensitive
+than 400 games of self-play, which aggregate ~30,000 decisions. From here the
+benchmark is training data (pairwise supervision, where it demonstrably helped:
+exp 29 promoted on strength) and strength head-to-heads are the only gate.

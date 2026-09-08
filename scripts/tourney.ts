@@ -59,17 +59,27 @@ const onlyBots = arg('bots', '');
 const POOL: BotName[] = onlyBots ? (onlyBots.split(',') as BotName[]) : BOTS.filter((b) => !EVALUATOR[b]);
 
 const baseEvaluator = NPC_TUNING.evaluator;
+// CARC_CAND_TUNE='{"reserveValue":9}': evaluation knobs applied only while a cand bot thinks
+// (a head-to-head of one knob value against the shipped one).
+const candTune = JSON.parse(process.env.CARC_CAND_TUNE ?? '{}') as Partial<Record<'reserveValue' | 'reserveDecay', number>>;
+const baseTune = { reserveValue: NPC_TUNING.reserveValue, reserveDecay: NPC_TUNING.reserveDecay };
+function applyTune(isCand: boolean): void {
+  const t = isCand ? { ...baseTune, ...candTune } : baseTune;
+  NPC_TUNING.reserveValue = t.reserveValue; NPC_TUNING.reserveDecay = t.reserveDecay;
+}
 function difficultyOf(bot: BotName): NpcDifficulty { return bot.endsWith('-hard') ? 'hard' : EVALUATOR[bot] ? 'normal' : bot as NpcDifficulty; }
 function tileMove(bot: BotName, g: GameState, rng: () => number): Placement {
   if (bot === 'old-normal') return oldTile(g, 'normal', rng);
   if (bot === 'old-hard') return oldTile(g, 'hard', rng);
   NPC_TUNING.evaluator = EVALUATOR[bot] ?? baseEvaluator;
+  applyTune(bot === 'cand' || bot === 'cand-hard');
   return chooseNpcTilePlacement(g, difficultyOf(bot), rng);
 }
 function meepleMove(bot: BotName, g: GameState, rng: () => number) {
   if (bot === 'old-normal') return oldMeeple(g, 'normal', rng);
   if (bot === 'old-hard') return oldMeeple(g, 'hard', rng);
   NPC_TUNING.evaluator = EVALUATOR[bot] ?? baseEvaluator;
+  applyTune(bot === 'cand' || bot === 'cand-hard');
   return chooseNpcMeepleMove(g, difficultyOf(bot), rng);
 }
 

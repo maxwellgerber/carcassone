@@ -178,3 +178,17 @@ blend-0.5 evaluator itself, so any evaluator that agrees with blend-0.5 looks
 good on them. Fix: label with terminal outcomes (continuations to the end of the
 game). A 16 x 40-root run with plies=400 is queued (seed 300); the 30-ply sets
 stay as a secondary signal.
+
+Blend sweep, head-to-head vs shipped 0.5 (400 seats each, 2p + 3p):
+
+| net weight | win | ref win | margin | z |
+|---|---|---|---|---|
+| 0.00 (pure heuristic) | 0.464 | 0.338 | +4.0 | 2.6 |
+| 0.10 | 0.495 | 0.306 | +4.6 | 3.9 |
+| 0.25 | 0.627 | 0.171 | +9.7 | 10.5 |
+| 0.50 | — shipped — | | | |
+| 0.75 | 0.278 | 0.523 | -4.9 | -5.2 |
+
+Promoted: NPC_TUNING.blendNet = 0.25. Even the bare heuristic beat the 0.5 blend,
+so the net at 0.5 was over-weighted; at 0.25 it adds a lot. Head-to-heads at
+0.15 and 0.35 against the new default are next to locate the optimum.

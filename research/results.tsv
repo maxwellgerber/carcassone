@@ -28,3 +28,6 @@ b25h	1b	strength	blend net-weight 0.25 vs shipped 0.5 (head-to-head)	-	STRENGTH 
 24	1b	features	encoder v2 + pairwise loss — INVALID: pairs were 86-dim so none loaded; identical to exp 17 (net 1.258, blend 1.156, Δ -0.063±0.078)	0.10757 regret=1.156	-	INVALID	-
 28	1b	features	encoder v2 + pairwise loss (every 4th batch, pairs re-encoded) [regret metric]	0.10675 regret=1.144	-	REVERT	7efecbd
 29	1b	train	pairwise loss every 4th batch, 2400 training roots, 800 held-out [regret metric]	0.10838 regret=1.003	-	REVERT	7a5eb1a
+b00h	1b	strength	blend 0.0 (pure heuristic) vs shipped 0.5	-	STRENGTH win=0.464 ref_win=0.338 margin=4.03 ref_margin=-3.88 z=2.59 games=400	INFO	-
+b10h	1b	strength	blend 0.1 vs shipped 0.5	-	STRENGTH win=0.495 ref_win=0.306 margin=4.58 ref_margin=-4.54 z=3.93 games=400	INFO	-
+b25p	1b	strength	PROMOTE blend net-weight 0.25 (sweep peak: 0.0 +4.0, 0.1 +4.6, 0.25 +9.7, 0.5 ref, 0.75 -4.9)	-	see b25h	KEEP	e067bdf

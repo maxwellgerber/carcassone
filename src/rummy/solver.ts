@@ -321,7 +321,8 @@ export function analyze(hand: readonly Card[], table: readonly TableMeld[] = [],
   if (hand.length > MAX_HAND) throw new Error(`Hand too large (${hand.length} cards; limit ${MAX_HAND})`);
   const t0 = now();
   const best = solveHand(hand, table, rules);
-  const { melds, layoffs } = best.model;
+  const melds = enumerateMelds(hand, rules);
+  const { layoffs } = best.model;
 
   const discards: DiscardOption[] = hand.map((card) => ({ card, plan: solveHand(withoutCards(hand, [card]), table, rules) }));
   discards.sort((a, b) => a.plan.deadwoodPoints - b.plan.deadwoodPoints || a.plan.deadwood.length - b.plan.deadwood.length);

@@ -62,3 +62,6 @@ mac-o05	2	strength	[Mac, 2p only, 640 seats] oppBestWeight 0.5 vs shipped 0.4	-	
 mac-r6	2	strength	[Mac, 2p only, 640 seats] reserveValue 6 vs shipped 7	-	STRENGTH win=0.476 ref_win=0.523 margin=-1.15 ref_margin=1.10 z=-1.19 games=640	REVERT	-
 mac-r8	2	strength	[Mac, 2p only, 640 seats] reserveValue 8 vs shipped 7	-	STRENGTH win=0.502 ref_win=0.498 margin=0.08 ref_margin=-0.07 z=0.08 games=640	REVERT	-
 mac-g2	2	strength	[Mac, 2p only, 640 seats] gen2 pairwise net (v1 encoder) vs shipped	-	STRENGTH win=0.494 ref_win=0.507 margin=-0.11 ref_margin=0.12 z=-0.32 games=640	REVERT	-
+cf-v2	2	strength	[confirm, 2p+3p, seed 8101] v2 encoder net (exp17) vs shipped	-	STRENGTH win=0.407 ref_win=0.393 margin=0.24 ref_margin=-0.22 z=0.40 games=800	FLAT	-
+cf-b30	2	strength	[confirm, 2p+3p, seed 8102] blend 0.30 vs shipped 0.25	-	STRENGTH win=0.413 ref_win=0.387 margin=0.19 ref_margin=-0.20 z=0.74 games=800	FLAT	-
+cf-v2b30	2	strength	[confirm, 2p+3p, seed 8103] v2 encoder net + blend 0.30 vs shipped	-	STRENGTH win=0.486 ref_win=0.314 margin=1.89 ref_margin=-1.88 z=5.04 games=800	CONFIRMING	-

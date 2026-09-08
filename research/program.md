@@ -260,3 +260,40 @@ them P at a time on any machine with git and Node 22, writes one STRENGTH line
 per job to `research/mac-results/<id>.out`, and pushes the results to the
 `mac-results` branch. Finished jobs are skipped on re-runs, so it can be
 stopped and restarted. Candidate weights live in `research/candidates/`.
+
+## Mac run (12 cores, 2p only: 320 games = 640 seats per match, seeds 7001–7012)
+
+Max ran `research/worker.sh` on an M4 and stopped it after the 2-player sets; the
+raw tourney JSONs are on the `mac-results` branch (`eval-<pid>-2p.json`, matched to
+jobs by seed = job seed + 2). Gate on the 2p files alone:
+
+| candidate vs shipped | win | ref win | margin | z |
+|---|---|---|---|---|
+| **v2 encoder net (exp17)** | 56.1% | 43.6% | +1.46 | **3.19** |
+| **blend 0.30** | 55.8% | 43.9% | +1.15 | **3.03** |
+| farmOpenFactor 0.6 | 53.2% | 46.9% | +0.48 | 1.58 |
+| reserveDecay 0.7 | 52.8% | 46.9% | +0.83 | 1.51 |
+| blend 0.20 | 52.4% | 47.4% | +0.33 | 1.27 |
+| oppBestWeight 0.3 | 52.0% | 48.0% | +0.86 | 1.03 |
+| reserveDecay 0.5 | 51.4% | 48.6% | -0.04 | 0.71 |
+| reserveValue 8 | 50.2% | 49.8% | +0.08 | 0.08 |
+| gen2 pairwise net (v1) | 49.4% | 50.7% | -0.11 | -0.32 |
+| oppBestWeight 0.5 | 49.4% | 50.6% | -0.04 | -0.32 |
+| reserveValue 6 | 47.6% | 52.3% | -1.15 | -1.19 |
+
+Two results clear the bar by a wide margin, and both had looked like +0.5, z ≈ 1
+in the 400-seat container matches: the v2 encoder (three earlier tries all short of
+the gate) and blend 0.30 (0.35 had been rejected). Caveats before promoting: these
+are 2-player only, and with 11 tests at once one or two z ≈ 1.5 hits are expected
+by chance. Both are being confirmed on fresh seeds at 2p+3p, separately and
+combined, before anything ships. The 3 remaining queue jobs (farm 1.0, hard depth 6,
+hard think 300) never started.
+
+## Matches on GitHub Actions (.github/workflows/matches.yml)
+
+The queue format is shared with the Mac worker. Each job is split into `shards`
+runners that each play `games` per table size against the shipped bot with seed
+`job.seed + 100·shard`; the bundle step pools the shards through `scripts/gate.ts`
+and commits one line per job (plus the raw JSONs) to the `match-results` branch
+under `results/<label>/`. 4 shards × 80 games = 1,600 seats per job, about an hour
+of wall-clock at 20 parallel runners, and it costs nothing on a public repo.

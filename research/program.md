@@ -195,3 +195,12 @@ so the net at 0.5 was over-weighted; at 0.25 it adds a lot. Head-to-heads at
 
 Fine bracket vs the new 0.25 default: 0.15 → margin -0.20 (z -0.55), 0.35 → -0.29
 (z -0.88). Flat within noise on either side; 0.25 stays.
+
+## Candidates at blend 0.25, head-to-head vs the promoted bot
+
+- encoder v2 (exp 17): win 0.433 vs 0.369, margin +0.55, z = 1.3 — below the gate.
+- pairwise-trained net (exp 29, 2,400 roots): win 0.443 vs 0.356, margin +0.68,
+  z = 1.8 — passes; promoted to the shipped weights. The recipe (value loss plus a
+  pairwise difference loss every fourth batch) lives in research/patches
+  (pairwise.patch) and is applied per experiment; the effect on 30-ply regret was
+  small (-0.03 ± 0.04) but strength agrees in sign.

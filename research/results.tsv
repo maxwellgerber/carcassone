@@ -33,3 +33,5 @@ b10h	1b	strength	blend 0.1 vs shipped 0.5	-	STRENGTH win=0.495 ref_win=0.306 mar
 b25p	1b	strength	PROMOTE blend net-weight 0.25 (sweep peak: 0.0 +4.0, 0.1 +4.6, 0.25 +9.7, 0.5 ref, 0.75 -4.9)	-	see b25h	KEEP	e067bdf
 b15h	1b	strength	blend 0.15 vs shipped 0.25	-	STRENGTH win=0.387 ref_win=0.414 margin=-0.20 ref_margin=0.23 z=-0.55 games=400	INFO	-
 b35h	1b	strength	blend 0.35 vs shipped 0.25	-	STRENGTH win=0.378 ref_win=0.421 margin=-0.29 ref_margin=0.28 z=-0.88 games=400	INFO	-
+v2@25	1b	strength	encoder v2 candidate vs shipped (blend 0.25)	-	STRENGTH win=0.433 ref_win=0.369 margin=0.55 ref_margin=-0.52 z=1.31 games=400	INFO	-
+29p	1b	strength	PROMOTE exp 29 pairwise-trained net vs shipped (blend 0.25)	-	STRENGTH win=0.443 ref_win=0.356 margin=0.68 ref_margin=-0.70 z=1.78 games=400	KEEP	036925f

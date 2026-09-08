@@ -7,7 +7,7 @@
 // Bots: easy / normal / hard are the live brains; old-normal / old-hard are the
 // pre-rewrite heuristics (scripts/legacy-npc.ts) kept as a baseline.
 import * as E from '../src/shared/engine.js';
-import { chooseNpcMeepleMove, chooseNpcTilePlacement, NPC_SEARCH, NPC_TUNING, setCandidateWeights } from '../src/server/npc.js';
+import { chooseNpcMeepleMove, chooseNpcTilePlacement, NPC_SEARCH, NPC_TUNING, setCandidateWeights, setReferenceEvaluator } from '../src/server/npc.js';
 import { chooseNpcMeepleMove as oldMeeple, chooseNpcTilePlacement as oldTile } from './legacy-npc.js';
 import type { GameState, NpcDifficulty, Placement } from '../src/shared/types.js';
 import { writeFileSync } from 'node:fs';
@@ -16,7 +16,15 @@ type BotName = 'easy' | 'normal' | 'hard' | 'old-normal' | 'old-hard' | 'net' | 
 const BOTS: BotName[] = ['easy', 'normal', 'hard', 'old-normal', 'old-hard', 'net', 'net-hard', 'blend', 'blend-hard', 'hand', 'hand-hard', 'cand', 'cand-hard'];
 /** Which evaluator each bot thinks with (switched per move so bots can share a table);
  *  plain normal/hard use whatever NPC_TUNING.evaluator ships with. */
-const EVALUATOR: Partial<Record<BotName, 'hand' | 'net' | 'blend' | 'blend-cand'>> = { net: 'net', 'net-hard': 'net', blend: 'blend', 'blend-hard': 'blend', hand: 'hand', 'hand-hard': 'hand', cand: 'blend-cand', 'cand-hard': 'blend-cand' };
+const EVALUATOR: Partial<Record<BotName, 'hand' | 'net' | 'blend' | 'blend-cand' | 'blend-ref'>> = { net: 'net', 'net-hard': 'net', blend: 'blend', 'blend-hard': 'blend', hand: 'hand', 'hand-hard': 'hand', cand: 'blend-cand', 'cand-hard': 'blend-cand' };
+// CARC_REFERENCE=1 (research/eval.ts): blend / blend-hard play with the frozen reference
+// net and its frozen encoder instead of the shipped weights and live encoder.
+if (process.env.CARC_REFERENCE === '1') {
+  const w = await import('../research/reference-weights.js') as { WEIGHTS_REFERENCE: Parameters<typeof setReferenceEvaluator>[0] };
+  const f = await import('../research/reference-features.js') as { encode: Parameters<typeof setReferenceEvaluator>[1] };
+  setReferenceEvaluator(w.WEIGHTS_REFERENCE, f.encode);
+  EVALUATOR.blend = 'blend-ref'; EVALUATOR['blend-hard'] = 'blend-ref';
+}
 // cand / cand-hard use src/server/weights-candidate.ts (written by scripts/hillclimb.sh) if present.
 try {
   const m = await import('../src/server/weights-candidate.js') as { WEIGHTS_CANDIDATE: Parameters<typeof setCandidateWeights>[0] };

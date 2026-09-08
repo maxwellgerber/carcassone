@@ -7,7 +7,7 @@
 //
 //   npx tsx research/eval.ts --candidate data/research/candidate.ts [--games 80] [--reference research/reference-weights.ts]
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, unlinkSync } from 'node:fs';
 
 function arg(name: string, def: string): string { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1]! : def; }
 const candidate = arg('candidate', 'data/research/candidate.ts');
@@ -15,15 +15,14 @@ const reference = arg('reference', 'research/reference-weights.ts');
 const games = Number(arg('games', '80'));
 const seed = Number(arg('seed', '4242'));
 
-// Install the candidate and the reference where the tourney's bots find them.
+// Install the candidate where the tourney's cand bots find it; the reference (weights
+// and its frozen encoder) is loaded by the tourney itself under CARC_REFERENCE=1.
 copyFileSync(candidate, 'src/server/weights-candidate.ts');
-const refSrc = readFileSync(reference, 'utf8').replace('WEIGHTS_REFERENCE', 'WEIGHTS');
-const shippedBackup = readFileSync('src/server/weights.ts', 'utf8');
-writeFileSync('src/server/weights.ts', refSrc);
+if (reference !== 'research/reference-weights.ts') throw new Error('the reference is fixed at research/reference-weights.ts (its encoder is frozen alongside it)');
 try {
   const runs = [2, 3].map((n) => {
     const outFile = `data/research/eval-${n}p.json`;
-    execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', 'blend,cand,blend-hard,cand-hard', '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'] });
+    execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', 'blend,cand,blend-hard,cand-hard', '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, CARC_REFERENCE: '1' } });
     return outFile;
   });
   const verdict = execFileSync('npx', ['tsx', 'scripts/gate.ts', ...runs], { encoding: 'utf8' }).trim();
@@ -31,6 +30,5 @@ try {
   console.error(verdict);
   console.log(`STRENGTH win=${(Number(m[1]) / 100).toFixed(3)} ref_win=${(Number(m[4]) / 100).toFixed(3)} margin=${Number(m[3]).toFixed(2)} ref_margin=${Number(m[6]).toFixed(2)} z=${m[7]} games=${Number(m[2]) + Number(m[5])}`);
 } finally {
-  writeFileSync('src/server/weights.ts', shippedBackup);
   try { unlinkSync('src/server/weights-candidate.ts'); } catch { /* fine */ }
 }

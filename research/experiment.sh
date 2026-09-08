@@ -44,7 +44,7 @@ commit="-"
 if [ "$verdict" = "KEEP" ]; then
   node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync('$BEST','utf8'));b.val_mse=$metric;b.exp=$id;b.desc=$(node -e "console.log(JSON.stringify('$DESC'))");if('$strength'!=='-')b.strength='$strength';fs.writeFileSync('$BEST',JSON.stringify(b,null,2))"
   cp "$DATA/candidate.ts" research/best-candidate.ts
-  git add research/train.ts research/best.json research/best-candidate.ts src/server/features.ts src/server/npc.ts research/results.tsv 2>/dev/null || true
+  git add research/train.ts research/best.json research/best-candidate.ts src/server/features.ts src/server/npc.ts src/server/net.ts research/results.tsv 2>/dev/null || true
 fi
 printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$GEN" "$KIND" "$DESC" "$metric" "$strength" "$verdict" "pending" >> research/results.tsv
 if [ "$verdict" = "KEEP" ]; then
@@ -57,7 +57,7 @@ Claude-Session: https://claude.ai/code/session_01E5Q7DMm3xNPParJnPc1D2x"
   sed -i "\$s/\tpending\$/\t$commit/" research/results.tsv
   git add research/results.tsv && git commit -q --amend --no-edit
 else
-  git checkout -q -- research/train.ts src/server/features.ts src/server/npc.ts
+  git checkout -q -- research/train.ts src/server/features.ts src/server/npc.ts src/server/net.ts
   git add research/results.tsv && git commit -q -m "autoresearch #$id: $DESC — reverted (val_mse $metric)
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

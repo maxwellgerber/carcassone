@@ -30,8 +30,8 @@ const row = (X: Float32Array, i: number) => X.subarray(i * dim, (i + 1) * dim);
 
 // ---- experiment knobs ---------------------------------------------------------
 const HIDDEN = [64, 32];
-const BATCH = 64;
-const LR0 = 2e-3;
+const BATCH = 256;
+const LR0 = 4e-3;
 const LR_DECAY_PER_EPOCH = 0.7;
 const L2 = 1e-5;
 const SEED = Number(arg('seed', '11'));

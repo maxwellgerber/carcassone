@@ -1,1 +1,2 @@
 id	gen	kind	description	val_mse	strength	verdict	commit
+1	1	train	batch 256, lr 4e-3	0.10339	-	KEEP	3b39ea4

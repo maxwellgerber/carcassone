@@ -31,6 +31,8 @@ try {
   // CARC_CANDIDATE_ENCODER=1: the candidate uses src/server/features-candidate.ts (an encoder experiment).
   const enc = process.env.CARC_CANDIDATE_ENCODER === '1' ? (await import('../src/server/features-candidate.js') as { encode: Parameters<typeof setCandidateWeights>[1] }).encode : undefined;
   setCandidateWeights(m.WEIGHTS_CANDIDATE, enc);
+  // CARC_CAND_BLEND=0.7: the candidate blends its net at this weight (a blend-weight experiment).
+  if (process.env.CARC_CAND_BLEND) NPC_TUNING.candBlendNet = Number(process.env.CARC_CAND_BLEND);
 } catch { /* no candidate: cand bots would throw if used */ }
 
 function mkRng(seed: number): () => number {

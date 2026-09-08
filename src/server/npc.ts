@@ -27,7 +27,7 @@ export type NpcMove =
  *  Durable Object alarm never runs long; the tourney script raises it. */
 export const NPC_SEARCH = { candidates: 5, rollouts: 12, depth: 4, thinkMs: 150, staticWeight: 0.6 };
 /** Evaluation knobs, exposed so scripts/tourney.ts can sweep them. */
-export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' | 'blend-cand' | 'blend-ref' } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend' };
+export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' | 'blend-cand' | 'blend-ref'; blendNet: number; candBlendNet: number | null } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.5, candBlendNet: null };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;
@@ -131,7 +131,8 @@ export function evaluateFor(state: GameState, me: number, features = deriveFeatu
     }
     const learned = which === 'cand' ? candidateValue(state, me, features) : which === 'ref' ? referenceValue(state, me, features) : netValue(state, me, features);
     if (NPC_TUNING.evaluator === 'net') return learned;
-    return 0.5 * learned + 0.5 * handValue(state, me, features);
+    const a = which === 'cand' && NPC_TUNING.candBlendNet !== null ? NPC_TUNING.candBlendNet : NPC_TUNING.blendNet;
+    return a * learned + (1 - a) * handValue(state, me, features);
   }
   return handValue(state, me, features);
 }

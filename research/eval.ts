@@ -14,7 +14,8 @@ const candidate = arg('candidate', 'data/research/candidate.ts');
 const reference = arg('reference', 'research/reference-weights.ts');
 const games = Number(arg('games', '80'));
 const seed = Number(arg('seed', '4242'));
-const encoder = arg('encoder', ''); // optional: an encoder file (src/server-relative imports) the candidate was trained with
+const encoder = arg('encoder', '');
+const blend = arg('blend', ''); // optional: the candidate's net weight in the blend (shipped: 0.5) // optional: an encoder file (src/server-relative imports) the candidate was trained with
 
 // Install the candidate where the tourney's cand bots find it; the reference (weights
 // and its frozen encoder) is loaded by the tourney itself under CARC_REFERENCE=1.
@@ -24,7 +25,7 @@ if (reference !== 'research/reference-weights.ts') throw new Error('the referenc
 try {
   const runs = [2, 3].map((n) => {
     const outFile = `data/research/eval-${n}p.json`;
-    execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', 'blend,cand,blend-hard,cand-hard', '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, CARC_REFERENCE: '1', ...(encoder ? { CARC_CANDIDATE_ENCODER: '1' } : {}) } });
+    execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', 'blend,cand,blend-hard,cand-hard', '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, CARC_REFERENCE: '1', ...(encoder ? { CARC_CANDIDATE_ENCODER: '1' } : {}), ...(blend ? { CARC_CAND_BLEND: blend } : {}) } });
     return outFile;
   });
   const verdict = execFileSync('npx', ['tsx', 'scripts/gate.ts', ...runs], { encoding: 'utf8' }).trim();

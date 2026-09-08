@@ -12,3 +12,4 @@ id	gen	kind	description	val_mse	strength	verdict	commit
 11	1	train	L2 1e-4 (was 1e-5)	0.09689	-	REVERT	da0837b
 12	1	train	standardise inputs (folded into layer 0 at export)	0.10621	-	REVERT	4cd8ad2
 13	1	train	fast loop + hidden [96,48]	0.09841	-	REVERT	a37281e
+14	1	train	hidden [32,16] (smaller)	0.09758	-	REVERT	9e4357f

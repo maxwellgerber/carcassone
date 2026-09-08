@@ -1,0 +1,204 @@
+{
+  "playerCounts": [
+    2
+  ],
+  "gamesPer": 320,
+  "seed": 7011,
+  "tally": {
+    "2": {
+      "easy": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "normal": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "old-normal": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "old-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "net": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "net-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "blend": {
+        "games": 163,
+        "wins": 77.5,
+        "score": 14965,
+        "margin": -130,
+        "midReserve": 185,
+        "idleTurns": 1317,
+        "turns": 5793,
+        "thinkMs": 193231.90967599867,
+        "moves": 10171
+      },
+      "blend-hard": {
+        "games": 159,
+        "wins": 83,
+        "score": 15047,
+        "margin": 106,
+        "midReserve": 182,
+        "idleTurns": 1373,
+        "turns": 5640,
+        "thinkMs": 1308505.3487069977,
+        "moves": 9819
+      },
+      "hand": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "hand-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "cand": {
+        "games": 167,
+        "wins": 80,
+        "score": 15603,
+        "margin": -4,
+        "midReserve": 226,
+        "idleTurns": 1094,
+        "turns": 5924,
+        "thinkMs": 201055.79501396633,
+        "moves": 10644
+      },
+      "cand-hard": {
+        "games": 151,
+        "wins": 79.5,
+        "score": 14175,
+        "margin": 28,
+        "midReserve": 201,
+        "idleTurns": 996,
+        "turns": 5347,
+        "thinkMs": 1289420.5531680034,
+        "moves": 9623
+      }
+    }
+  },
+  "h2h": {
+    "cand>blend": {
+      "games": 59,
+      "wins": 28.5
+    },
+    "blend>cand": {
+      "games": 59,
+      "wins": 30.5
+    },
+    "blend>cand-hard": {
+      "games": 46,
+      "wins": 22.5
+    },
+    "cand-hard>blend": {
+      "games": 46,
+      "wins": 23.5
+    },
+    "cand-hard>blend-hard": {
+      "games": 49,
+      "wins": 25
+    },
+    "blend-hard>cand-hard": {
+      "games": 49,
+      "wins": 24
+    },
+    "cand>cand-hard": {
+      "games": 56,
+      "wins": 25
+    },
+    "cand-hard>cand": {
+      "games": 56,
+      "wins": 31
+    },
+    "blend-hard>cand": {
+      "games": 52,
+      "wins": 25.5
+    },
+    "cand>blend-hard": {
+      "games": 52,
+      "wins": 26.5
+    },
+    "blend-hard>blend": {
+      "games": 58,
+      "wins": 33.5
+    },
+    "blend>blend-hard": {
+      "games": 58,
+      "wins": 24.5
+    }
+  }
+}

@@ -11,8 +11,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 DESC="${1:?description}"; shift || true
-KIND="train"; STRENGTH=0; GEN="${GEN:-1}"; BUDGET="${BUDGET:-90}"; DATA="${DATA:-data/research}"
-while [ $# -gt 0 ]; do case "$1" in --kind) KIND="$2"; shift 2;; --strength) STRENGTH=1; shift;; --gen) GEN="$2"; shift 2;; *) echo "unknown arg $1"; exit 2;; esac; done
+KIND="train"; STRENGTH=0; GEN="${GEN:-1}"; BUDGET="${BUDGET:-90}"; DATA="${DATA:-data/research}"; METRIC="mse"
+while [ $# -gt 0 ]; do case "$1" in --kind) KIND="$2"; shift 2;; --strength) STRENGTH=1; shift;; --gen) GEN="$2"; shift 2;; --metric) METRIC="$2"; shift 2;; *) echo "unknown arg $1"; exit 2;; esac; done
 BEST=research/best.json
 [ -f "$BEST" ] || echo '{"val_mse": 9, "strength_win": 0}' > "$BEST"
 id=$(( $(wc -l < research/results.tsv) ))  # header is row 0
@@ -28,6 +28,19 @@ strength="-"
 verdict="REVERT"
 thr=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$BEST','utf8')).threshold ?? 0.0015)")
 improved=$(node -e "console.log(($best_mse - $metric) >= $thr ? 1 : 0)")
+regret="-"
+if [ "$METRIC" = "regret" ]; then
+  # Paired held-out regret of the deployed blend (candidate net + hand) against the shipped blend
+  # on the same roots. Improved = lower by more than two standard errors.
+  echo "== held-out regret"
+  recs=""; [ "$KIND" = "features" ] && recs="--records data/gen1-actions/rec-*.json"
+  line=$(npx tsx research/regret.ts data/bench-heldout/*.json --weights "$DATA/candidate.ts" $recs 2>/dev/null | grep -E "^(blend:file|residual:file\(alpha=1)" | head -1)
+  echo "   $line"
+  regret=$(echo "$line" | awk '{print $2}')
+  delta=$(echo "$line" | sed -n 's/.* \([-+][0-9.]*\) ± \([0-9.]*\)$/\1/p'); dse=$(echo "$line" | sed -n 's/.* \([-+][0-9.]*\) ± \([0-9.]*\)$/\2/p')
+  improved=$(node -e "console.log(($delta < 0 && -($delta) > 2 * $dse) ? 1 : 0)")
+  echo "   Δ regret vs shipped blend: $delta ± $dse → improved=$improved"
+fi
 if [ "$STRENGTH" = "1" ] || { [ "$improved" = "1" ] && [ "$KIND" != "train" ]; }; then
   echo "== strength eval"
   strength=$(npx tsx research/eval.ts --candidate "$DATA/candidate.ts" --games "${GAMES:-80}" 2> "$DATA/exp-$id-eval.log" | sed -n 's/^STRENGTH //p')
@@ -43,11 +56,11 @@ else
 fi
 commit="-"
 if [ "$verdict" = "KEEP" ]; then
-  node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync('$BEST','utf8'));b.val_mse=$metric;b.exp=$id;b.desc=$(node -e "console.log(JSON.stringify('$DESC'))");if('$strength'!=='-')b.strength='$strength';fs.writeFileSync('$BEST',JSON.stringify(b,null,2))"
+  node -e "const fs=require('fs');const b=JSON.parse(fs.readFileSync('$BEST','utf8'));if('$METRIC'==='mse')b.val_mse=$metric;if('$regret'!=='-')b.regret=$regret;b.exp=$id;b.desc=$(node -e "console.log(JSON.stringify('$DESC'))");if('$strength'!=='-')b.strength='$strength';fs.writeFileSync('$BEST',JSON.stringify(b,null,2))"
   cp "$DATA/candidate.ts" research/best-candidate.ts
   git add research/train.ts research/best.json research/best-candidate.ts src/server/features.ts src/server/npc.ts src/server/net.ts research/results.tsv 2>/dev/null || true
 fi
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$GEN" "$KIND" "$DESC" "$metric" "$strength" "$verdict" "pending" >> research/results.tsv
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$GEN" "$KIND" "$DESC" "$metric${regret:+ regret=$regret}" "$strength" "$verdict" "pending" >> research/results.tsv
 if [ "$verdict" = "KEEP" ]; then
   git add research/results.tsv
   git commit -q -m "autoresearch #$id: $DESC (val_mse $metric${strength:+, $strength})

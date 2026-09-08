@@ -98,7 +98,8 @@ for (const r of roots) {
 console.log(`${roots.length} roots, ${roots.reduce((s, r) => s + r.candidates.length, 0)} candidates; label half-split disagreement ${(relNum / relN).toFixed(2)} pts vs root spread ${(relDen / relN).toFixed(2)} pts`);
 
 const byPhase = (r: Root) => (r.tilesLeft > 48 ? 'early' : r.tilesLeft > 24 ? 'mid' : 'late');
-console.log('evaluator            mean regret  median  >1pt&2SE   pairwise acc   early    mid    late');
+console.log('evaluator            mean regret  median  >1pt&2SE   pairwise acc   early    mid    late   Δ vs blend@gen (paired)');
+const perRoot: Record<string, number[]> = {};
 for (const [name, score] of Object.entries(scorers)) {
   const regrets: number[] = [];
   let big = 0, pairsOk = 0, pairs = 0;
@@ -121,5 +122,14 @@ for (const [name, score] of Object.entries(scorers)) {
   }
   const mean = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN);
   const sorted = [...regrets].sort((a, b) => a - b);
-  console.log(`${name.padEnd(20)} ${mean(regrets).toFixed(3).padStart(10)}  ${sorted[Math.floor(sorted.length / 2)]!.toFixed(2).padStart(6)}  ${String(big).padStart(5)}/${roots.length}   ${(100 * pairsOk / Math.max(1, pairs)).toFixed(1).padStart(6)}% (${pairs})  ${mean(phase.early!).toFixed(2).padStart(5)}  ${mean(phase.mid!).toFixed(2).padStart(5)}  ${mean(phase.late!).toFixed(2).padStart(5)}`);
+  perRoot[name] = regrets;
+  // Paired difference against the shipped blend on the same roots: mean and its standard error.
+  let paired = '';
+  const base = perRoot['blend@gen'];
+  if (base && name !== 'blend@gen') {
+    const d = regrets.map((r, i) => r - base[i]!);
+    const m = mean(d), sd = Math.sqrt(d.reduce((s, v) => s + (v - m) ** 2, 0) / Math.max(1, d.length - 1));
+    paired = `${m >= 0 ? '+' : ''}${m.toFixed(3)} ± ${(sd / Math.sqrt(d.length)).toFixed(3)}`;
+  }
+  console.log(`${name.padEnd(20)} ${mean(regrets).toFixed(3).padStart(10)}  ${sorted[Math.floor(sorted.length / 2)]!.toFixed(2).padStart(6)}  ${String(big).padStart(5)}/${roots.length}   ${(100 * pairsOk / Math.max(1, pairs)).toFixed(1).padStart(6)}% (${pairs})  ${mean(phase.early!).toFixed(2).padStart(5)}  ${mean(phase.mid!).toFixed(2).padStart(5)}  ${mean(phase.late!).toFixed(2).padStart(5)}   ${paired}`);
 }

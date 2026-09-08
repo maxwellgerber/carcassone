@@ -90,3 +90,23 @@ across generations are not comparable; the log notes the generation.
 
 win 0.490 vs 0.308, margin +2.05 vs -2.09, z = 3.8 over 400 seats. Promoted to the
 shipped weights. The proxy improvement from batch size did carry to play.
+
+## Regret vs MSE (gen 1b, local 60-root benchmark, 8 futures x 20 plies)
+
+| evaluator | mean regret | pairwise acc | val_mse |
+|---|---|---|---|
+| hand heuristic | 0.66 | 96.5% | ~0.119 |
+| net v1 (exp 4, shipped) | 1.05 | 92.3% | 0.097 |
+| blend v1 | 0.73 | 96.8% | — |
+| net v2 encoder (exp 17) | 0.84 | 91.9% | 0.108 |
+| blend v2 | 0.68 | 97.5% | — |
+| random | 3.0 | 50% | — |
+
+The heuristic makes better move choices than the net despite a much worse
+absolute error (Tesauro's point: errors that cancel across siblings do not hurt
+selection). The v2 encoder, rejected on budgeted MSE, chooses better than v1.
+Rule change: encoder and target experiments are judged on benchmark regret
+(train pairs from the Actions benchmark, evaluate on the held-out local one),
+with MSE reported, and promotion still by the strength gate. Label noise: the
+half-split disagreement is 2.8 pts against a 6.1 pt root spread at 8 futures;
+the Actions benchmark uses 12 futures x 30 plies.

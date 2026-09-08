@@ -58,7 +58,20 @@ jobs:
   bundle:
     needs: play
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      # Records are small (~100 KB per 500 games), so they are committed to the
+      # `selfplay-data` branch as well as uploaded: a branch can be fetched from
+      # anywhere git can reach, artifacts only from GitHub's blob storage.
+      - uses: actions/checkout@v4
+        with:
+          ref: selfplay-data
+          fetch-depth: 1
+        continue-on-error: true
+        id: data_branch
+      - uses: actions/checkout@v4
+        if: steps.data_branch.outcome == 'failure'
       - uses: actions/download-artifact@v4
         with:
           pattern: selfplay-${{ inputs.seed }}-*
@@ -70,3 +83,13 @@ jobs:
           name: selfplay-bundle-${{ inputs.seed }}
           path: all/*.json
           retention-days: 30
+      - name: Commit to the selfplay-data branch
+        run: |
+          git config user.name "selfplay-bot"
+          git config user.email "selfplay-bot@users.noreply.github.com"
+          if [ "${{ steps.data_branch.outcome }}" = "failure" ]; then git checkout --orphan selfplay-data && git rm -rf -q . || true; fi
+          mkdir -p "records/${{ inputs.seed }}"
+          cp all/*.json "records/${{ inputs.seed }}/"
+          git add records
+          git commit -m "Self-play records: seed ${{ inputs.seed }}, ${{ inputs.shards }} x ${{ inputs.games }} games, epsilon ${{ inputs.epsilon }}" || echo "nothing new"
+          git push origin HEAD:selfplay-data

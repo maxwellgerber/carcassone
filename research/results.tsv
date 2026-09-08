@@ -21,3 +21,4 @@ id	gen	kind	description	val_mse	strength	verdict	commit
 b75	1b	strength	blend net-weight 0.75 (shipped weights) vs gen-0 reference	-	STRENGTH win=0.490 ref_win=0.308 margin=2.69 ref_margin=-2.75 z=3.78 games=400	INFO	-
 21	1b	train	pairwise difference loss from the Actions benchmark (1200 roots), weight 1.0, every 4th batch	0.10041	-	REVERT	d4d170f
 22	1b	train	pairwise difference loss from the Actions benchmark (1200 roots), weight 1.0, every 4th batch [regret metric]	0.10041 regret=1.152	-	REVERT	408d1a1
+23	1b	train	pairwise loss every batch (weight 1.0) [regret metric]	0.10128 regret=1.194	-	REVERT	f38e5be

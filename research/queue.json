@@ -1,0 +1,20 @@
+{
+  "_": "Head-to-head matches for research/worker.sh. Each job: candidate weights (research/candidates/*.ts), extra eval.ts args, games per table size (80 => 400 seats; 320 => 1,600 seats). Results land in research/mac-results/<id>.out.",
+  "jobs": [
+    { "id": "v2-encoder-1600", "candidate": "research/candidates/v2-encoder-exp17.ts", "args": ["--encoder", "research/encoder-v2.ts", "--reference", "shipped"], "games": 320, "seed": 7001 },
+    { "id": "gen2-pairwise-1600", "candidate": "research/candidates/gen2-pairwise.ts", "args": ["--reference", "shipped"], "games": 320, "seed": 7002 },
+    { "id": "v2-pairwise-18k-1600", "candidate": "research/candidates/v2-pairwise-18k.ts", "args": ["--encoder", "research/encoder-v2.ts", "--reference", "shipped"], "games": 320, "seed": 7003 },
+    { "id": "blend-0.20-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.2"], "games": 320, "seed": 7004 },
+    { "id": "blend-0.30-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.3"], "games": 320, "seed": 7005 },
+    { "id": "opp-0.3-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"oppBestWeight\":0.3}"], "games": 320, "seed": 7006 },
+    { "id": "opp-0.5-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"oppBestWeight\":0.5}"], "games": 320, "seed": 7007 },
+    { "id": "reserve-6-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveValue\":6}"], "games": 320, "seed": 7008 },
+    { "id": "reserve-8-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveValue\":8}"], "games": 320, "seed": 7009 },
+    { "id": "decay-0.5-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveDecay\":0.5}"], "games": 320, "seed": 7010 },
+    { "id": "decay-0.7-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveDecay\":0.7}"], "games": 320, "seed": 7011 },
+    { "id": "farm-0.6-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":0.6}"], "games": 320, "seed": 7012 },
+    { "id": "farm-1.0-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":1.0}"], "games": 320, "seed": 7013 },
+    { "id": "hard-depth-6-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"depth\":6}", "--bots", "blend-hard,cand-hard"], "games": 320, "seed": 7014 },
+    { "id": "hard-think-300-1600", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"thinkMs\":300}", "--bots", "blend-hard,cand-hard"], "games": 320, "seed": 7015 }
+  ]
+}

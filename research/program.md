@@ -252,3 +252,11 @@ Hard rollouts 24 vs 12 under the same cap: +0.72, z 0.4 (flat).
 Pure heuristic (net weight 0, same knobs) vs shipped: 29.5% vs 50.5%, margin
 -3.18 vs +3.18, z = -4.4. Yes: the learned quarter of the blend is worth about
 three points a game over the heuristic alone.
+
+## Running matches on another machine (research/worker.sh)
+
+`research/queue.json` lists head-to-head jobs; `research/worker.sh [parallel]` runs
+them P at a time on any machine with git and Node 22, writes one STRENGTH line
+per job to `research/mac-results/<id>.out`, and pushes the results to the
+`mac-results` branch. Finished jobs are skipped on re-runs, so it can be
+stopped and restarted. Candidate weights live in `research/candidates/`.

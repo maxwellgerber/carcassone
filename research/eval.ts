@@ -33,7 +33,7 @@ const vsShipped = reference === 'shipped';
 if (!vsShipped && reference !== 'research/reference-weights.ts') throw new Error('the reference is the frozen research/reference-weights.ts, or "shipped"');
 try {
   const runs = [2, 3].map((n) => {
-    const outFile = `data/research/eval-${n}p.json`;
+    const outFile = `data/research/eval-${tag}-${n}p.json`;
     execFileSync('npx', ['tsx', 'scripts/tourney.ts', '--players', String(n), '--games', String(games), '--seed', String(seed + n), '--bots', bots, '--out', outFile], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, ...(vsShipped ? {} : { CARC_REFERENCE: '1' }), CARC_CANDIDATE_FILE: `../src/server/weights-candidate-${tag}.js`, ...(encoder ? { CARC_CANDIDATE_ENCODER: `../src/server/features-candidate-${tag}.js` } : {}), ...(blend ? { CARC_CAND_BLEND: blend } : {}), ...(tune ? { CARC_CAND_TUNE: tune } : {}), ...(search ? { CARC_CAND_SEARCH: search } : {}) } });
     return outFile;
   });

@@ -7,3 +7,4 @@ scratch-art/
 data/
 src/server/weights-candidate*.ts
 src/server/features-candidate*.ts
+research/mac-results/.jobs.tsv

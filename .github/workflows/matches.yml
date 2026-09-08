@@ -106,8 +106,12 @@ jobs:
         run: |
           git config user.name "match-bot"
           git config user.email "match-bot@users.noreply.github.com"
-          git fetch origin match-results && git checkout match-results || git checkout --orphan match-results
-          git rm -rq --cached . 2>/dev/null || true
+          if git fetch --depth 1 origin match-results:refs/remotes/origin/match-results; then
+            git checkout -B match-results origin/match-results
+          else
+            git checkout --orphan match-results
+            git rm -rq --cached . 2>/dev/null || true
+          fi
           mkdir -p "results/${{ inputs.label }}"
           cp all/*.json "results/${{ inputs.label }}/" 2>/dev/null || true
           cp results/summary.tsv "results/${{ inputs.label }}/summary.tsv"

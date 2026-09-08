@@ -1,0 +1,13 @@
+{
+  "_": "Round 4, after promoting farmOpenFactor 0.4. Extend the farm bracket downward, re-test blend on top, hard depth, and the combination. 4 shards x 80 games/size = 1,600 seats each.",
+  "jobs": [
+    { "id": "farm-0.2", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":0.2}"], "games": 80, "seed": 9301 },
+    { "id": "farm-0.0", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"farmOpenFactor\":0.0}"], "games": 80, "seed": 9302 },
+    { "id": "blend-0.35", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.35"], "games": 80, "seed": 9303 },
+    { "id": "blend-0.45", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.45"], "games": 80, "seed": 9304 },
+    { "id": "hard-depth-6", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"depth\":6}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9305 },
+    { "id": "hard-depth-8", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"depth\":8}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9306 },
+    { "id": "hard-static-0.5", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"staticWeight\":0.5}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9307 },
+    { "id": "opp-0.5", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"oppBestWeight\":0.5}"], "games": 80, "seed": 9308 }
+  ]
+}

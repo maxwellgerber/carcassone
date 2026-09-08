@@ -328,3 +328,36 @@ re-tested on the promoted bot along with 0.5 and 0.4 (round 2) before shipping.
 
 Workflow fix: the bundle step's glob `all/<id>-*p.json` also matched jobs whose id
 extends another's (v2-encoder matched v2-encoder-blend-0.30); now `<id>-[0-9]*p.json`.
+
+## Round 2 on Actions (vs the promoted v2 bot, 1,600 seats each, seeds 9101–9110)
+
+| candidate vs shipped (v2 exp17, blend 0.25, farm 0.8) | win | ref win | margin | z |
+|---|---|---|---|---|
+| **farmOpenFactor 0.4** | 45.5% | 34.7% | +1.44 | **4.44** |
+| farmOpenFactor 0.6 | 43.8% | 36.0% | +0.93 | 3.21 |
+| farmOpenFactor 0.5 | 43.6% | 36.5% | +1.01 | 2.91 |
+| **blend 0.35** | 43.9% | 36.0% | +1.00 | **3.22** |
+| hard depth 6 | 41.5% | 38.6% | +0.31 | 1.19 |
+| hard depth 3 | 40.4% | 39.6% | +0.30 | 0.31 |
+| reserveValue 8 | 40.3% | 39.6% | +0.04 | 0.29 |
+| v2 pairwise net (18k) | 38.6% | 41.4% | -0.61 | -1.14 |
+| old shipped bot (v1 exp29) | 37.0% | 43.0% | -0.68 | -2.42 |
+| blend 0.20 | 33.9% | 46.2% | -1.16 | -5.04 |
+
+- The old bot loses to the new one head-to-head from the other side of the table
+  too, so the encoder promotion is real, not a seed artefact.
+- **farmOpenFactor 0.4 promoted** (shipped 0.8 → 0.4): the whole bracket 0.4–0.6
+  clears the gate and 0.4 is the best point so far, so the bracket is extended
+  downward next round (0.2, 0.0). The heuristic had been paying nearly full price
+  for farms next to open cities; with v2 the net already sees "unclaimed / open
+  city" signals, so the hand term double-counted.
+- Blend 0.35 wins with the v2 net (z 3.22) where 0.30 was flat with the v1 net:
+  a better net earns more weight. 0.20 loses badly either way. Re-tested on top of
+  farm 0.4 with 0.45 next round.
+- Hard depth 6 is +0.3 to +0.4 for the second time (z 1.2–1.4 each): promising,
+  not yet proven; combined round-1/round-2 evidence is about z 1.8.
+- The pairwise-trained v2 net loses to the value-trained one. Pairwise helped v1
+  (exp 29) but not v2; parked.
+- The bundle step's push failed on rounds 2 and 3 (shallow checkout never created
+  the local branch, so it made an orphan commit); the verdicts were recovered
+  from the job log and the workflow now fetches the branch explicitly.

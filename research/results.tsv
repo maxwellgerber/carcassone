@@ -75,3 +75,13 @@ c1-f10	2	strength	[Actions confirm1, 1600 seats] farmOpenFactor 1.0 vs 0.8	-	STR
 c1-o03	2	strength	[Actions confirm1, 1600 seats] oppBestWeight 0.3 vs 0.4	-	STRENGTH win=0.389 ref_win=0.411 margin=-0.05 ref_margin=0.05 z=-0.92 games=1600	REVERT	-
 c1-hd6	2	strength	[Actions confirm1, 1600 seats] hard depth 6 vs 4 (hard-vs-hard)	-	STRENGTH win=0.417 ref_win=0.383 margin=0.39 ref_margin=-0.40 z=1.36 games=1600	KEEP? (re-test)	-
 c1-ht300	2	strength	[Actions confirm1, 1600 seats] hard thinkMs 300 vs 150 (hard-vs-hard)	-	STRENGTH win=0.384 ref_win=0.416 margin=-0.23 ref_margin=0.23 z=-1.30 games=1600	REVERT	-
+r2-old	3	strength	[Actions round2, 1600 seats] old shipped (v1 exp29) vs new shipped (v2 exp17)	-	STRENGTH win=0.370 ref_win=0.430 margin=-0.68 ref_margin=0.68 z=-2.42 games=1600	INFO (promotion confirmed)	-
+r2-f06	3	strength	[Actions round2, 1600 seats] farmOpenFactor 0.6 vs 0.8	-	STRENGTH win=0.438 ref_win=0.360 margin=0.93 ref_margin=-0.98 z=3.21 games=1600	KEEP	-
+r2-f05	3	strength	[Actions round2, 1600 seats] farmOpenFactor 0.5 vs 0.8	-	STRENGTH win=0.436 ref_win=0.365 margin=1.01 ref_margin=-0.98 z=2.91 games=1600	KEEP	-
+r2-f04	3	strength	[Actions round2, 1600 seats] farmOpenFactor 0.4 vs 0.8	-	STRENGTH win=0.455 ref_win=0.347 margin=1.44 ref_margin=-1.39 z=4.44 games=1600	PROMOTE	-
+r2-v2pw	3	strength	[Actions round2, 1600 seats] v2 pairwise net (18k) vs shipped exp17	-	STRENGTH win=0.386 ref_win=0.414 margin=-0.61 ref_margin=0.62 z=-1.14 games=1600	REVERT	-
+r2-b35	3	strength	[Actions round2, 1600 seats] blend 0.35 vs 0.25 (v2 net)	-	STRENGTH win=0.439 ref_win=0.360 margin=1.00 ref_margin=-1.03 z=3.22 games=1600	KEEP (confirm on farm 0.4)	-
+r2-b20	3	strength	[Actions round2, 1600 seats] blend 0.20 vs 0.25 (v2 net)	-	STRENGTH win=0.339 ref_win=0.462 margin=-1.16 ref_margin=1.18 z=-5.04 games=1600	REVERT	-
+r2-hd6	3	strength	[Actions round2, 1600 seats] hard depth 6 vs 4	-	STRENGTH win=0.415 ref_win=0.386 margin=0.31 ref_margin=-0.30 z=1.19 games=1600	KEEP? (2nd positive)	-
+r2-hd3	3	strength	[Actions round2, 1600 seats] hard depth 3 vs 4	-	STRENGTH win=0.404 ref_win=0.396 margin=0.30 ref_margin=-0.31 z=0.31 games=1600	REVERT	-
+r2-r8	3	strength	[Actions round2, 1600 seats] reserveValue 8 vs 7	-	STRENGTH win=0.403 ref_win=0.396 margin=0.04 ref_margin=-0.05 z=0.29 games=1600	REVERT	-

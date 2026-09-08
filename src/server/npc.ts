@@ -27,7 +27,7 @@ export type NpcMove =
  *  Durable Object alarm never runs long; the tourney script raises it. */
 export const NPC_SEARCH = { candidates: 5, rollouts: 12, depth: 4, thinkMs: 150, staticWeight: 0.6 };
 /** Evaluation knobs, exposed so scripts/tourney.ts can sweep them. */
-export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' | 'blend-cand' } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend' };
+export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' | 'blend-cand' | 'blend-ref' } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend' };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;
@@ -122,11 +122,25 @@ export function evaluatePositions(state: GameState, features: Features): number[
  *  strongest opponent, with a nod to the field average in bigger games. */
 export function evaluateFor(state: GameState, me: number, features = deriveFeatures(state)): number {
   if (NPC_TUNING.evaluator !== 'hand') {
-    const learned = NPC_TUNING.evaluator === 'blend-cand' ? candidateValue(state, me, features) : netValue(state, me, features);
+    const learned = NPC_TUNING.evaluator === 'blend-cand' ? candidateValue(state, me, features)
+      : NPC_TUNING.evaluator === 'blend-ref' ? referenceValue(state, me, features)
+      : netValue(state, me, features);
     if (NPC_TUNING.evaluator === 'net') return learned;
     return 0.5 * learned + 0.5 * handValue(state, me, features);
   }
   return handValue(state, me, features);
+}
+
+/** A frozen reference net with its own frozen encoder (research/eval.ts), so the
+ *  opponent in strength evals never changes when the live encoder does. */
+let refNet: Net | null = null;
+let refEncode: ((state: GameState, me: number, features: Features) => ArrayLike<number>) | null = null;
+export function setReferenceEvaluator(w: NetWeights, enc: (state: GameState, me: number, features: Features) => ArrayLike<number>): void {
+  refNet = Net.fromJSON(w); refEncode = enc;
+}
+function referenceValue(state: GameState, me: number, features: Features): number {
+  if (!refNet || !refEncode) throw new Error('no reference evaluator loaded');
+  return refNet.predict(refEncode(state, me, features)) * 40;
 }
 
 /** A challenger net for the hill climb's gate tourney (scripts/hillclimb.sh). */

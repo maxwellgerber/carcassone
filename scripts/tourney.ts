@@ -61,8 +61,8 @@ const POOL: BotName[] = onlyBots ? (onlyBots.split(',') as BotName[]) : BOTS.fil
 const baseEvaluator = NPC_TUNING.evaluator;
 // CARC_CAND_TUNE='{"reserveValue":9}': evaluation knobs applied only while a cand bot thinks
 // (a head-to-head of one knob value against the shipped one).
-type TuneKey = 'reserveValue' | 'reserveDecay' | 'oppBestWeight' | 'chanceSlope' | 'chanceTilesPerEdge' | 'farmOpenFactor';
-const TUNE_KEYS: TuneKey[] = ['reserveValue', 'reserveDecay', 'oppBestWeight', 'chanceSlope', 'chanceTilesPerEdge', 'farmOpenFactor'];
+type TuneKey = 'reserveValue' | 'reserveDecay' | 'oppBestWeight' | 'chanceSlope' | 'chanceTilesPerEdge' | 'farmOpenFactor' | 'cityGrowth' | 'roadGrowth' | 'reserveHorizon';
+const TUNE_KEYS: TuneKey[] = ['reserveValue', 'reserveDecay', 'oppBestWeight', 'chanceSlope', 'chanceTilesPerEdge', 'farmOpenFactor', 'cityGrowth', 'roadGrowth', 'reserveHorizon'];
 const candTune = JSON.parse(process.env.CARC_CAND_TUNE ?? '{}') as Partial<Record<TuneKey, number>>;
 const baseTune = Object.fromEntries(TUNE_KEYS.map((k) => [k, NPC_TUNING[k]])) as Record<TuneKey, number>;
 // CARC_CAND_SEARCH='{"staticWeight":0.8,"rollouts":16}': hard-bot search knobs for cand-hard only.

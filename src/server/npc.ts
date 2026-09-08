@@ -35,7 +35,11 @@ export const NPC_TUNING: {
   chanceSlope: number; chanceTilesPerEdge: number;
   /** Farms: value of an unfinished adjacent city relative to a finished one. */
   farmOpenFactor: number;
-} = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.25, candBlendNet: null, oppBestWeight: 0.4, chanceSlope: 0.16, chanceTilesPerEdge: 5, farmOpenFactor: 0.8 };
+  /** Expected extra tiles an open city / road grows by per open edge (at most two edges count). */
+  cityGrowth: number; roadGrowth: number;
+  /** Tiles left at which meeples in hand reach full option value. */
+  reserveHorizon: number;
+} = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.25, candBlendNet: null, oppBestWeight: 0.4, chanceSlope: 0.16, chanceTilesPerEdge: 5, farmOpenFactor: 0.8, cityGrowth: 0.6, roadGrowth: 0.5, reserveHorizon: 18 };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;
@@ -76,7 +80,7 @@ export function evaluatePositions(state: GameState, features: Features): number[
   for (const cf of features.cityFeatures) {
     const onIt = state.meeples.filter((m) => m.kind === 'city' && features.lookups.cityGroupRoot(m.x, m.y, m.idx) === cf.id);
     if (onIt.length === 0) continue;
-    const full = (cf.tileCount + Math.min(cf.openEdges, 2) * 0.6) * 2 + cf.shieldCount * shield;
+    const full = (cf.tileCount + Math.min(cf.openEdges, 2) * NPC_TUNING.cityGrowth) * 2 + cf.shieldCount * shield;
     const partial = cf.tileCount + cf.shieldCount * (shield / 2);
     const p = cf.complete ? 1 : completionChance(cf.openEdges, tilesLeft);
     const ev = cf.complete ? full : p * full + (1 - p) * partial;
@@ -85,7 +89,7 @@ export function evaluatePositions(state: GameState, features: Features): number[
   for (const rf of features.roadFeatures) {
     const onIt = state.meeples.filter((m) => m.kind === 'road' && features.lookups.roadGroupRoot(m.x, m.y, m.idx) === rf.id);
     if (onIt.length === 0) continue;
-    const full = rf.tileCount + Math.min(rf.openEdges, 2) * 0.5;
+    const full = rf.tileCount + Math.min(rf.openEdges, 2) * NPC_TUNING.roadGrowth;
     const p = rf.complete ? 1 : completionChance(rf.openEdges, tilesLeft);
     const ev = p * full + (1 - p) * rf.tileCount;
     for (const [pi, w] of share(onIt.map((m) => m.playerIdx))) pot[pi]! += ev * w;
@@ -118,7 +122,7 @@ export function evaluatePositions(state: GameState, features: Features): number[
   // barely anything, and none of them matter once the bag is nearly empty.
   for (let pi = 0; pi < n; pi++) {
     const reserve = state.players[pi]!.meeples;
-    const horizon = Math.min(1, tilesLeft / 18);
+    const horizon = Math.min(1, tilesLeft / NPC_TUNING.reserveHorizon);
     let bonus = 0;
     for (let i = 0; i < reserve; i++) bonus += NPC_TUNING.reserveValue * Math.pow(NPC_TUNING.reserveDecay, i);
     pot[pi]! += bonus * horizon;

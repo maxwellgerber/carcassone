@@ -61,14 +61,16 @@ const POOL: BotName[] = onlyBots ? (onlyBots.split(',') as BotName[]) : BOTS.fil
 const baseEvaluator = NPC_TUNING.evaluator;
 // CARC_CAND_TUNE='{"reserveValue":9}': evaluation knobs applied only while a cand bot thinks
 // (a head-to-head of one knob value against the shipped one).
-const candTune = JSON.parse(process.env.CARC_CAND_TUNE ?? '{}') as Partial<Record<'reserveValue' | 'reserveDecay', number>>;
-const baseTune = { reserveValue: NPC_TUNING.reserveValue, reserveDecay: NPC_TUNING.reserveDecay };
+type TuneKey = 'reserveValue' | 'reserveDecay' | 'oppBestWeight' | 'chanceSlope' | 'chanceTilesPerEdge' | 'farmOpenFactor';
+const TUNE_KEYS: TuneKey[] = ['reserveValue', 'reserveDecay', 'oppBestWeight', 'chanceSlope', 'chanceTilesPerEdge', 'farmOpenFactor'];
+const candTune = JSON.parse(process.env.CARC_CAND_TUNE ?? '{}') as Partial<Record<TuneKey, number>>;
+const baseTune = Object.fromEntries(TUNE_KEYS.map((k) => [k, NPC_TUNING[k]])) as Record<TuneKey, number>;
 // CARC_CAND_SEARCH='{"staticWeight":0.8,"rollouts":16}': hard-bot search knobs for cand-hard only.
 const candSearch = JSON.parse(process.env.CARC_CAND_SEARCH ?? '{}') as Partial<typeof NPC_SEARCH>;
 const baseSearch = { ...NPC_SEARCH };
 function applyTune(isCand: boolean): void {
   const t = isCand ? { ...baseTune, ...candTune } : baseTune;
-  NPC_TUNING.reserveValue = t.reserveValue; NPC_TUNING.reserveDecay = t.reserveDecay;
+  for (const k of TUNE_KEYS) NPC_TUNING[k] = t[k];
   Object.assign(NPC_SEARCH, isCand ? { ...baseSearch, ...candSearch } : baseSearch);
 }
 function difficultyOf(bot: BotName): NpcDifficulty { return bot.endsWith('-hard') ? 'hard' : EVALUATOR[bot] ? 'normal' : bot as NpcDifficulty; }

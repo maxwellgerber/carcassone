@@ -27,7 +27,15 @@ export type NpcMove =
  *  Durable Object alarm never runs long; the tourney script raises it. */
 export const NPC_SEARCH = { candidates: 5, rollouts: 12, depth: 4, thinkMs: 150, staticWeight: 0.6 };
 /** Evaluation knobs, exposed so scripts/tourney.ts can sweep them. */
-export const NPC_TUNING: { reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' | 'blend-cand' | 'blend-ref'; blendNet: number; candBlendNet: number | null } = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.25, candBlendNet: null };
+export const NPC_TUNING: {
+  reserveValue: number; reserveDecay: number; evaluator: 'hand' | 'net' | 'blend' | 'blend-cand' | 'blend-ref'; blendNet: number; candBlendNet: number | null;
+  /** Weight of the strongest opponent (vs the average opponent) in the margin. */
+  oppBestWeight: number;
+  /** completionChance shape: chance falls by `chanceSlope` per extra open edge, and needs `chanceTilesPerEdge` tiles left per open edge to be certain. */
+  chanceSlope: number; chanceTilesPerEdge: number;
+  /** Farms: value of an unfinished adjacent city relative to a finished one. */
+  farmOpenFactor: number;
+} = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.25, candBlendNet: null, oppBestWeight: 0.7, chanceSlope: 0.16, chanceTilesPerEdge: 5, farmOpenFactor: 0.8 };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;
@@ -43,8 +51,8 @@ function pick<T>(arr: T[], rng: () => number): T {
  *  nothing big is closing any more. */
 function completionChance(openEdges: number, tilesLeft: number): number {
   if (openEdges <= 0) return 1;
-  const shape = Math.max(0.08, 0.92 - 0.16 * (openEdges - 1));
-  const time = Math.min(1, tilesLeft / (openEdges * 5));
+  const shape = Math.max(0.08, 0.92 - NPC_TUNING.chanceSlope * (openEdges - 1));
+  const time = Math.min(1, tilesLeft / (openEdges * NPC_TUNING.chanceTilesPerEdge));
   return shape * time;
 }
 
@@ -100,7 +108,7 @@ export function evaluatePositions(state: GameState, features: Features): number[
       let ev = 0;
       for (const cid of ff.cityIds) {
         const c = cityById.get(cid); if (!c) continue;
-        ev += 3 * (c.complete ? 1 : completionChance(c.openEdges, tilesLeft) * 0.8);
+        ev += 3 * (c.complete ? 1 : completionChance(c.openEdges, tilesLeft) * NPC_TUNING.farmOpenFactor);
       }
       for (const [pi, w] of share(onIt.map((m) => m.playerIdx))) pot[pi]! += ev * w;
     }
@@ -177,7 +185,8 @@ function handValue(state: GameState, me: number, features: Features): number {
   if (others.length === 0) return pot[me]!;
   const best = Math.max(...others);
   const avg = others.reduce((a, b) => a + b, 0) / others.length;
-  return pot[me]! - (0.7 * best + 0.3 * avg);
+  const w = NPC_TUNING.oppBestWeight;
+  return pot[me]! - (w * best + (1 - w) * avg);
 }
 
 // ---------------------------------------------------------------------------

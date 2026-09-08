@@ -11,7 +11,7 @@
 import * as E from '../src/shared/engine.js';
 import { encode, FEATURE_DIM } from '../src/server/features.js';
 import { mkRng, DECK_SALT } from '../src/shared/rng.js';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, openSync, writeSync, closeSync } from 'node:fs';
 
 function arg(name: string, def: string): string { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1]! : def; }
 const files = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !(i > 0 && all[i - 1]!.startsWith('--')));
@@ -24,24 +24,27 @@ const games: Rec[] = [];
 for (const f of files) games.push(...(JSON.parse(readFileSync(f, 'utf8')) as { games: Rec[] }).games);
 console.log(`${games.length} game records from ${files.length} files`);
 
-const trainX: number[] = [], trainY: number[] = [], valX: number[] = [], valY: number[] = [];
+// Streamed straight to disk: ten thousand games are ~1.8M positions, more than a JS
+// array wants to hold at once.
+const fds = { trainX: openSync(`${outDir}/train.x.f32`, 'w'), trainY: openSync(`${outDir}/train.y.f32`, 'w'), valX: openSync(`${outDir}/val.x.f32`, 'w'), valY: openSync(`${outDir}/val.y.f32`, 'w') };
 let nTrain = 0, nVal = 0;
 const split = mkRng(1234);
 const t0 = Date.now();
 games.forEach((rec, gi) => {
   const isVal = split() < valFrac;
   const g = E.createGame(Array.from({ length: rec.n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, isNpc: true })), mkRng((rec.seed ^ DECK_SALT) >>> 0), rec.config);
-  const X = isVal ? valX : trainX, Y = isVal ? valY : trainY;
-  let step = 0;
+  // Which moves get recorded from every seat is a per-game coin flip (about a third),
+  // not every third move: a fixed stride would lock to the seat cycle at three players.
+  const pick = mkRng((rec.seed * 31 + 7) >>> 0);
+  const X: number[] = [], Y: number[] = [];
   for (const a of rec.actions) {
     const seat = g.currentPlayer;
     if (a[0] === 't') E.placeTile(g, a[1] as number, a[2] as number, a[3] as number);
     else if (a[0] === 'm') E.placeMeeple(g, a[1] as 'city', a[2] as number);
     else E.skipMeeple(g);
     if (g.phase === 'gameover') break;
-    step++;
     const f = E.deriveFeatures(g);
-    const seats = step % 3 === 0 ? g.players.map((_, i) => i) : [seat];
+    const seats = pick() < 1 / 3 ? g.players.map((_, i) => i) : [seat];
     for (const s of seats) {
       const v = encode(g, s, f);
       for (let i = 0; i < v.length; i++) X.push(v[i]!);
@@ -50,12 +53,12 @@ games.forEach((rec, gi) => {
       if (isVal) nVal++; else nTrain++;
     }
   }
+  writeSync(isVal ? fds.valX : fds.trainX, Buffer.from(new Float32Array(X).buffer));
+  writeSync(isVal ? fds.valY : fds.trainY, Buffer.from(new Float32Array(Y).buffer));
   const finalScores = g.players.map((p) => p.score);
   if (finalScores.some((sc, i) => sc !== rec.scores[i])) throw new Error(`record ${gi} did not replay to its recorded scores (${finalScores} vs ${rec.scores})`);
   if ((gi + 1) % 500 === 0) console.error(`  ${gi + 1}/${games.length} games replayed (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
 });
-const f32 = (a: number[]) => Buffer.from(new Float32Array(a).buffer);
-writeFileSync(`${outDir}/train.x.f32`, f32(trainX)); writeFileSync(`${outDir}/train.y.f32`, f32(trainY));
-writeFileSync(`${outDir}/val.x.f32`, f32(valX)); writeFileSync(`${outDir}/val.y.f32`, f32(valY));
+for (const fd of Object.values(fds)) closeSync(fd);
 writeFileSync(`${outDir}/meta.json`, JSON.stringify({ dim: FEATURE_DIM, train: nTrain, val: nVal, games: games.length, files, preparedAt: new Date().toISOString() }));
 console.log(`train ${nTrain} / val ${nVal} samples, dim ${FEATURE_DIM} → ${outDir} (${((Date.now() - t0) / 1000).toFixed(0)}s)`);

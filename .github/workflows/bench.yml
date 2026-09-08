@@ -1,0 +1,88 @@
+name: Move benchmark labels
+
+# Labels alternative moves from the same root with shared-future continuations
+# (research/bench-gen.ts) on GitHub's runners and commits the results to the
+# `selfplay-data` branch under bench/<seed>/. Run by hand from the Actions tab.
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: 'Parallel shards'
+        default: '16'
+      roots:
+        description: 'Roots per shard'
+        default: '100'
+      futures:
+        description: 'Shared futures per candidate'
+        default: '12'
+      plies:
+        description: 'Continuation length in plies'
+        default: '30'
+      seed:
+        description: 'Seed base (shard i uses seed + i)'
+        default: '100'
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.mk.outputs.shards }}
+    steps:
+      - id: mk
+        run: echo "shards=$(node -e "console.log(JSON.stringify(Array.from({length:${{ inputs.shards }}},(_,i)=>i+1)))")" >> "$GITHUB_OUTPUT"
+
+  label:
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.matrix.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Fetch self-play records (roots come from real games)
+        run: |
+          git fetch --depth 1 origin selfplay-data
+          mkdir -p data/gen1-actions
+          git archive origin/selfplay-data records | tar -x -C data/gen1-actions
+          ls data/gen1-actions/records/*/ | head
+      - name: Label
+        run: |
+          mkdir -p out
+          npx tsx research/bench-gen.ts data/gen1-actions/records/*/rec-*.json --roots ${{ inputs.roots }} --futures ${{ inputs.futures }} --plies ${{ inputs.plies }} --seed $(( ${{ inputs.seed }} + ${{ matrix.shard }} )) --out out/bench-${{ inputs.seed }}-${{ matrix.shard }}.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ inputs.seed }}-${{ matrix.shard }}
+          path: out/*.json
+          retention-days: 30
+
+  bundle:
+    needs: label
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: selfplay-data
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bench-${{ inputs.seed }}-*
+          merge-multiple: true
+          path: all
+      - name: Commit to the selfplay-data branch
+        run: |
+          git config user.name "selfplay-bot"
+          git config user.email "selfplay-bot@users.noreply.github.com"
+          mkdir -p "bench/${{ inputs.seed }}"
+          cp all/*.json "bench/${{ inputs.seed }}/"
+          git add bench
+          git commit -m "Move benchmark: seed ${{ inputs.seed }}, ${{ inputs.shards }} x ${{ inputs.roots }} roots, ${{ inputs.futures }} futures x ${{ inputs.plies }} plies" || echo "nothing new"
+          git push origin HEAD:selfplay-data

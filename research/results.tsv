@@ -3,3 +3,4 @@ id	gen	kind	description	val_mse	strength	verdict	commit
 2	1	train	batch 512, lr 6e-3	0.10150	-	KEEP	8c76d2f
 3	1	train	batch 1024, lr 8e-3	0.09885	-	KEEP	320f0aa
 4	1	train	batch 2048, lr 1e-2	0.09705	-	KEEP	1fdb4cb
+5	1	train	batch 4096, lr 1.5e-2	0.09727	-	REVERT	29bbc64

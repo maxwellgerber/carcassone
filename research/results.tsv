@@ -40,3 +40,5 @@ r5	1b	strength	reserveValue 5 vs shipped 7	-	STRENGTH win=0.378 ref_win=0.419 ma
 r9	1b	strength	reserveValue 9 vs shipped 7	-	STRENGTH win=0.402 ref_win=0.399 margin=-0.28 ref_margin=0.27 z=0.06 games=400	REVERT	-
 v2p	2	strength	encoder v2 + pairwise (18k games) vs shipped	0.10675	STRENGTH win=0.406 ref_win=0.395 margin=0.55 ref_margin=-0.50 z=0.22 games=400	REVERT	-
 g2	2	strength	gen2 round: v1 encoder + pairwise on 18k games vs shipped	0.10121	STRENGTH win=0.411 ref_win=0.367 margin=0.52 ref_margin=-0.52 z=0.87 games=360	REVERT	-
+hsw8	1b	strength	hard staticWeight 0.8 vs 0.6 (hard-vs-hard)	-	STRENGTH win=0.385 ref_win=0.436 margin=-0.11 ref_margin=0.10 z=-0.95 games=340	REVERT	-
+hsw4	1b	strength	hard staticWeight 0.4 vs 0.6 (hard-vs-hard)	-	STRENGTH win=0.395 ref_win=0.427 margin=0.46 ref_margin=-0.42 z=-0.60 games=340	REVERT	-

@@ -232,3 +232,8 @@ measured hard-vs-hard.
 win 0.411 vs 0.367, margin +0.52, z = 0.87. Positive but under the gate. Net-side
 changes are now worth about half a point each, consistent with the net being a
 quarter of the blend; the heuristic's own terms are the bigger surface.
+
+## Hard bot search: static weight (hard-vs-hard, 340 seats)
+
+0.8 → win 0.385 vs 0.436, margin -0.11; 0.4 → 0.395 vs 0.427, margin +0.46. Flat;
+0.6 stays. Next: rollouts 24 and shortlist 8 under the same 150 ms cap.

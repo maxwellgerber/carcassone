@@ -28,7 +28,9 @@ if (process.env.CARC_REFERENCE === '1') {
 // cand / cand-hard use src/server/weights-candidate.ts (written by scripts/hillclimb.sh) if present.
 try {
   const m = await import('../src/server/weights-candidate.js') as { WEIGHTS_CANDIDATE: Parameters<typeof setCandidateWeights>[0] };
-  setCandidateWeights(m.WEIGHTS_CANDIDATE);
+  // CARC_CANDIDATE_ENCODER=1: the candidate uses src/server/features-candidate.ts (an encoder experiment).
+  const enc = process.env.CARC_CANDIDATE_ENCODER === '1' ? (await import('../src/server/features-candidate.js') as { encode: Parameters<typeof setCandidateWeights>[1] }).encode : undefined;
+  setCandidateWeights(m.WEIGHTS_CANDIDATE, enc);
 } catch { /* no candidate: cand bots would throw if used */ }
 
 function mkRng(seed: number): () => number {

@@ -145,10 +145,12 @@ function referenceValue(state: GameState, me: number, features: Features): numbe
 
 /** A challenger net for the hill climb's gate tourney (scripts/hillclimb.sh). */
 let candNet: Net | null = null;
-export function setCandidateWeights(w: NetWeights): void { candNet = Net.fromJSON(w); }
+let candEncode: ((state: GameState, me: number, features: Features) => ArrayLike<number>) | null = null;
+/** The challenger may bring its own encoder (an encoder experiment); default is the live one. */
+export function setCandidateWeights(w: NetWeights, enc?: (state: GameState, me: number, features: Features) => ArrayLike<number>): void { candNet = Net.fromJSON(w); candEncode = enc ?? null; }
 function candidateValue(state: GameState, me: number, features: Features): number {
   if (!candNet) throw new Error('no candidate weights loaded');
-  return candNet.predict(encode(state, me, features)) * 40;
+  return candNet.predict((candEncode ?? encode)(state, me, features)) * 40;
 }
 
 /** The learned evaluator: a small net over the feature-graph encoding, trained on

@@ -6,3 +6,4 @@ dist/
 scratch-art/
 data/
 src/server/weights-candidate.ts
+src/server/features-candidate.ts

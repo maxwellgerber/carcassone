@@ -443,3 +443,22 @@ better by half a point. Consistent with the training table: the net needs severa
 epochs of the 26k set to beat one trained on 10k. The 900 s net (best val error)
 and the 300 s net are re-tested against the new blend-0.45 base in round 6, with 8
 shards each for power, plus blend 0.55 to bracket the other side.
+
+## Round 6 on Actions (vs shipped exp17 at blend 0.45; paired seeds, seeds 9501–9506)
+
+| candidate | halves (margin, z) | pooled 3,200 seats |
+|---|---|---|
+| **gen3 net, 900 s** | +0.50 z 2.03 / +0.49 z 1.00 | +0.50, z 2.14 |
+| gen3 net, 300 s | +0.74 z 3.40 / +0.07 z 0.34 | +0.40, z 2.64 |
+| blend 0.55 | +0.59, z 0.85 | — |
+| blend 0.65 | +0.26, z 0.86 | — |
+
+**Gen 3 900 s net promoted** (exp 17 → gen3-v2-b900). Both gen 3 nets beat exp 17
+by 0.4–0.5 points at ~3,200 seats each; the 900 s one is chosen for its steadier
+halves and the better validation error, and the shipped candidate file follows it.
+This is the first time a net trained on the promoted bot's own games has cleared
+the gate: the gen 2 attempt (v1 encoder, 18k games) was +0.5 at z 0.9 with 400
+seats, which in hindsight was probably real too.
+
+Blend above 0.45 is flat, so 0.45 stays. Gen 4 self-play (8k games by the
+blend-0.45 bot) is queued for the next training round.

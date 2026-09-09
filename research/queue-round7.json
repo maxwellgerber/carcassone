@@ -1,0 +1,11 @@
+{
+  "_": "Round 7, after promoting the gen 3 net. Verify from the other side, and re-check the parked marginal knobs on the new base.",
+  "jobs": [
+    { "id": "old-exp17", "candidate": "research/candidates/v2-encoder-exp17.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9601 },
+    { "id": "horizon-12", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveHorizon\":12}"], "games": 80, "seed": 9602 },
+    { "id": "tiles-per-edge-7", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"chanceTilesPerEdge\":7}"], "games": 80, "seed": 9603 },
+    { "id": "hard-static-0.7", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"staticWeight\":0.7}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9604 },
+    { "id": "hard-rollouts-20", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--search", "{\"rollouts\":20}", "--bots", "blend-hard,cand-hard"], "games": 80, "seed": 9605 },
+    { "id": "reserve-6", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveValue\":6}"], "games": 80, "seed": 9606 }
+  ]
+}

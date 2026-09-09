@@ -110,3 +110,7 @@ r5-g3b300	3	strength	[Actions round5, 1600 seats] gen3 net 300 s vs shipped exp1
 r5-g3b35	3	strength	[Actions round5, 1600 seats] gen3 300 s + blend 0.35 vs shipped	-	STRENGTH win=0.430 ref_win=0.371 margin=0.68 ref_margin=-0.66 z=2.40 games=1600	KEEP	-
 r5-g3b45	3	strength	[Actions round5, 1600 seats] gen3 300 s + blend 0.45 vs shipped	-	STRENGTH win=0.422 ref_win=0.378 margin=0.60 ref_margin=-0.59 z=1.79 games=1600	KEEP	-
 r5-b45	3	strength	[Actions round5, 3200 seats pooled a+b] blend 0.45 vs 0.25 (exp17 net, farm 0.4)	-	STRENGTH win=0.432 ref_win=0.369 margin=0.89 ref_margin=-0.87 z=3.67 games=3200	PROMOTE	-
+r6-g3b900	3	strength	[Actions round6, 3200 seats pooled a+b] gen3 net 900 s vs shipped exp17 (blend 0.45)	-	STRENGTH win=0.419 ref_win=0.381 margin=0.50 ref_margin=-0.50 z=2.14 games=3200	PROMOTE	-
+r6-g3b300	3	strength	[Actions round6, 3200 seats pooled a+b] gen3 net 300 s vs shipped exp17 (blend 0.45)	-	STRENGTH win=0.423 ref_win=0.378 margin=0.40 ref_margin=-0.39 z=2.64 games=3200	KEEP (900 s promoted instead)	-
+r6-b55	3	strength	[Actions round6, 1600 seats] blend 0.55 vs 0.45	-	STRENGTH win=0.410 ref_win=0.390 margin=0.59 ref_margin=-0.59 z=0.85 games=1600	REVERT	-
+r6-b65	3	strength	[Actions round6, 1600 seats] blend 0.65 vs 0.45	-	STRENGTH win=0.411 ref_win=0.390 margin=0.26 ref_margin=-0.25 z=0.86 games=1600	REVERT	-

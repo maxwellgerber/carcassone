@@ -361,3 +361,22 @@ extends another's (v2-encoder matched v2-encoder-blend-0.30); now `<id>-[0-9]*p.
 - The bundle step's push failed on rounds 2 and 3 (shallow checkout never created
   the local branch, so it made an orphan commit); the verdicts were recovered
   from the job log and the workflow now fetches the branch explicitly.
+
+## Round 3 on Actions: the remaining heuristic constants (1,600 seats each, seeds 9201–9208)
+
+| candidate vs shipped | margin | z |
+|---|---|---|
+| reserveHorizon 12 (was 18) | +0.43 | 1.62 |
+| chanceTilesPerEdge 7 (was 5) | +0.21 | 1.57 |
+| roadGrowth 0.25 | -0.05 | -0.68 |
+| cityGrowth 0.9 | -0.25 | -0.32 |
+| chanceTilesPerEdge 4 | -0.40 | -0.32 |
+| cityGrowth 0.3 | -0.25 | -0.91 |
+| reserveHorizon 27 | -0.57 | -0.91 |
+| roadGrowth 0.75 | -0.24 | -1.24 |
+
+Nothing clears the gate with margin. The growth-per-open-edge constants (0.6 city,
+0.5 road) are already at their optimum to within noise, and the completion-chance
+shape is flat around 5 tiles per edge. Horizon 12 and tiles-per-edge 7 are weak
+positives; parked as tie-break candidates for a later combined check rather than
+shipped one at a time (with 8 tests per round, one z ≈ 1.6 is expected by chance).

@@ -85,3 +85,11 @@ r2-b20	3	strength	[Actions round2, 1600 seats] blend 0.20 vs 0.25 (v2 net)	-	STR
 r2-hd6	3	strength	[Actions round2, 1600 seats] hard depth 6 vs 4	-	STRENGTH win=0.415 ref_win=0.386 margin=0.31 ref_margin=-0.30 z=1.19 games=1600	KEEP? (2nd positive)	-
 r2-hd3	3	strength	[Actions round2, 1600 seats] hard depth 3 vs 4	-	STRENGTH win=0.404 ref_win=0.396 margin=0.30 ref_margin=-0.31 z=0.31 games=1600	REVERT	-
 r2-r8	3	strength	[Actions round2, 1600 seats] reserveValue 8 vs 7	-	STRENGTH win=0.403 ref_win=0.396 margin=0.04 ref_margin=-0.05 z=0.29 games=1600	REVERT	-
+r3-cg03	3	strength	[Actions round3, 1600 seats] cityGrowth 0.3 vs 0.6	-	STRENGTH win=0.389 ref_win=0.411 margin=-0.25 ref_margin=0.26 z=-0.91 games=1600	REVERT	-
+r3-cg09	3	strength	[Actions round3, 1600 seats] cityGrowth 0.9 vs 0.6	-	STRENGTH win=0.396 ref_win=0.404 margin=-0.25 ref_margin=0.26 z=-0.32 games=1600	REVERT	-
+r3-rg025	3	strength	[Actions round3, 1600 seats] roadGrowth 0.25 vs 0.5	-	STRENGTH win=0.391 ref_win=0.408 margin=-0.05 ref_margin=0.05 z=-0.68 games=1600	REVERT	-
+r3-rg075	3	strength	[Actions round3, 1600 seats] roadGrowth 0.75 vs 0.5	-	STRENGTH win=0.385 ref_win=0.415 margin=-0.24 ref_margin=0.23 z=-1.24 games=1600	REVERT	-
+r3-h12	3	strength	[Actions round3, 1600 seats] reserveHorizon 12 vs 18	-	STRENGTH win=0.420 ref_win=0.380 margin=0.43 ref_margin=-0.43 z=1.62 games=1600	MARGINAL	-
+r3-h27	3	strength	[Actions round3, 1600 seats] reserveHorizon 27 vs 18	-	STRENGTH win=0.389 ref_win=0.411 margin=-0.57 ref_margin=0.58 z=-0.91 games=1600	REVERT	-
+r3-tpe4	3	strength	[Actions round3, 1600 seats] chanceTilesPerEdge 4 vs 5	-	STRENGTH win=0.396 ref_win=0.404 margin=-0.40 ref_margin=0.38 z=-0.32 games=1600	REVERT	-
+r3-tpe7	3	strength	[Actions round3, 1600 seats] chanceTilesPerEdge 7 vs 5	-	STRENGTH win=0.419 ref_win=0.380 margin=0.21 ref_margin=-0.22 z=1.57 games=1600	MARGINAL	-

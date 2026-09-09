@@ -95,12 +95,11 @@ jobs:
           path: all
       - name: Pool shards through the gate
         run: |
-          mkdir -p results
           for id in $(node -e 'for (const j of JSON.parse(require("fs").readFileSync("${{ inputs.queue }}","utf8")).jobs) console.log(j.id)'); do
             files=$(ls all/$id-[0-9]*p.json 2>/dev/null || true)
-            if [ -z "$files" ]; then echo "$id	(no results)" | tee -a results/summary.tsv; continue; fi
+            if [ -z "$files" ]; then echo "$id	(no results)" | tee -a all/summary.tsv; continue; fi
             v=$(npx tsx scripts/gate.ts $files)
-            echo "$id	$v" | tee -a results/summary.tsv
+            echo "$id	$v" | tee -a all/summary.tsv
           done
       - name: Commit to the match-results branch
         run: |
@@ -114,7 +113,7 @@ jobs:
           fi
           mkdir -p "results/${{ inputs.label }}"
           cp all/*.json "results/${{ inputs.label }}/" 2>/dev/null || true
-          cp results/summary.tsv "results/${{ inputs.label }}/summary.tsv"
+          cp all/summary.tsv "results/${{ inputs.label }}/summary.tsv"
           git add results
           git commit -m "Matches ${{ inputs.label }}: ${{ inputs.queue }}, ${{ inputs.shards }} shards x ${{ inputs.games }} games/size" || echo "nothing new"
           git push origin HEAD:match-results

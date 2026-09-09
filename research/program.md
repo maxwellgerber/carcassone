@@ -519,3 +519,13 @@ that was against a bot that has since been beaten by 1.09 + 1.44 + 0.89 + 0.50 +
 0.3 + 0.84 points in successive head-to-heads. The margin against the *original*
 heuristic is not measured directly because the heuristic itself changed (farm
 0.4, horizon 12); the chain of confirmed head-to-heads is the record.
+
+## Round 11: encoder v3 (v2 + the hand heuristic's per-kind EVs as inputs) — rejected
+
+Pooled over two seeds, 3,200 seats: 37.8% vs 42.2%, margin -0.46, z -2.54; at
+blend 0.65 it is flat. The validation error had already hinted at it (0.0919 vs
+0.0916 for v2 on the same data and budget). Giving the net the heuristic's own
+answer lets it lean on those six inputs instead of the raw pooled evidence, and
+the blend then double-counts the hand terms. The v1→v2 lesson stands: what helps
+is *new* evidence the pool did not carry (geometry, fillability, contest), not
+restatements of what the hand already computes. Encoder v2 stays.

@@ -423,3 +423,23 @@ one epoch of this set), with diminishing returns after ~5. The wider net is wors
 equal wall-clock and twice as slow to evaluate at play time; not pursued. The three
 [64,32] nets go to head-to-head (rounds 5 and 6). Bookkeeping: `HIDDEN=128,64`
 env override in train.ts.
+
+## Round 5 on Actions (1,600 seats each, seeds 9401–9406)
+
+| candidate vs shipped (exp17, blend 0.25, farm 0.4) | margin | z |
+|---|---|---|
+| **blend 0.45** (two independent halves pooled, 3,200 seats) | +0.89 | **3.67** |
+| gen3 net 300 s + blend 0.35 | +0.68 | 2.40 |
+| gen3 net 300 s | +0.49 | 2.21 |
+| gen3 net 300 s + blend 0.45 | +0.60 | 1.79 |
+| gen3 net 90 s | -0.10 | -1.42 |
+
+**Blend 0.45 promoted** (0.25 → 0.45). Across rounds 4 and 5 it is +0.62, +0.71
+and +1.07 on three independent seeds, 4,800 seats in all. The v2 net has earned
+nearly half the evaluation; the v1 net never got past a quarter.
+
+The gen 3 nets: 90 s (under one epoch) is worse than the shipped exp 17, 300 s is
+better by half a point. Consistent with the training table: the net needs several
+epochs of the 26k set to beat one trained on 10k. The 900 s net (best val error)
+and the 300 s net are re-tested against the new blend-0.45 base in round 6, with 8
+shards each for power, plus blend 0.55 to bracket the other side.

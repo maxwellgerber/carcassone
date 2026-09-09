@@ -1,0 +1,11 @@
+{
+  "_": "Round 6, after promoting blend 0.45. Gen 3 nets vs the new base at 8 shards (3,200 seats), blend bracket above 0.45.",
+  "jobs": [
+    { "id": "gen3-b900-a", "candidate": "research/candidates/gen3-v2-b900.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9501 },
+    { "id": "gen3-b900-b", "candidate": "research/candidates/gen3-v2-b900.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9502 },
+    { "id": "gen3-b300-a", "candidate": "research/candidates/gen3-v2-b300.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9503 },
+    { "id": "gen3-b300-b", "candidate": "research/candidates/gen3-v2-b300.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9504 },
+    { "id": "blend-0.55", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.55"], "games": 80, "seed": 9505 },
+    { "id": "blend-0.65", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.65"], "games": 80, "seed": 9506 }
+  ]
+}

@@ -105,3 +105,8 @@ g3-b90	3	train	gen3: value loss, v2 encoder, 26k games (gen1+gen2+gen3), 90 s	0.
 g3-b300	3	train	gen3: same, 300 s (2.5 epochs)	0.09420	-	CANDIDATE (round 5)	-
 g3-b900	3	train	gen3: same, 900 s (7 epochs)	0.09329	-	CANDIDATE (round 6)	-
 g3-wide	3	train	gen3: [128,64], 900 s (3 epochs)	0.09394	-	REVERT (worse than [64,32] at equal time, 2x slower to run)	-
+r5-g3b90	3	strength	[Actions round5, 1600 seats] gen3 net 90 s vs shipped exp17	-	STRENGTH win=0.383 ref_win=0.417 margin=-0.10 ref_margin=0.10 z=-1.42 games=1600	REVERT	-
+r5-g3b300	3	strength	[Actions round5, 1600 seats] gen3 net 300 s vs shipped exp17	-	STRENGTH win=0.427 ref_win=0.373 margin=0.49 ref_margin=-0.50 z=2.21 games=1600	KEEP (re-test on blend 0.45)	-
+r5-g3b35	3	strength	[Actions round5, 1600 seats] gen3 300 s + blend 0.35 vs shipped	-	STRENGTH win=0.430 ref_win=0.371 margin=0.68 ref_margin=-0.66 z=2.40 games=1600	KEEP	-
+r5-g3b45	3	strength	[Actions round5, 1600 seats] gen3 300 s + blend 0.45 vs shipped	-	STRENGTH win=0.422 ref_win=0.378 margin=0.60 ref_margin=-0.59 z=1.79 games=1600	KEEP	-
+r5-b45	3	strength	[Actions round5, 3200 seats pooled a+b] blend 0.45 vs 0.25 (exp17 net, farm 0.4)	-	STRENGTH win=0.432 ref_win=0.369 margin=0.89 ref_margin=-0.87 z=3.67 games=3200	PROMOTE	-

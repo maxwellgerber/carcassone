@@ -1,0 +1,5 @@
+gen4-b1800-a	KEEP: candidate win 42.9% (815 seats, margin 0.67) vs incumbent 36.9% (785 seats, margin -0.70), z=2.46
+gen4-b1800-b	KEEP: candidate win 41.5% (802 seats, margin 0.25) vs incumbent 38.5% (798 seats, margin -0.25), z=1.19
+gen4-b900-blend-0.55-b	KEEP: candidate win 44.8% (794 seats, margin 0.92) vs incumbent 35.3% (806 seats, margin -0.90), z=3.89
+gen4-b1800-blend-0.55	KEEP: candidate win 41.6% (804 seats, margin 0.40) vs incumbent 38.4% (796 seats, margin -0.40), z=1.32
+horizon-9	REJECT: candidate win 40.1% (807 seats, margin -0.10) vs incumbent 39.8% (793 seats, margin 0.10), z=0.12

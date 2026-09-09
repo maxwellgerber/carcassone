@@ -1,0 +1,204 @@
+{
+  "playerCounts": [
+    2
+  ],
+  "gamesPer": 80,
+  "seed": 10004,
+  "tally": {
+    "2": {
+      "easy": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "normal": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "old-normal": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "old-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "net": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "net-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "blend": {
+        "games": 37,
+        "wins": 17,
+        "score": 3483,
+        "margin": -58.5,
+        "midReserve": 52,
+        "idleTurns": 215,
+        "turns": 1312,
+        "thinkMs": 94405.55177000331,
+        "moves": 2394
+      },
+      "blend-hard": {
+        "games": 41,
+        "wins": 26,
+        "score": 4063,
+        "margin": 128.5,
+        "midReserve": 59,
+        "idleTurns": 222,
+        "turns": 1454,
+        "thinkMs": 645249.2214360049,
+        "moves": 2664
+      },
+      "hand": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "hand-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "cand": {
+        "games": 43,
+        "wins": 21,
+        "score": 4207,
+        "margin": 6.5,
+        "midReserve": 69,
+        "idleTurns": 256,
+        "turns": 1528,
+        "thinkMs": 110291.65866699943,
+        "moves": 2780
+      },
+      "cand-hard": {
+        "games": 39,
+        "wins": 16,
+        "score": 3630,
+        "margin": -76.5,
+        "midReserve": 55,
+        "idleTurns": 221,
+        "turns": 1383,
+        "thinkMs": 605020.185307,
+        "moves": 2519
+      }
+    }
+  },
+  "h2h": {
+    "cand>blend": {
+      "games": 12,
+      "wins": 8
+    },
+    "blend>cand": {
+      "games": 12,
+      "wins": 4
+    },
+    "cand-hard>blend": {
+      "games": 13,
+      "wins": 4
+    },
+    "blend>cand-hard": {
+      "games": 13,
+      "wins": 9
+    },
+    "blend-hard>cand": {
+      "games": 17,
+      "wins": 11
+    },
+    "cand>blend-hard": {
+      "games": 17,
+      "wins": 6
+    },
+    "blend-hard>cand-hard": {
+      "games": 12,
+      "wins": 7
+    },
+    "cand-hard>blend-hard": {
+      "games": 12,
+      "wins": 5
+    },
+    "cand-hard>cand": {
+      "games": 14,
+      "wins": 7
+    },
+    "cand>cand-hard": {
+      "games": 14,
+      "wins": 7
+    },
+    "blend>blend-hard": {
+      "games": 12,
+      "wins": 4
+    },
+    "blend-hard>blend": {
+      "games": 12,
+      "wins": 8
+    }
+  }
+}

@@ -1,0 +1,4 @@
+old-gen3-blend-0.45	REJECT: candidate win 37.4% (812 seats, margin -0.43) vs incumbent 42.7% (788 seats, margin 0.44), z=-2.18
+blend-0.65	KEEP: candidate win 41.5% (795 seats, margin 0.22) vs incumbent 38.5% (805 seats, margin -0.22), z=1.21
+blend-0.75	REJECT: candidate win 40.4% (802 seats, margin -0.19) vs incumbent 39.6% (798 seats, margin 0.19), z=0.34
+hand-only	REJECT: candidate win 28.8% (802 seats, margin -2.99) vs incumbent 51.3% (798 seats, margin 3.00), z=-9.41

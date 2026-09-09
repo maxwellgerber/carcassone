@@ -1,0 +1,8 @@
+{
+  "_": "Round 8: gen 4 net (34k games, 900 s) vs the shipped gen 3 net, paired seeds.",
+  "jobs": [
+    { "id": "gen4-b900-a", "candidate": "research/candidates/gen4-v2-b900.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9701 },
+    { "id": "gen4-b900-b", "candidate": "research/candidates/gen4-v2-b900.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9702 },
+    { "id": "gen4-b900-blend-0.55", "candidate": "research/candidates/gen4-v2-b900.ts", "args": ["--reference", "shipped", "--blend", "0.55"], "games": 80, "seed": 9703 }
+  ]
+}

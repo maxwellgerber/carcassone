@@ -114,3 +114,4 @@ r6-g3b900	3	strength	[Actions round6, 3200 seats pooled a+b] gen3 net 900 s vs s
 r6-g3b300	3	strength	[Actions round6, 3200 seats pooled a+b] gen3 net 300 s vs shipped exp17 (blend 0.45)	-	STRENGTH win=0.423 ref_win=0.378 margin=0.40 ref_margin=-0.39 z=2.64 games=3200	KEEP (900 s promoted instead)	-
 r6-b55	3	strength	[Actions round6, 1600 seats] blend 0.55 vs 0.45	-	STRENGTH win=0.410 ref_win=0.390 margin=0.59 ref_margin=-0.59 z=0.85 games=1600	REVERT	-
 r6-b65	3	strength	[Actions round6, 1600 seats] blend 0.65 vs 0.45	-	STRENGTH win=0.411 ref_win=0.390 margin=0.26 ref_margin=-0.25 z=0.86 games=1600	REVERT	-
+g4-b900	4	train	gen4: value loss, v2 encoder, 34k games (gen1–gen4), 900 s (5 epochs)	0.09158	-	CANDIDATE (round 8)	-

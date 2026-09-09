@@ -462,3 +462,21 @@ seats, which in hindsight was probably real too.
 
 Blend above 0.45 is flat, so 0.45 stays. Gen 4 self-play (8k games by the
 blend-0.45 bot) is queued for the next training round.
+
+## Round 7 on Actions (vs shipped gen3-b900, blend 0.45; 1,600 seats each, seeds 9601–9606)
+
+| candidate | margin | z |
+|---|---|---|
+| **reserveHorizon 12** (2nd seed; round 3 was +0.43, z 1.62) | +0.13 | **2.19** |
+| chanceTilesPerEdge 7 (2nd seed) | +0.16 | 0.62 |
+| hard staticWeight 0.7 | -0.06 | -1.16 |
+| hard rollouts 20 | -0.45 | -1.22 |
+| reserveValue 6 | -0.24 | -1.23 |
+| old shipped net (exp 17) | -0.69 | -1.87 |
+
+The gen 3 promotion holds from the other side of the table. **reserveHorizon 12
+promoted** (18 → 12): two independent 1,600-seat matches both clear the gate,
+pooled about +0.3 points; meeples in hand stop counting for much once the deck
+is under a dozen tiles rather than eighteen. Tiles-per-edge 7 did not repeat.
+The hard bot's search knobs are at their optimum for the 150 ms cap: every
+change to depth, rollouts, static weight or think time has been flat or worse.

@@ -115,3 +115,9 @@ r6-g3b300	3	strength	[Actions round6, 3200 seats pooled a+b] gen3 net 300 s vs s
 r6-b55	3	strength	[Actions round6, 1600 seats] blend 0.55 vs 0.45	-	STRENGTH win=0.410 ref_win=0.390 margin=0.59 ref_margin=-0.59 z=0.85 games=1600	REVERT	-
 r6-b65	3	strength	[Actions round6, 1600 seats] blend 0.65 vs 0.45	-	STRENGTH win=0.411 ref_win=0.390 margin=0.26 ref_margin=-0.25 z=0.86 games=1600	REVERT	-
 g4-b900	4	train	gen4: value loss, v2 encoder, 34k games (gen1–gen4), 900 s (5 epochs)	0.09158	-	CANDIDATE (round 8)	-
+r7-old17	4	strength	[Actions round7, 1600 seats] old shipped exp17 vs new shipped gen3-b900	-	STRENGTH win=0.377 ref_win=0.423 margin=-0.69 ref_margin=0.68 z=-1.87 games=1600	INFO (promotion confirmed)	-
+r7-h12	4	strength	[Actions round7, 1600 seats] reserveHorizon 12 vs 18 (2nd independent seed)	-	STRENGTH win=0.427 ref_win=0.373 margin=0.13 ref_margin=-0.13 z=2.19 games=1600	PROMOTE (with round 3)	-
+r7-tpe7	4	strength	[Actions round7, 1600 seats] chanceTilesPerEdge 7 vs 5 (2nd seed)	-	STRENGTH win=0.408 ref_win=0.393 margin=0.16 ref_margin=-0.15 z=0.62 games=1600	REVERT	-
+r7-hs07	4	strength	[Actions round7, 1600 seats] hard staticWeight 0.7 vs 0.6	-	STRENGTH win=0.386 ref_win=0.414 margin=-0.06 ref_margin=0.06 z=-1.16 games=1600	REVERT	-
+r7-hr20	4	strength	[Actions round7, 1600 seats] hard rollouts 20 vs 12	-	STRENGTH win=0.385 ref_win=0.415 margin=-0.45 ref_margin=0.46 z=-1.22 games=1600	REVERT	-
+r7-r6	4	strength	[Actions round7, 1600 seats] reserveValue 6 vs 7 (on gen3)	-	STRENGTH win=0.385 ref_win=0.415 margin=-0.24 ref_margin=0.24 z=-1.23 games=1600	REVERT	-

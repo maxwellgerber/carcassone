@@ -1,0 +1,11 @@
+{
+  "_": "Round 5: gen 3 nets (trained on 26k games incl. 8k by the v2 bot) vs shipped, plus blend 0.45 at double seats. Run with 4 shards x 80 games/size (blend 0.45 gets 8 shards via its own entry twice).",
+  "jobs": [
+    { "id": "gen3-b90", "candidate": "research/candidates/gen3-v2-b90.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9401 },
+    { "id": "gen3-b300", "candidate": "research/candidates/gen3-v2-b300.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9402 },
+    { "id": "gen3-b300-blend-0.35", "candidate": "research/candidates/gen3-v2-b300.ts", "args": ["--reference", "shipped", "--blend", "0.35"], "games": 80, "seed": 9403 },
+    { "id": "gen3-b300-blend-0.45", "candidate": "research/candidates/gen3-v2-b300.ts", "args": ["--reference", "shipped", "--blend", "0.45"], "games": 80, "seed": 9404 },
+    { "id": "blend-0.45-a", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.45"], "games": 80, "seed": 9405 },
+    { "id": "blend-0.45-b", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--blend", "0.45"], "games": 80, "seed": 9406 }
+  ]
+}

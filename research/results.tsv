@@ -135,3 +135,4 @@ r10-hand	4	strength	[Actions round10, 1600 seats] bare heuristic (blend 0) vs sh
 v3-b900	4	features	encoder v3: v2 + hand EV components per seat (160 dims), 34k games, 900 s (v2 same data/budget: 0.09158)	0.09191	-	CANDIDATE (round 11)	-
 r11-v3	4	strength	[Actions round11, 3200 seats pooled a+b] encoder v3 net vs shipped gen4 v2 @0.55	-	STRENGTH win=0.378 ref_win=0.422 margin=-0.46 ref_margin=0.46 z=-2.54 games=3200	REVERT	-
 r11-v3b65	4	strength	[Actions round11, 1600 seats] encoder v3 net + blend 0.65 vs shipped	-	STRENGTH win=0.404 ref_win=0.396 margin=0.15 ref_margin=-0.16 z=0.33 games=1600	REVERT	-
+g5-b900	5	train	gen5: value loss, v2 encoder, 42k games (gen1–gen5), 900 s (4 epochs)	0.08961	-	CANDIDATE (round 12)	-

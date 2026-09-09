@@ -35,12 +35,20 @@ const dicts: Record<string, Dictionary> = {
 };
 type Backend = 'highs' | 'yalps';
 let highsPromise: Promise<Solver> | null = null;
+/** Set when HiGHS could not be instantiated (e.g. WebAssembly blocked); YALPS is used instead. */
+let highsUnavailable: string | null = null;
 function solverFor(backend: Backend): Promise<Solver> {
   if (backend === 'yalps') return Promise.resolve(yalpsSolver);
   if (!highsPromise) {
     highsPromise = (async () => {
-      const bin = Uint8Array.from(atob(highsWasm), (c) => c.charCodeAt(0));
-      return highsSolver(await highsFactory({ wasmBinary: bin }));
+      try {
+        const bin = Uint8Array.from(atob(highsWasm), (c) => c.charCodeAt(0));
+        return highsSolver(await highsFactory({ wasmBinary: bin }));
+      } catch (e) {
+        highsUnavailable = String(e);
+        console.warn('HiGHS unavailable, falling back to YALPS', e);
+        return yalpsSolver;
+      }
     })();
   }
   return highsPromise;
@@ -295,6 +303,7 @@ function pageMain(): void {
         sel('Solver', state.backend, [['highs', 'HiGHS (WebAssembly)'], ['yalps', 'YALPS (pure JavaScript)']], (v) => { state.backend = v as Backend; resetResults(); render(); }),
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: state.tight, onchange: (e: Event) => { state.tight = (e.target as HTMLInputElement).checked; resetResults(); render(); } }), 'Tighter letters model'),
       ),
+      state.backend === 'highs' && (highsUnavailable || [state.A, state.B, state.C].some((r) => r.state === 'done' && r.backendUsed === 'yalps')) ? h('div', { class: 'error' }, 'HiGHS could not start in this browser (WebAssembly may be blocked), so the pure-JavaScript solver is running instead. Expect the grid models to be much slower.') : null,
       state.hand ? h('div', { class: 'hint' }, 'Letter counts: ', letterCounts.map(([ch, n]) => `${ch.toUpperCase()}×${n}`).join(' · '), ` · ${candidateWords(dicts[state.dict]!, countLetters(state.hand), gridSize()).length} dictionary words can be spelled from these tiles and fit the board.`) : null,
     );
   }

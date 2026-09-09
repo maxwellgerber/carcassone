@@ -13,9 +13,10 @@
     "lint": "eslint . --ext .ts",
     "test:engine": "tsx scripts/test-engine.ts",
     "test:rummy": "tsx scripts/test-rummy.ts",
+    "test:bananagrams": "tsx scripts/test-bananagrams.ts",
     "bot": "tsx scripts/bot.ts",
     "mcp": "tsx src/mcp/server.ts",
-    "test": "npm run typecheck && npm run lint && npm run test:engine && npm run test:rummy"
+    "test": "npm run typecheck && npm run lint && npm run test:engine && npm run test:rummy && npm run test:bananagrams"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

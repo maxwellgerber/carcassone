@@ -20,6 +20,7 @@ const ctx = await esbuild.context({
   entryPoints: {
     app: path.join(root, 'src/client/main.ts'),
     rummy: path.join(root, 'src/rummy/main.ts'),
+    bananagrams: path.join(root, 'src/bananagrams/main.ts'),
   },
   bundle: true,
   format: 'esm',
@@ -28,7 +29,10 @@ const ctx = await esbuild.context({
   sourcemap: true,
   minify: !watch,
   logLevel: 'info',
-  loader: { '.svg': 'text' }, // tile art is imported as raw SVG source, wrapped into a data: URI at runtime
+  // tile art is imported as raw SVG source, wrapped into a data: URI at runtime; word lists as text;
+  // the HiGHS solver's wasm as base64 so the page needs no runtime fetch.
+  loader: { '.svg': 'text', '.txt': 'text', '.wasm': 'base64' },
+  external: ['node:fs', 'node:crypto', 'node:path', 'fs', 'path', 'crypto', 'module'],
 });
 
 if (watch) {

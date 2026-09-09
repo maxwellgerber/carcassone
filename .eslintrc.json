@@ -1,13 +1,36 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
-  "parserOptions": { "sourceType": "module", "ecmaVersion": 2022 },
-  "plugins": ["@typescript-eslint"],
-  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
-  "env": { "es2022": true, "browser": true, "worker": true, "node": true },
-  "ignorePatterns": ["dist", "node_modules", ".wrangler"],
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": 2022
+  },
+  "plugins": [
+    "@typescript-eslint"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
+  "env": {
+    "es2022": true,
+    "browser": true,
+    "worker": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    ".wrangler",
+    "src/bananagrams/vendor"
+  ],
   "rules": {
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
     "@typescript-eslint/no-explicit-any": "warn",
     "no-console": "off"
   }

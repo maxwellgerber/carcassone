@@ -146,12 +146,35 @@ fail.
 `npm run test:rummy` checks hand-picked situations and compares the integer
 program against an independent brute-force search on 400 random hands.
 
+## Bananagrams: "can I dump my hand?" (another side quest)
+
+`/bananagrams` compares three integer-programming formulations of the same
+question, all solved in the browser: **A**, letters only (choose words whose
+letters add up to the tiles plus crossings; a relaxation, so its "yes" is a
+guess); **B**, a one-shot grid model (word placements on an R×C board with
+cell-agreement, every-run-is-a-word, every-tile-used, and a flow formulation
+of connectivity; exact but large); and **C**, two-stage (A proposes a word
+set, a small B tries to place exactly those words, a no-good cut forbids the
+set if it fails). The page shows each model's answer, size, and solve time,
+then explains all three from the live hand.
+
+Solvers: `src/bananagrams/vendor/` carries [HiGHS](https://highs.dev) compiled
+to WebAssembly by [highs-js](https://github.com/lovasoa/highs-js), embedded as
+base64 so the page needs no runtime fetch; YALPS remains as a pure-JS fallback
+and for comparison. Solving runs in a Web Worker. Word lists: a common-words
+list (the 20k Google list filtered against ENABLE) and ENABLE up to eight
+letters, in `src/bananagrams/data/`.
+
+`npm run test:bananagrams` checks the models against an independent layout
+verifier and each other on fixed and random hands.
+
 ## Run the test suite / lint / typecheck
 
 ```sh
 npm run test        # typecheck + lint + engine tests + rummy solver tests
 npm run test:engine  # just the engine correctness tests
 npm run test:rummy   # just the rummy solver tests
+npm run test:bananagrams  # the Bananagrams models (loads the HiGHS wasm in Node)
 npm run lint
 npm run typecheck
 ```
@@ -226,6 +249,7 @@ src/client/
   dom.ts                   tiny DOM builder helper
 src/mcp/server.ts        MCP server exposing the game to agents (see above)
 src/rummy/               the rummy solver page (/rummy): cards.ts, melds.ts, solver.ts (the ILP), main.ts (UI)
+src/bananagrams/         the Bananagrams page (/bananagrams): ip.ts (model + YALPS/HiGHS backends), models.ts (the three formulations), main.ts (UI + worker)
 static/                  index.html shell + styles.css (and rummy.html + rummy.css), copied as-is into the build
 scripts/
   build-client.mjs         esbuild bundler for the client (app.js) and the rummy page (rummy.js)

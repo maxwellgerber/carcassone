@@ -1,0 +1,6 @@
+old-exp17	REJECT: candidate win 37.7% (795 seats, margin -0.69) vs incumbent 42.3% (805 seats, margin 0.68), z=-1.87
+horizon-12	KEEP: candidate win 42.7% (803 seats, margin 0.13) vs incumbent 37.3% (797 seats, margin -0.13), z=2.19
+tiles-per-edge-7	REJECT: candidate win 40.8% (777 seats, margin 0.16) vs incumbent 39.3% (823 seats, margin -0.15), z=0.62
+hard-static-0.7	REJECT: candidate win 38.6% (796 seats, margin -0.06) vs incumbent 41.4% (804 seats, margin 0.06), z=-1.16
+hard-rollouts-20	REJECT: candidate win 38.5% (806 seats, margin -0.45) vs incumbent 41.5% (794 seats, margin 0.46), z=-1.22
+reserve-6	REJECT: candidate win 38.5% (800 seats, margin -0.24) vs incumbent 41.5% (800 seats, margin 0.24), z=-1.23

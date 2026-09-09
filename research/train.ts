@@ -40,7 +40,7 @@ const nTrain = trainY.length, nVal = valY.length;
 const row = (X: Float32Array, i: number) => X.subarray(i * dim, (i + 1) * dim);
 
 // ---- experiment knobs ---------------------------------------------------------
-const HIDDEN = [64, 32];
+const HIDDEN = (process.env.HIDDEN ?? '64,32').split(',').map(Number);
 const BATCH = 2048;
 const LR0 = 1e-2;
 const LR_DECAY_PER_EPOCH = 0.7;

@@ -1,0 +1,3 @@
+gen4-b900-a	REJECT: candidate win 39.1% (810 seats, margin 0.05) vs incumbent 40.9% (790 seats, margin -0.05), z=-0.77
+gen4-b900-b	REJECT: candidate win 40.9% (808 seats, margin 0.18) vs incumbent 39.1% (792 seats, margin -0.18), z=0.75
+gen4-b900-blend-0.55	KEEP: candidate win 42.5% (781 seats, margin 0.75) vs incumbent 37.6% (819 seats, margin -0.72), z=2.02

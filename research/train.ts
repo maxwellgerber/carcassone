@@ -11,7 +11,7 @@
 //
 // Rules of the road (see research/program.md): data and metric are frozen; the
 // budget is the same for every run; only this file changes between experiments.
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 import { Net } from '../src/server/net.js';
 import { mkRng } from '../src/shared/rng.js';
 
@@ -22,7 +22,18 @@ const out = arg('out', `${dataDir}/candidate.ts`);
 
 // ---- data (frozen) ----------------------------------------------------------
 const meta = JSON.parse(readFileSync(`${dataDir}/meta.json`, 'utf8')) as { dim: number; train: number; val: number };
-const load = (name: string) => { const b = readFileSync(`${dataDir}/${name}`); return new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4); };
+// Read in chunks: readFileSync refuses files over 2 GiB, and 26k games of 142-dim rows is 2.5 GB.
+const load = (name: string) => {
+  const path = `${dataDir}/${name}`;
+  const size = statSync(path).size;
+  const out = new Float32Array(size / 4);
+  const bytes = new Uint8Array(out.buffer);
+  const fd = openSync(path, 'r');
+  const CHUNK = 1 << 28;
+  for (let off = 0; off < size; off += CHUNK) readSync(fd, bytes, off, Math.min(CHUNK, size - off), off);
+  closeSync(fd);
+  return out;
+};
 const trainX = load('train.x.f32'), trainY = load('train.y.f32'), valX = load('val.x.f32'), valY = load('val.y.f32');
 const dim = meta.dim;
 const nTrain = trainY.length, nVal = valY.length;

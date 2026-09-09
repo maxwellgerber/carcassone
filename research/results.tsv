@@ -93,3 +93,11 @@ r3-h12	3	strength	[Actions round3, 1600 seats] reserveHorizon 12 vs 18	-	STRENGT
 r3-h27	3	strength	[Actions round3, 1600 seats] reserveHorizon 27 vs 18	-	STRENGTH win=0.389 ref_win=0.411 margin=-0.57 ref_margin=0.58 z=-0.91 games=1600	REVERT	-
 r3-tpe4	3	strength	[Actions round3, 1600 seats] chanceTilesPerEdge 4 vs 5	-	STRENGTH win=0.396 ref_win=0.404 margin=-0.40 ref_margin=0.38 z=-0.32 games=1600	REVERT	-
 r3-tpe7	3	strength	[Actions round3, 1600 seats] chanceTilesPerEdge 7 vs 5	-	STRENGTH win=0.419 ref_win=0.380 margin=0.21 ref_margin=-0.22 z=1.57 games=1600	MARGINAL	-
+r4-f02	3	strength	[Actions round4, 1600 seats] farmOpenFactor 0.2 vs 0.4	-	STRENGTH win=0.398 ref_win=0.402 margin=-0.06 ref_margin=0.06 z=-0.14 games=1600	REVERT	-
+r4-f00	3	strength	[Actions round4, 1600 seats] farmOpenFactor 0.0 vs 0.4	-	STRENGTH win=0.380 ref_win=0.420 margin=-0.33 ref_margin=0.33 z=-1.62 games=1600	REVERT	-
+r4-b35	3	strength	[Actions round4, 1600 seats] blend 0.35 vs 0.25 (on farm 0.4)	-	STRENGTH win=0.414 ref_win=0.387 margin=0.28 ref_margin=-0.27 z=1.09 games=1600	MARGINAL	-
+r4-b45	3	strength	[Actions round4, 1600 seats] blend 0.45 vs 0.25 (on farm 0.4)	-	STRENGTH win=0.417 ref_win=0.384 margin=0.62 ref_margin=-0.59 z=1.34 games=1600	MARGINAL (re-test)	-
+r4-hd6	3	strength	[Actions round4, 1600 seats] hard depth 6 vs 4 (3rd try)	-	STRENGTH win=0.397 ref_win=0.403 margin=0.16 ref_margin=-0.16 z=-0.24 games=1600	REVERT	-
+r4-hd8	3	strength	[Actions round4, 1600 seats] hard depth 8 vs 4	-	STRENGTH win=0.365 ref_win=0.436 margin=-0.74 ref_margin=0.76 z=-2.88 games=1600	REVERT	-
+r4-hs05	3	strength	[Actions round4, 1600 seats] hard staticWeight 0.5 vs 0.6	-	STRENGTH win=0.392 ref_win=0.408 margin=0.10 ref_margin=-0.10 z=-0.68 games=1600	REVERT	-
+r4-o05	3	strength	[Actions round4, 1600 seats] oppBestWeight 0.5 vs 0.4 (on v2)	-	STRENGTH win=0.416 ref_win=0.384 margin=0.09 ref_margin=-0.09 z=1.34 games=1600	REVERT (no margin)	-

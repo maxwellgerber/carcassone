@@ -380,3 +380,28 @@ Nothing clears the gate with margin. The growth-per-open-edge constants (0.6 cit
 shape is flat around 5 tiles per edge. Horizon 12 and tiles-per-edge 7 are weak
 positives; parked as tie-break candidates for a later combined check rather than
 shipped one at a time (with 8 tests per round, one z ≈ 1.6 is expected by chance).
+
+## Round 4 on Actions (vs shipped with farm 0.4; 1,600 seats each, seeds 9301–9308)
+
+| candidate vs shipped | margin | z |
+|---|---|---|
+| blend 0.45 | +0.62 | 1.34 |
+| blend 0.35 | +0.28 | 1.09 |
+| oppBestWeight 0.5 | +0.09 | 1.34 |
+| hard depth 6 | +0.16 | -0.24 |
+| hard staticWeight 0.5 | +0.10 | -0.68 |
+| farmOpenFactor 0.2 | -0.06 | -0.14 |
+| farmOpenFactor 0.0 | -0.33 | -1.62 |
+| hard depth 8 | -0.74 | -2.88 |
+
+- farmOpenFactor: 0.4 is the floor of the plateau (0.2 is flat, 0.0 loses), so
+  0.4 stays.
+- Blend: on top of the farm fix, 0.35 and 0.45 drop from z 3.2 to z 1.1–1.3. The
+  v2 net had been partly compensating for the over-valued farms; with the hand
+  term fixed there is less for it to correct. 0.45 gets one more look at double
+  the seats before deciding.
+- Hard search: depth 6 is flat on its third try (round-1/2 positives were noise),
+  depth 8 is clearly worse under the same 150 ms cap (fewer rollouts per candidate).
+  Depth 4 stays.
+- Bookkeeping: research/train.ts now reads the feature files in chunks (the 26k-game
+  v2 set is 2.5 GB, over Node's readFileSync limit).

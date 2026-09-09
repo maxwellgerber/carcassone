@@ -132,3 +132,4 @@ r10-old	4	strength	[Actions round10, 1600 seats] old shipped gen3 @0.45 vs new s
 r10-b65	4	strength	[Actions round10, 1600 seats] blend 0.65 vs 0.55	-	STRENGTH win=0.415 ref_win=0.385 margin=0.22 ref_margin=-0.22 z=1.21 games=1600	MARGINAL	-
 r10-b75	4	strength	[Actions round10, 1600 seats] blend 0.75 vs 0.55	-	STRENGTH win=0.404 ref_win=0.396 margin=-0.19 ref_margin=0.19 z=0.34 games=1600	REVERT	-
 r10-hand	4	strength	[Actions round10, 1600 seats] bare heuristic (blend 0) vs shipped	-	STRENGTH win=0.288 ref_win=0.513 margin=-2.99 ref_margin=3.00 z=-9.41 games=1600	INFO	-
+v3-b900	4	features	encoder v3: v2 + hand EV components per seat (160 dims), 34k games, 900 s (v2 same data/budget: 0.09158)	0.09191	-	CANDIDATE (round 11)	-

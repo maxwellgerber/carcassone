@@ -1,0 +1,8 @@
+{
+  "_": "Round 11: encoder v3 net (v2 + hand-evaluation components) vs shipped gen4 @ 0.55, paired seeds.",
+  "jobs": [
+    { "id": "v3-a", "candidate": "research/candidates/v3-b900.ts", "args": ["--encoder", "research/encoder-v3.ts", "--reference", "shipped"], "games": 80, "seed": 10001 },
+    { "id": "v3-b", "candidate": "research/candidates/v3-b900.ts", "args": ["--encoder", "research/encoder-v3.ts", "--reference", "shipped"], "games": 80, "seed": 10002 },
+    { "id": "v3-blend-0.65", "candidate": "research/candidates/v3-b900.ts", "args": ["--encoder", "research/encoder-v3.ts", "--reference", "shipped", "--blend", "0.65"], "games": 80, "seed": 10003 }
+  ]
+}

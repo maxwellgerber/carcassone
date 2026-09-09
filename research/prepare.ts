@@ -9,7 +9,14 @@
 // The val split is by GAME (every position of a game goes to one side), so the
 // metric measures generalisation to unseen games, not unseen moments of seen ones.
 import * as E from '../src/shared/engine.js';
-import { encode, FEATURE_DIM } from '../src/server/features.js';
+// --encoder research/encoder-v3.ts: encode with an experimental encoder instead of the live one
+// (the file is copied next to features.ts so its ../shared imports resolve).
+import { copyFileSync, unlinkSync } from 'node:fs';
+const encoderArg = (() => { const i = process.argv.indexOf('--encoder'); return i >= 0 ? process.argv[i + 1]! : ''; })();
+const encTmp = `src/server/features-prepare-${process.pid}.ts`;
+if (encoderArg) copyFileSync(encoderArg, encTmp);
+const { encode, FEATURE_DIM } = await import(encoderArg ? `../src/server/features-prepare-${process.pid}.js` : '../src/server/features.js') as typeof import('../src/server/features.js');
+if (encoderArg) process.on('exit', () => { try { unlinkSync(encTmp); } catch { /* fine */ } });
 import { evaluateFor, NPC_TUNING } from '../src/server/npc.js';
 import { mkRng, DECK_SALT } from '../src/shared/rng.js';
 import { readFileSync, writeFileSync, mkdirSync, openSync, writeSync, closeSync } from 'node:fs';

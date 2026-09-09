@@ -405,3 +405,21 @@ shipped one at a time (with 8 tests per round, one z ≈ 1.6 is expected by chan
   Depth 4 stays.
 - Bookkeeping: research/train.ts now reads the feature files in chunks (the 26k-game
   v2 set is 2.5 GB, over Node's readFileSync limit).
+
+## Gen 3 training (v2 encoder, 26k games: gen1 10k + gen2 8k + gen3 8k by the v2 bot)
+
+The val set is a new 10% split of all 26k games, so these numbers are not
+comparable with the gen1b baseline (0.0999); they are comparable with each other.
+
+| run | budget | epochs | val_mse |
+|---|---|---|---|
+| [64,32] | 90 s | 0.8 | 0.09623 |
+| [64,32] | 300 s | 2.5 | 0.09420 |
+| [64,32] | 900 s | 7.3 | 0.09329 |
+| [128,64] | 900 s | 3.2 | 0.09394 |
+
+More epochs keep helping (the 90 s budget that the fast loop uses sees less than
+one epoch of this set), with diminishing returns after ~5. The wider net is worse at
+equal wall-clock and twice as slow to evaluate at play time; not pursued. The three
+[64,32] nets go to head-to-head (rounds 5 and 6). Bookkeeping: `HIDDEN=128,64`
+env override in train.ts.

@@ -101,3 +101,7 @@ r4-hd6	3	strength	[Actions round4, 1600 seats] hard depth 6 vs 4 (3rd try)	-	STR
 r4-hd8	3	strength	[Actions round4, 1600 seats] hard depth 8 vs 4	-	STRENGTH win=0.365 ref_win=0.436 margin=-0.74 ref_margin=0.76 z=-2.88 games=1600	REVERT	-
 r4-hs05	3	strength	[Actions round4, 1600 seats] hard staticWeight 0.5 vs 0.6	-	STRENGTH win=0.392 ref_win=0.408 margin=0.10 ref_margin=-0.10 z=-0.68 games=1600	REVERT	-
 r4-o05	3	strength	[Actions round4, 1600 seats] oppBestWeight 0.5 vs 0.4 (on v2)	-	STRENGTH win=0.416 ref_win=0.384 margin=0.09 ref_margin=-0.09 z=1.34 games=1600	REVERT (no margin)	-
+g3-b90	3	train	gen3: value loss, v2 encoder, 26k games (gen1+gen2+gen3), 90 s	0.09623	-	CANDIDATE (round 5)	-
+g3-b300	3	train	gen3: same, 300 s (2.5 epochs)	0.09420	-	CANDIDATE (round 5)	-
+g3-b900	3	train	gen3: same, 900 s (7 epochs)	0.09329	-	CANDIDATE (round 6)	-
+g3-wide	3	train	gen3: [128,64], 900 s (3 epochs)	0.09394	-	REVERT (worse than [64,32] at equal time, 2x slower to run)	-

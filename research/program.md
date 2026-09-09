@@ -501,3 +501,21 @@ mostly fit noise. Horizon 9 is flat, 12 stays.
 
 Round 10 verifies from the other side (gen 3 net at blend 0.45 as the candidate)
 and brackets blend 0.65 on the new net.
+
+## Round 10 on Actions (vs shipped gen4 @ blend 0.55; 1,600 seats each)
+
+| candidate | margin | z |
+|---|---|---|
+| blend 0.65 | +0.22 | 1.21 |
+| blend 0.75 | -0.19 | 0.34 |
+| old shipped (gen3 @ 0.45) | -0.43 | -2.18 |
+| bare heuristic (blend 0) | -2.99 | -9.41 |
+
+The gen 4 promotion holds from the other side. Blend is flat above 0.55. The bare
+heuristic (the bot as it was before any learning) now loses to the shipped bot by
+three points per seat and wins 29% of seats against its 51%: the earlier direct
+measurement, before today's promotions, was 29.5% vs 50.5% at margin 3.18, but
+that was against a bot that has since been beaten by 1.09 + 1.44 + 0.89 + 0.50 +
+0.3 + 0.84 points in successive head-to-heads. The margin against the *original*
+heuristic is not measured directly because the heuristic itself changed (farm
+0.4, horizon 12); the chain of confirmed head-to-heads is the record.

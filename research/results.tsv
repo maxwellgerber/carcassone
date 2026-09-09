@@ -128,3 +128,7 @@ r9-g4b1800	4	strength	[Actions round9, 3200 seats pooled a+b] gen4 net 1800 s vs
 r9-g4b55	4	strength	[Actions rounds 8+9, 3200 seats pooled] gen4 net 900 s + blend 0.55 vs shipped gen3 @0.45	-	STRENGTH win=0.437 ref_win=0.365 margin=0.84 ref_margin=-0.81 z=4.17 games=3200	PROMOTE	-
 r9-g4b1800b55	4	strength	[Actions round9, 1600 seats] gen4 net 1800 s + blend 0.55 vs shipped	-	STRENGTH win=0.416 ref_win=0.384 margin=0.40 ref_margin=-0.40 z=1.32 games=1600	MARGINAL	-
 r9-h9	4	strength	[Actions round9, 1600 seats] reserveHorizon 9 vs 12	-	STRENGTH win=0.401 ref_win=0.398 margin=-0.10 ref_margin=0.10 z=0.12 games=1600	REVERT	-
+r10-old	4	strength	[Actions round10, 1600 seats] old shipped gen3 @0.45 vs new shipped gen4 @0.55	-	STRENGTH win=0.374 ref_win=0.427 margin=-0.43 ref_margin=0.44 z=-2.18 games=1600	INFO (promotion confirmed)	-
+r10-b65	4	strength	[Actions round10, 1600 seats] blend 0.65 vs 0.55	-	STRENGTH win=0.415 ref_win=0.385 margin=0.22 ref_margin=-0.22 z=1.21 games=1600	MARGINAL	-
+r10-b75	4	strength	[Actions round10, 1600 seats] blend 0.75 vs 0.55	-	STRENGTH win=0.404 ref_win=0.396 margin=-0.19 ref_margin=0.19 z=0.34 games=1600	REVERT	-
+r10-hand	4	strength	[Actions round10, 1600 seats] bare heuristic (blend 0) vs shipped	-	STRENGTH win=0.288 ref_win=0.513 margin=-2.99 ref_margin=3.00 z=-9.41 games=1600	INFO	-

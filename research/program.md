@@ -529,3 +529,50 @@ answer lets it lean on those six inputs instead of the raw pooled evidence, and
 the blend then double-counts the hand terms. The v1→v2 lesson stands: what helps
 is *new* evidence the pool did not carry (geometry, fillability, contest), not
 restatements of what the hand already computes. Encoder v2 stays.
+
+## Round 12: gen 5 net (42k games) — rejected
+
+Pooled 3,200 seats: 38.2% vs 41.8%, margin -0.29, z -2.09; worse again at blend
+0.65. The best validation error of the day (0.0896) produced the weakest net of
+the last three generations. The gen 5 games were played by the gen-4 bot with the
+net at 0.55, so the targets increasingly reflect the net's own opinions; the value
+regression then fits that opinion more precisely without becoming more correct.
+Two generations of gain (gen 3 +0.50, gen 4 +0.84) and then a loss is the
+classic self-play plateau for a fixed encoder. Gen 4 stays shipped.
+
+## State at the end of the day (2026-09-09)
+
+Shipped bot, in promotion order, each confirmed head-to-head at ≥1,600 seats and
+re-confirmed from the other side where noted:
+
+| step | change | margin vs previous | z |
+|---|---|---|---|
+| 1 | encoder v2 (142 dims) + exp 17 net | +1.09 | 3.98 (confirmed: old net -0.68, z -2.42) |
+| 2 | farmOpenFactor 0.8 → 0.4 | +1.44 | 4.44 |
+| 3 | blend 0.25 → 0.45 | +0.89 | 3.67 |
+| 4 | gen 3 net (26k games, 900 s) | +0.50 | 2.14 (confirmed: old net -0.69, z -1.87) |
+| 5 | reserveHorizon 18 → 12 | +0.3 | 1.62 / 2.19 on two seeds |
+| 6 | gen 4 net (34k games) + blend 0.55 | +0.84 | 4.17 (confirmed: old -0.43, z -2.18) |
+
+The bare heuristic now loses to the shipped bot 29% vs 51% of seats, 3.0 points
+per seat (z -9.4). The hard bot's search knobs (depth, rollouts, static weight,
+think time) are all at their optimum for the 150 ms cap. Blend, farm factor,
+reserve value/decay/horizon, opponent weight, growth constants and tiles-per-edge
+are all bracketed on both sides.
+
+Rejected today, with the numbers in results.tsv: encoder v3 (hand EVs as inputs),
+pairwise-trained v2 net, gen 5 net, wider net, hard depth 3/6/8, think 300, rollouts
+20, static 0.5/0.7, blend 0.20/0.30/0.35/0.65/0.75, farm 0.0/0.2/0.6/1.0, reserve
+6/8, decay 0.5/0.7, opp 0.3/0.5, horizon 9/27, growth ±, tiles-per-edge 4/7.
+
+What would move it next (not started):
+1. **A per-feature embedding (Deep Sets)** instead of pooled sums: encode each
+   city/road/farm as a small vector, embed with a shared MLP, pool the embeddings.
+   The encoder is where the largest gain came from; pooling is now the ceiling.
+2. **Targets that are not the net's own opinion**: train on terminal outcomes of
+   games played with a *different* bot mix (hand-only seats, hard seats, epsilon
+   0.3), or a win-probability head, to break the self-play plateau.
+3. **Search at play time** for the normal bot: the hard bot's 150 ms rollouts are
+   worth about a point; a 30 ms one-ply-deeper look might be affordable on the
+   Worker.
+4. The match workflow makes any of these a one-hour question at 1,600 seats.

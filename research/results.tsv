@@ -136,3 +136,5 @@ v3-b900	4	features	encoder v3: v2 + hand EV components per seat (160 dims), 34k 
 r11-v3	4	strength	[Actions round11, 3200 seats pooled a+b] encoder v3 net vs shipped gen4 v2 @0.55	-	STRENGTH win=0.378 ref_win=0.422 margin=-0.46 ref_margin=0.46 z=-2.54 games=3200	REVERT	-
 r11-v3b65	4	strength	[Actions round11, 1600 seats] encoder v3 net + blend 0.65 vs shipped	-	STRENGTH win=0.404 ref_win=0.396 margin=0.15 ref_margin=-0.16 z=0.33 games=1600	REVERT	-
 g5-b900	5	train	gen5: value loss, v2 encoder, 42k games (gen1–gen5), 900 s (4 epochs)	0.08961	-	CANDIDATE (round 12)	-
+r12-g5	5	strength	[Actions round12, 3200 seats pooled a+b] gen5 net (42k games) vs shipped gen4 @0.55	-	STRENGTH win=0.382 ref_win=0.418 margin=-0.29 ref_margin=0.28 z=-2.09 games=3200	REVERT	-
+r12-g5b65	5	strength	[Actions round12, 1600 seats] gen5 net + blend 0.65 vs shipped	-	STRENGTH win=0.379 ref_win=0.422 margin=-0.43 ref_margin=0.46 z=-1.74 games=1600	REVERT	-

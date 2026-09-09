@@ -1,0 +1,155 @@
+{
+  "playerCounts": [
+    3
+  ],
+  "gamesPer": 80,
+  "seed": 9604,
+  "tally": {
+    "3": {
+      "easy": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "normal": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "old-normal": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "old-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "net": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "net-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "blend": {
+        "games": 54,
+        "wins": 23.5,
+        "score": 3736,
+        "margin": 48.666666666666636,
+        "midReserve": 94,
+        "idleTurns": 145,
+        "turns": 1282,
+        "thinkMs": 110740.96494199557,
+        "moves": 2391
+      },
+      "blend-hard": {
+        "games": 63,
+        "wins": 24,
+        "score": 4370,
+        "margin": 62.99999999999998,
+        "midReserve": 99,
+        "idleTurns": 191,
+        "turns": 1491,
+        "thinkMs": 696753.8430789951,
+        "moves": 2769
+      },
+      "hand": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "hand-hard": {
+        "games": 0,
+        "wins": 0,
+        "score": 0,
+        "margin": 0,
+        "midReserve": 0,
+        "idleTurns": 0,
+        "turns": 0,
+        "thinkMs": 0,
+        "moves": 0
+      },
+      "cand": {
+        "games": 62,
+        "wins": 21,
+        "score": 4190,
+        "margin": 8.33333333333335,
+        "midReserve": 102,
+        "idleTurns": 113,
+        "turns": 1461,
+        "thinkMs": 130744.26373799564,
+        "moves": 2770
+      },
+      "cand-hard": {
+        "games": 61,
+        "wins": 11.5,
+        "score": 4102,
+        "margin": -120.00000000000006,
+        "midReserve": 98,
+        "idleTurns": 169,
+        "turns": 1443,
+        "thinkMs": 674305.8800809993,
+        "moves": 2678
+      }
+    }
+  },
+  "h2h": {}
+}

@@ -122,3 +122,5 @@ r7-hs07	4	strength	[Actions round7, 1600 seats] hard staticWeight 0.7 vs 0.6	-	S
 r7-hr20	4	strength	[Actions round7, 1600 seats] hard rollouts 20 vs 12	-	STRENGTH win=0.385 ref_win=0.415 margin=-0.45 ref_margin=0.46 z=-1.22 games=1600	REVERT	-
 r7-r6	4	strength	[Actions round7, 1600 seats] reserveValue 6 vs 7 (on gen3)	-	STRENGTH win=0.385 ref_win=0.415 margin=-0.24 ref_margin=0.24 z=-1.23 games=1600	REVERT	-
 g4-b1800	4	train	gen4: same, 1800 s (10 epochs; lr has decayed to 3% by then)	0.09112	-	CANDIDATE (round 9)	-
+r8-g4	4	strength	[Actions round8, 3200 seats pooled a+b] gen4 net 900 s vs shipped gen3-b900	-	STRENGTH win=0.400 ref_win=0.400 margin=0.11 ref_margin=-0.12 z=-0.01 games=3200	REVERT (flat)	-
+r8-g4b55	4	strength	[Actions round8, 1600 seats] gen4 net 900 s + blend 0.55 vs shipped	-	STRENGTH win=0.425 ref_win=0.376 margin=0.75 ref_margin=-0.72 z=2.02 games=1600	KEEP? (re-test)	-

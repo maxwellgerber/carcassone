@@ -1,0 +1,10 @@
+{
+  "_": "Round 9: the 1800 s gen 4 net, and the gen4 + blend 0.55 result on a second seed.",
+  "jobs": [
+    { "id": "gen4-b1800-a", "candidate": "research/candidates/gen4-v2-b1800.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9801 },
+    { "id": "gen4-b1800-b", "candidate": "research/candidates/gen4-v2-b1800.ts", "args": ["--reference", "shipped"], "games": 80, "seed": 9802 },
+    { "id": "gen4-b900-blend-0.55-b", "candidate": "research/candidates/gen4-v2-b900.ts", "args": ["--reference", "shipped", "--blend", "0.55"], "games": 80, "seed": 9803 },
+    { "id": "gen4-b1800-blend-0.55", "candidate": "research/candidates/gen4-v2-b1800.ts", "args": ["--reference", "shipped", "--blend", "0.55"], "games": 80, "seed": 9804 },
+    { "id": "horizon-9", "candidate": "research/candidates/shipped.ts", "args": ["--reference", "shipped", "--tune", "{\"reserveHorizon\":9}"], "games": 80, "seed": 9805 }
+  ]
+}

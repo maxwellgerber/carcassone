@@ -480,3 +480,24 @@ pooled about +0.3 points; meeples in hand stop counting for much once the deck
 is under a dozen tiles rather than eighteen. Tiles-per-edge 7 did not repeat.
 The hard bot's search knobs are at their optimum for the 150 ms cap: every
 change to depth, rollouts, static weight or think time has been flat or worse.
+
+## Rounds 8–9 on Actions: gen 4 nets (34k games) vs shipped gen3-b900 @ blend 0.45
+
+| candidate | seats | margin | z |
+|---|---|---|---|
+| **gen4 900 s + blend 0.55** (two seeds) | 3,200 | +0.84 | **4.17** |
+| gen4 1800 s | 3,200 | +0.46 | 2.58 |
+| gen4 1800 s + blend 0.55 | 1,600 | +0.40 | 1.32 |
+| gen4 900 s (blend 0.45) | 3,200 | +0.11 | -0.01 |
+| reserveHorizon 9 | 1,600 | -0.10 | 0.12 |
+
+**Gen 4 900 s net promoted together with blend 0.55.** On its own at the old blend
+the gen 4 net is flat against gen 3, but given more weight it is the strongest
+single step since the encoder: the net is now the majority of the evaluation
+(0.55) and each self-play generation has moved the optimal blend up (0.25 → 0.45
+→ 0.55). The 1800 s net is better on validation error but not in play; the
+learning-rate schedule has decayed to nothing by epoch 10, so the extra epochs
+mostly fit noise. Horizon 9 is flat, 12 stays.
+
+Round 10 verifies from the other side (gen 3 net at blend 0.45 as the candidate)
+and brackets blend 0.65 on the new net.

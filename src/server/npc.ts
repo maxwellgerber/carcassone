@@ -39,7 +39,7 @@ export const NPC_TUNING: {
   cityGrowth: number; roadGrowth: number;
   /** Tiles left at which meeples in hand reach full option value. */
   reserveHorizon: number;
-} = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.45, candBlendNet: null, oppBestWeight: 0.4, chanceSlope: 0.16, chanceTilesPerEdge: 5, farmOpenFactor: 0.4, cityGrowth: 0.6, roadGrowth: 0.5, reserveHorizon: 12 };
+} = { reserveValue: 7, reserveDecay: 0.6, evaluator: 'blend', blendNet: 0.55, candBlendNet: null, oppBestWeight: 0.4, chanceSlope: 0.16, chanceTilesPerEdge: 5, farmOpenFactor: 0.4, cityGrowth: 0.6, roadGrowth: 0.5, reserveHorizon: 12 };
 
 function pick<T>(arr: T[], rng: () => number): T {
   return arr[Math.floor(rng() * arr.length)]!;

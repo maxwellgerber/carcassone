@@ -124,3 +124,7 @@ r7-r6	4	strength	[Actions round7, 1600 seats] reserveValue 6 vs 7 (on gen3)	-	ST
 g4-b1800	4	train	gen4: same, 1800 s (10 epochs; lr has decayed to 3% by then)	0.09112	-	CANDIDATE (round 9)	-
 r8-g4	4	strength	[Actions round8, 3200 seats pooled a+b] gen4 net 900 s vs shipped gen3-b900	-	STRENGTH win=0.400 ref_win=0.400 margin=0.11 ref_margin=-0.12 z=-0.01 games=3200	REVERT (flat)	-
 r8-g4b55	4	strength	[Actions round8, 1600 seats] gen4 net 900 s + blend 0.55 vs shipped	-	STRENGTH win=0.425 ref_win=0.376 margin=0.75 ref_margin=-0.72 z=2.02 games=1600	KEEP? (re-test)	-
+r9-g4b1800	4	strength	[Actions round9, 3200 seats pooled a+b] gen4 net 1800 s vs shipped gen3-b900	-	STRENGTH win=0.422 ref_win=0.377 margin=0.46 ref_margin=-0.47 z=2.58 games=3200	KEEP (b900@0.55 stronger)	-
+r9-g4b55	4	strength	[Actions rounds 8+9, 3200 seats pooled] gen4 net 900 s + blend 0.55 vs shipped gen3 @0.45	-	STRENGTH win=0.437 ref_win=0.365 margin=0.84 ref_margin=-0.81 z=4.17 games=3200	PROMOTE	-
+r9-g4b1800b55	4	strength	[Actions round9, 1600 seats] gen4 net 1800 s + blend 0.55 vs shipped	-	STRENGTH win=0.416 ref_win=0.384 margin=0.40 ref_margin=-0.40 z=1.32 games=1600	MARGINAL	-
+r9-h9	4	strength	[Actions round9, 1600 seats] reserveHorizon 9 vs 12	-	STRENGTH win=0.401 ref_win=0.398 margin=-0.10 ref_margin=0.10 z=0.12 games=1600	REVERT	-
